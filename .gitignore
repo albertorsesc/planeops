@@ -1,0 +1,10 @@
+# local-only thinking and audit notes (hygiene-ok: gitignore is the sanctioned place to reference this path)
+.scratch/
+
+# generated machine state (commit is opt-in per SPEC; default ignored)
+observed/
+
+# python
+.venv/
+__pycache__/
+*.egg-info/
