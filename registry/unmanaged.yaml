@@ -1,0 +1,8 @@
+# Observed items matching these globs are skipped before diffing, so machine-
+# generated workloads never appear as drift (SPEC.md F8).
+
+globs:
+  - glob: "*/session-*"
+    reason: "ephemeral agent session stores"
+  - glob: "*/*.testbed"
+    reason: "generated stress-test workspaces"
