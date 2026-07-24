@@ -51,8 +51,27 @@ def _cmd_drift(args) -> int:
 
 
 def _cmd_apply(args) -> int:
-    print("apply lands in M2; observe and drift are the M1 verbs.", file=sys.stderr)
-    return 1
+    from engine.core.apply import run_apply
+
+    repo = find_repo_root(Path(args.repo).resolve())
+    try:
+        applied = run_apply(repo, only_id=args.id, only_phase=args.phase)
+    except FileNotFoundError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
+    if not applied:
+        print("no changes to apply; machine matches desired state")
+        return 0
+
+    executed = [a for a in applied if a.executed]
+    skipped = [a for a in applied if not a.executed]
+    failed = [a for a in executed if not (a.result and a.result.ok)]
+    for a in executed:
+        status = "ok" if (a.result and a.result.ok) else "FAILED"
+        print(f"  [{status}] {a.change.entry_id}: {a.result.detail if a.result else ''}")
+    print(f"{len(executed)} applied ({len(failed)} failed), {len(skipped)} skipped")
+    return 1 if failed else 0
 
 
 def _cmd_import(args) -> int:
@@ -84,7 +103,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_drift = sub.add_parser("drift", help="diff desired vs observed, write DRIFT.md")
     p_drift.set_defaults(func=_cmd_drift)
 
-    p_apply = sub.add_parser("apply", help="converge confirmed changes (M2)")
+    p_apply = sub.add_parser("apply", help="converge confirmed changes, one at a time")
+    p_apply.add_argument("--id", default=None, help="apply only the entry with this id")
+    p_apply.add_argument("--phase", type=int, default=None, help="apply only entries in this converge phase")
     p_apply.set_defaults(func=_cmd_apply)
 
     p_import = sub.add_parser("import", help="propose registry entries from a manifest")

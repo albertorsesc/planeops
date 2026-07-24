@@ -1,11 +1,9 @@
 """Core wire types and the adapter/platform contracts (SPEC.md section 4).
 
-M1 is observe-only, so this file declares only what observe/drift consume. The
-mutation contract (`plan`/`execute`, `Change`, `Result`), the usage contract,
-and phase ordering land with their first implementer in later milestones: the
-engine carries no interface ahead of a consumer.
-
-Secrets handles are deferred to M4; `Ctx` carries only the platform for now.
+Every interface here has a live implementer: `Adapter` (observe) is honored by
+the manual and launchd adapters; `MutatingAdapter` (plan/execute) by launchd,
+which `plane apply` drives. The usage contract and secrets handles are still
+deferred to their own milestones and are therefore not declared yet.
 """
 
 from __future__ import annotations
@@ -13,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 
 from engine.core.schema import Entry
 
@@ -76,10 +74,46 @@ class Ctx:
 @runtime_checkable
 class Adapter(Protocol):
     """What every adapter declares: its identity and read-only observation.
-    Mutation and usage arrive as separate protocols in the milestone that
-    implements them, never before."""
+    Mutation is a separate protocol an adapter opts into by implementing it."""
 
     name: str
     domains: tuple[str, ...]
 
     def observe(self, ctx: Ctx) -> list[Observed]: ...
+
+
+ChangeKind = Literal["install", "configure", "remove", "patch"]
+
+
+@dataclass(frozen=True, slots=True)
+class Change:
+    """A proposed mutation. `diff` is shown at confirmation; `action` is an
+    adapter-opaque payload handed back to that adapter's `execute`."""
+
+    entry_id: str
+    kind: ChangeKind
+    diff: str
+    action: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class Result:
+    ok: bool
+    detail: str = ""
+
+
+@runtime_checkable
+class MutatingAdapter(Adapter, Protocol):
+    """An adapter that can converge its domain. `plan` is pure (proposes
+    Changes from an entry and its observed state); `execute` runs one confirmed
+    Change. The engine owns confirmation between them, so an adapter never
+    mutates unprompted."""
+
+    def plan(self, entry: Entry, obs: Observed | None) -> list[Change]: ...
+
+    def execute(self, change: Change, ctx: Ctx) -> Result: ...
+
+
+def can_apply(adapter: object) -> bool:
+    """True when the adapter implements the mutation capability."""
+    return isinstance(adapter, MutatingAdapter)
