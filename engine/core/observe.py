@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 from engine import __version__
-from engine.core.contracts import Ctx, Observed
+from engine.core.contracts import Adapter, Ctx, Observed, Platform
 from engine.core.discovery import discover_adapters
 from engine.core.registry import Registry, load_registry
 from engine.platform import current_platform
@@ -50,19 +50,22 @@ def run_observe(
     repo_root: Path,
     *,
     attest: bool = False,
-    interactive: bool = False,
     now: datetime | None = None,
+    platform: Platform | None = None,
+    adapters: dict[str, Adapter] | None = None,
 ) -> dict:
+    # Dependencies are injectable and default to the real platform and the
+    # package-scanned adapters; tests pass controlled ones.
     now = now or datetime.now()
+    platform = platform or current_platform()
+    adapters = discover_adapters() if adapters is None else adapters
+
     registry_dir = repo_root / "registry"
     observed_dir = repo_root / "observed"
-
-    platform = current_platform()
     host = platform.hostname()
 
     registry = load_registry(registry_dir)
     entries = registry.entries_for_host(host)
-    adapters = discover_adapters()
 
     out_path = snapshot_path(observed_dir, host)
     prior = _load_prior(out_path)
@@ -74,7 +77,6 @@ def run_observe(
         entries=entries,
         prior=prior,
         attest=attest,
-        interactive=interactive,
     )
 
     observed: list[Observed] = []

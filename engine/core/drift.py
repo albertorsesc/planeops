@@ -22,7 +22,6 @@ from engine.core.schema import ABSENT_LIFECYCLES, Auth, Entry, Lifecycle
 class DriftItem:
     entry_id: str
     lifecycle: str
-    tolerance: str
     message: str
 
 
@@ -45,7 +44,6 @@ def _item(entry: Entry, message: str) -> DriftItem:
     return DriftItem(
         entry_id=entry.id,
         lifecycle=entry.lifecycle.value,
-        tolerance=entry.tolerance.value,
         message=message,
     )
 
@@ -96,17 +94,24 @@ def triage(entries, observed_by_key: dict[str, Observed], implemented: set[str])
     return report
 
 
-def run_drift(repo_root: Path, *, now: datetime | None = None) -> DriftReport:
+def run_drift(
+    repo_root: Path,
+    *,
+    now: datetime | None = None,
+    platform=None,
+    implemented: set[str] | None = None,
+) -> DriftReport:
     from engine.core.report import render_drift  # local import avoids cycle
+    from engine.platform import current_platform
 
     now = now or datetime.now()
+    platform = platform or current_platform()
+    implemented = set(discover_adapters()) if implemented is None else implemented
+
     registry_dir = repo_root / "registry"
     observed_dir = repo_root / "observed"
 
-    from engine.platform import current_platform
-
-    host = current_platform().hostname()
-    snap_path = snapshot_path(observed_dir, host)
+    snap_path = snapshot_path(observed_dir, platform.hostname())
     if not snap_path.is_file():
         raise FileNotFoundError(
             f"no snapshot at {snap_path}; run `plane observe` first"
@@ -120,7 +125,6 @@ def run_drift(repo_root: Path, *, now: datetime | None = None) -> DriftReport:
 
     registry = load_registry(registry_dir)
     entries = registry.entries_for_host(host)
-    implemented = set(discover_adapters())
 
     result = triage(entries, observed_by_key, implemented)
     result.host = host

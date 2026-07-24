@@ -21,7 +21,6 @@ STALE_AFTER = timedelta(days=30)
 class ManualAdapter:
     name = "manual"
     domains: tuple[str, ...] = ()  # open: manual can stand in for any domain
-    default_phase = 0
 
     def observe(self, ctx: Ctx) -> list[Observed]:
         out: list[Observed] = []

@@ -25,7 +25,7 @@ def _cmd_observe(args) -> int:
     from engine.core.observe import run_observe
 
     repo = find_repo_root(Path(args.repo).resolve())
-    snap = run_observe(repo, attest=args.attest, interactive=sys.stdin.isatty())
+    snap = run_observe(repo, attest=args.attest)
     print(
         f"observed {len(snap['observed'])} fact(s), "
         f"{len(snap['uncovered'])} uncovered adapter(s) "
