@@ -1,0 +1,143 @@
+"""mcp adapter (MCP servers across runtimes).
+
+MCP servers get wired into several tools independently (a coding harness, a desktop
+app, a gateway, ...), each in its own config file. Nobody keeps a single list, so a
+server can live in one tool and not another with no way to notice.
+
+observe reads every configured source, merges servers by name, and records which
+sources each is wired into (`facts.sources`). A server that shows only one source
+is a candidate to reuse in the others.
+
+This adapter names no specific tool. The sources are configuration: a list of
+`{label, path, format, key}` in `mcp-sources.yaml` at the instance root (see
+`mcp-sources.example.yaml`). The engine reads that list; it never hardcodes where
+any particular tool keeps its config. Observe-only: wiring a server into a tool
+means writing that tool's config, deferred past v1. Env values are never recorded,
+they can hold secrets.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from engine.core.contracts import Ctx, Observed
+
+SOURCES_FILE = "mcp-sources.yaml"
+
+
+@dataclass(frozen=True, slots=True)
+class McpSource:
+    label: str
+    path: str
+    format: str  # "json" or "yaml"
+    key: str  # the mapping key holding the servers, e.g. "mcpServers"
+
+
+def servers_from_mapping(servers: object) -> dict[str, dict[str, Any]]:
+    """Normalize a servers mapping to `{name: {command}}`. Env is deliberately
+    dropped: it can hold secret values."""
+    out: dict[str, dict[str, Any]] = {}
+    if not isinstance(servers, dict):
+        return out
+    for name, cfg in servers.items():
+        if not isinstance(name, str):
+            continue
+        command = ""
+        if isinstance(cfg, dict) and isinstance(cfg.get("command"), str):
+            command = cfg["command"]
+        out[name] = {"command": command}
+    return out
+
+
+def load_sources(repo_root: Path | None) -> list[McpSource]:
+    """Read the source list from `<repo_root>/mcp-sources.yaml`. Missing file or
+    root yields no sources (the adapter then observes nothing)."""
+    if repo_root is None:
+        return []
+    path = repo_root / SOURCES_FILE
+    if not path.is_file():
+        return []
+    try:
+        data = yaml.safe_load(path.read_text())
+    except (yaml.YAMLError, OSError):
+        return []
+    raw = data.get("sources") if isinstance(data, dict) else None
+    if not isinstance(raw, list):
+        return []
+    sources: list[McpSource] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        label, path_str, fmt = item.get("label"), item.get("path"), item.get("format")
+        key = item.get("key", "mcpServers")
+        if (
+            isinstance(label, str)
+            and isinstance(path_str, str)
+            and isinstance(fmt, str)
+        ):
+            sources.append(McpSource(label, path_str, fmt, str(key)))
+    return sources
+
+
+def _resolve(path_str: str, home: Path) -> Path:
+    if path_str == "~":
+        return home
+    if path_str.startswith("~/"):
+        return home / path_str[2:]
+    return Path(path_str)
+
+
+def _read_source(source: McpSource, home: Path) -> dict[str, dict[str, Any]]:
+    path = _resolve(source.path, home)
+    if not path.is_file():
+        return {}
+    try:
+        text = path.read_text()
+        data = yaml.safe_load(text) if source.format == "yaml" else json.loads(text)
+    except (json.JSONDecodeError, ValueError, yaml.YAMLError, OSError):
+        return {}
+    servers = data.get(source.key) if isinstance(data, dict) else None
+    return servers_from_mapping(servers)
+
+
+class McpAdapter:
+    name = "mcp"
+    domains: tuple[str, ...] = ("mcp-server",)
+
+    def __init__(self, sources: list[McpSource] | None = None):
+        self._sources_override = sources
+
+    def observe(self, ctx: Ctx) -> list[Observed]:
+        sources = self._sources_override
+        if sources is None:
+            sources = load_sources(ctx.repo_root)
+        home = ctx.platform.home()
+
+        merged: dict[str, dict[str, Any]] = {}
+        for source in sources:
+            for server_name, meta in _read_source(source, home).items():
+                entry = merged.setdefault(server_name, {"sources": [], "command": ""})
+                entry["sources"].append(source.label)
+                if not entry["command"] and meta["command"]:
+                    entry["command"] = meta["command"]
+
+        return [
+            Observed(
+                adapter=self.name,
+                native_id=server_name,
+                facts={
+                    "sources": sorted(merged[server_name]["sources"]),
+                    "command": merged[server_name]["command"],
+                },
+                version=None,
+            )
+            for server_name in sorted(merged)
+        ]
+
+
+ADAPTER = McpAdapter()

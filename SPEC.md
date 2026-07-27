@@ -114,7 +114,7 @@ Usage    = {last: datetime | None, count: int | None}
 | Browser Automation | `pkg-npm` / `manual` | `package`, `app` | |
 | Infrastructure | `manual` (docker adapter deferred) | `service` | observe-only in v0.1 |
 | Custom Systems | `manual` | `project` | `class: data` pointers to repos + their sync |
-| MCP Servers | `mcp-json` | `mcp-server` | parses `~/.claude.json` + `~/.claude/mcp.json` |
+| MCP Servers | `mcp` | `mcp-server` | reads a configurable source list (`mcp-sources.yaml`), merges servers by name across runtimes |
 | Skills | `claude-code` | `skill` | recipe = source (repo/symlink target) |
 | Secrets / API Keys / Subscriptions | `manual` (M1) → sops+age refs (M4) | `secret` | M1 imports names + `auth: interactive` flags as manual entries; M4's importer migrates them to `secret://` refs. Values never read |
 
@@ -132,6 +132,6 @@ Importer emission rule: always emit the FINAL adapter name from this table, even
 
 - **M1**: engine core (schema, observe/drift loop, manual adapter, DRIFT rendering) + registry seeded via stackfile import. Machine fully covered, mostly by attestation.
 - **M2**: pkg-brew, pkg-nvm (node runtime), pkg-npm, pkg-uv, launchd adapters with plan/execute. Relocate `update-stack.sh`; the Sunday slot keeps running it (dependency/integration/tool updates stay scheduled) followed by `plane observe && plane drift`, so every update lands already observed and drift-checked. (A legacy gateway retirement, originally this milestone's first transaction, was executed manually before the build.)
-- **M3**: claude-code config adapter (recipe/data split of `~/.claude`), ollama adapter, mcp-json adapter.
+- **M3**: claude-code config adapter (recipe/data split of `~/.claude`), ollama adapter, `mcp` adapter (cross-runtime MCP visibility from a configurable source list).
 - **M4**: secrets (sops+age store, importer, materialization, re-auth checklist) + a service home recipe (declared key-paths in its config, venv rebuild, cron jobs) + first full clean-account rehearsal green.
 - Post-v0.1 (explicitly out): usage/rent, policy compilers, docker adapter, second host.

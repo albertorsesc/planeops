@@ -21,7 +21,7 @@ _MAPPING: list[tuple[str, str, str]] = [
     ("browser", "pkg-npm", "package"),
     ("infrastructure", "manual", "service"),
     ("custom system", "manual", "project"),
-    ("mcp", "mcp-json", "mcp-server"),
+    ("mcp", "mcp", "mcp-server"),
     ("skill", "claude-code", "skill"),
     ("secret", "manual", "secret"),
     ("api key", "manual", "secret"),

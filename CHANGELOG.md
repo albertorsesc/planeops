@@ -29,6 +29,12 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `plan`/`execute`.
 - `pkg-nvm` adapter: observes node runtimes under `~/.nvm/versions/node`
   (observe-only, since nvm is a shell function rather than a binary).
+- `mcp` adapter: reads MCP-server wirings from a configurable source list
+  (`mcp-sources.yaml`) and merges them by name across tools, so a server wired
+  into one tool but not another is visible as a reuse candidate. Observe-only,
+  and names no specific tool: the sources are configuration, not code.
+- `Ctx` now carries the instance `repo_root`, so an adapter can read
+  instance-level configuration.
 - `DRIFT.md` report with Alerts / Report / Auto-folded / Uncovered / Re-auth
   sections, and a non-zero exit code when alerts exist.
 

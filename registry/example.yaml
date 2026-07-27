@@ -2,8 +2,10 @@
 #
 # It demonstrates every DRIFT section without assuming any particular private
 # tool: entries on the `manual`, `launchd`, `pkg-brew`, `pkg-uv`, `pkg-npm`,
-# `pkg-nvm`, and `ollama` adapters are covered today; entries whose real adapter
-# is not yet built (claude-code) surface under Uncovered, never as violations.
+# `pkg-nvm`, `ollama`, and `mcp` adapters are covered today; entries whose real
+# adapter is not yet built (claude-code) surface under Uncovered, never as
+# violations. The `mcp` adapter reads its source list from `mcp-sources.yaml`
+# (see `mcp-sources.example.yaml`).
 #
 # LLM access here is bridged through public tools, never a provider API direct:
 # a coding harness (Claude Code), a router (OpenRouter), and local models

@@ -4,6 +4,9 @@
 # generated machine state (commit is opt-in per SPEC; default ignored)
 observed/
 
+# real MCP source list is instance-specific; only the .example ships
+mcp-sources.yaml
+
 # python
 .venv/
 __pycache__/

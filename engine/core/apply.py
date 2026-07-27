@@ -94,6 +94,7 @@ def run_apply(
         now=now,
         entries=tuple(entries),
         prior=observed_by_key,
+        repo_root=repo_root,
     )
     auto_domains: set[str] = set()
     applied: list[Applied] = []

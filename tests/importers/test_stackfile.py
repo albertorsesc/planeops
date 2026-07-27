@@ -23,8 +23,8 @@ STACK = """
 def test_maps_headers_to_final_adapter_names():
     entries = parse_stackfile(STACK)
     by_id = {e["id"]: e for e in entries}
-    assert by_id["mcp-json/example-server"]["adapter"] == "mcp-json"
-    assert by_id["mcp-json/example-server"]["domain"] == "mcp-server"
+    assert by_id["mcp/example-server"]["adapter"] == "mcp"
+    assert by_id["mcp/example-server"]["domain"] == "mcp-server"
     assert "claude-code/example-skill" in by_id
     assert by_id["claude-code/example-skill"]["domain"] == "skill"
 

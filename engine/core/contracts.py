@@ -69,6 +69,7 @@ class Ctx:
     entries: tuple[Entry, ...] = ()
     prior: dict[str, Observed] = field(default_factory=dict)
     attest: bool = False
+    repo_root: Path | None = None
 
 
 @runtime_checkable

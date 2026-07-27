@@ -1,0 +1,30 @@
+# Where MCP servers are wired on this machine.
+#
+# The `mcp` adapter reads each source below, merges servers by name, and records
+# which sources each server is wired into. That surfaces gaps and reuse
+# candidates: a server present in one tool but not another.
+#
+# Copy this file to `mcp-sources.yaml` (gitignored) and edit it for the tools you
+# actually run. The engine names no tool; this file is the only place they appear.
+#
+# Each source:
+#   label:  a short name for the tool (shown as the source)
+#   path:   the config file; `~` is expanded to your home directory
+#   format: `json` or `yaml`
+#   key:    the mapping in that file holding the servers (default: mcpServers)
+
+sources:
+  - label: coding-harness
+    path: ~/.some-harness/config.json
+    format: json
+    key: mcpServers
+
+  - label: desktop-app
+    path: ~/Library/Application Support/SomeApp/config.json
+    format: json
+    key: mcpServers
+
+  - label: gateway
+    path: ~/.some-gateway/config.yaml
+    format: yaml
+    key: mcp_servers

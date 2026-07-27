@@ -76,6 +76,7 @@ def run_observe(
         entries=entries,
         prior=prior,
         attest=attest,
+        repo_root=repo_root,
     )
 
     observed: list[Observed] = []
