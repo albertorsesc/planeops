@@ -18,8 +18,7 @@ def _make_node_versions(root, versions):
 def test_observe_reports_installed_node_versions(tmp_path, fake_platform):
     _make_node_versions(tmp_path, ["v24.14.1", "v20.11.0"])
     out = {
-        o.native_id: o
-        for o in PkgNvmAdapter().observe(_ctx(fake_platform(tmp_path)))
+        o.native_id: o for o in PkgNvmAdapter().observe(_ctx(fake_platform(tmp_path)))
     }
     assert set(out) == {"24.14.1", "20.11.0"}
     assert out["24.14.1"].version == "24.14.1"

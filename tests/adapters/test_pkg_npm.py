@@ -76,7 +76,9 @@ def test_observe_parses_json_even_when_npm_exits_nonzero():
 
 
 def test_observe_degrades_when_npm_absent():
-    assert PkgNpmAdapter(run=lambda c: RunResult(127, "", "no npm")).observe(_ctx()) == []
+    assert (
+        PkgNpmAdapter(run=lambda c: RunResult(127, "", "no npm")).observe(_ctx()) == []
+    )
 
 
 def test_pkg_npm_is_a_mutating_adapter():
@@ -96,7 +98,9 @@ def test_plan_retired_but_present_proposes_uninstall():
 
 
 def test_plan_conformant_states_propose_nothing():
-    assert ADAPTER.plan(_entry("pkg-npm/typescript", "active"), _obs("typescript")) == []
+    assert (
+        ADAPTER.plan(_entry("pkg-npm/typescript", "active"), _obs("typescript")) == []
+    )
     assert ADAPTER.plan(_entry("pkg-npm/typescript", "retired"), None) == []
 
 
