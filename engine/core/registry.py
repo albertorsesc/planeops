@@ -56,6 +56,8 @@ def load_registry(registry_dir: Path) -> Registry:
                 entries.append(entry)
 
             for raw in doc.get("globs", []) or []:
-                unmanaged.append(UnmanagedGlob(glob=raw["glob"], reason=raw.get("reason", "")))
+                unmanaged.append(
+                    UnmanagedGlob(glob=raw["glob"], reason=raw.get("reason", ""))
+                )
 
     return Registry(entries=tuple(entries), unmanaged=tuple(unmanaged))

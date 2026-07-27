@@ -1,6 +1,6 @@
 # SPEC v0.1: authoritative build specification
 
-Status: current-state spec. Docs `docs/architecture/00-05` are the evidence trail and stay unedited; **where they conflict with this file, this file wins.** Three known conflicts resolved here: secrets default is sops+age per doc 05 (not doc 04's Keychain); the build order follows doc 05 §5 except that the launchd adapter lands in M2 ahead of the harness-config adapter, because the first two real transactions (OpenClaw retirement, updater relocation) are launchd-shaped; and converge materializes secrets before loading services, correcting doc 05 §2.2's phase list to match its own stated rationale (services start against complete config).
+Status: current-state spec. It is distilled from a private design evidence trail kept outside this public repo; **where that trail conflicts with this file, this file wins.** Three known conflicts resolved here: secrets default is sops+age (not Keychain); the build order lands the launchd adapter in M2 ahead of the harness-config adapter, because the first two real transactions (a legacy gateway retirement, updater relocation) are launchd-shaped; and converge materializes secrets before loading services, so services start against complete config.
 
 Date: 2026-07-22.
 
@@ -8,8 +8,8 @@ Date: 2026-07-22.
 
 | Decision | Choice | Rationale trail |
 |---|---|---|
-| Repo shape | One instance repo; engine lives at `engine/` inside it; extraction to a public engine repo deferred until a second consumer exists | 04 C1, 05 §2.7 |
-| Language | Python >= 3.12, uv-managed, `src`-less flat `engine/` package, pytest | Matches machine tooling (uv present) and owner's stack |
+| Repo shape | Public engine repo (this repo: engine, spec, example registry, tests); machine-specific data (real registry, snapshots, secrets) lives in a separate private instance | engine/instance split |
+| Language | Python >= 3.12, uv-managed, `src`-less flat `engine/` package, pytest | Matches the target machine's tooling (uv present) |
 | CLI | `plane` entry point (`uv run plane <verb>`); verbs: `observe`, `drift`, `apply`, `import` | `cp` collides with coreutils |
 | Secrets | sops+age file in-repo is primary; Keychain and env files are materialization targets; age private key travels out-of-band | 05 §2.3 |
 | Reconciler | Human. Engine has no code path that mutates the machine without rendering a change and receiving confirmation; the scheduled job may run `observe` + `drift` only | 04 C5 |
@@ -24,7 +24,7 @@ One entry = one managed asset. Registry files contain `entries: [...]`.
 
 | Field | Type | Req | Default | Notes |
 |---|---|---|---|---|
-| `id` | str | yes | | Unique. Convention `<adapter>/<native-id>`, e.g. `launchd/ai.hermes.gateway`, `ollama/qwen3:30b` |
+| `id` | str | yes | | Unique. Convention `<adapter>/<native-id>`, e.g. `launchd/ai.example.gateway`, `ollama/qwen3:30b` |
 | `adapter` | str | yes | | Owning adapter name |
 | `domain` | str | yes | | Adapter-declared, open set: `service`, `model`, `package`, `mcp-server`, `skill`, ... |
 | `class` | enum | no | `recipe` | `recipe` \| `data` \| `cache` (05 §1). `data` entries reproduce via their declared sync; `cache` normally appears only in `unmanaged` |
@@ -49,7 +49,6 @@ One entry = one managed asset. Registry files contain `entries: [...]`.
 ```
 control_plane/
 ├── SPEC.md
-├── docs/architecture/        # evidence trail 00-05
 ├── engine/                   # Python package: core loop, schema, report, contracts
 │   ├── core/                 # vendor-free: schema, drift triage, rendering, confirm loop
 │   ├── adapters/             # one package per adapter (scan-discovered)
@@ -132,7 +131,7 @@ Importer emission rule: always emit the FINAL adapter name from this table, even
 ## 8. Milestones
 
 - **M1**: engine core (schema, observe/drift loop, manual adapter, DRIFT rendering) + registry seeded via stackfile import. Machine fully covered, mostly by attestation.
-- **M2**: pkg-brew, pkg-nvm (node runtime), pkg-npm, pkg-uv, launchd adapters with plan/execute. Relocate `update-stack.sh`; the Sunday slot keeps running it (dependency/integration/tool updates stay scheduled) followed by `plane observe && plane drift`, so every update lands already observed and drift-checked. (OpenClaw retirement, originally this milestone's first transaction, was executed manually on 2026-07-22 before the build.)
+- **M2**: pkg-brew, pkg-nvm (node runtime), pkg-npm, pkg-uv, launchd adapters with plan/execute. Relocate `update-stack.sh`; the Sunday slot keeps running it (dependency/integration/tool updates stay scheduled) followed by `plane observe && plane drift`, so every update lands already observed and drift-checked. (A legacy gateway retirement, originally this milestone's first transaction, was executed manually before the build.)
 - **M3**: claude-code config adapter (recipe/data split of `~/.claude`), ollama adapter, mcp-json adapter.
-- **M4**: secrets (sops+age store, importer, materialization, re-auth checklist) + Hermes home recipe (declared key-paths in `config.yaml`, venv rebuild, cron jobs) + first full clean-account rehearsal green.
-- Post-v0.1 (explicitly out): usage/rent, policy compilers, docker adapter, second host, engine extraction, any OSS release.
+- **M4**: secrets (sops+age store, importer, materialization, re-auth checklist) + a service home recipe (declared key-paths in its config, venv rebuild, cron jobs) + first full clean-account rehearsal green.
+- Post-v0.1 (explicitly out): usage/rent, policy compilers, docker adapter, second host.

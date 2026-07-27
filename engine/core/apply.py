@@ -9,12 +9,20 @@ and a yes (SPEC.md sections 4-5). Observe-only adapters are skipped.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
 
-from engine.core.contracts import Adapter, Change, Ctx, Observed, Platform, Result, can_apply
+from engine.core.contracts import (
+    Adapter,
+    Change,
+    Ctx,
+    Observed,
+    Platform,
+    Result,
+    can_apply,
+)
 from engine.core.discovery import discover_adapters
 from engine.core.observe import snapshot_path
 from engine.core.registry import load_registry
@@ -33,7 +41,10 @@ class Applied:
 def prompt_confirm(change: Change) -> str:
     print(change.diff)
     try:
-        answer = input(f"apply {change.entry_id} [{change.kind}]? (y=yes / n=no / a=all in domain) ")
+        answer = input(
+            f"apply {change.entry_id} [{change.kind}]? "
+            "(y=yes / n=no / a=all in domain) "
+        )
     except EOFError:
         return "n"  # non-interactive: never mutate without an explicit yes
     answer = answer.strip().lower()
@@ -60,7 +71,9 @@ def run_apply(
     observed_dir = repo_root / "observed"
     snap_path = snapshot_path(observed_dir, platform.hostname())
     if not snap_path.is_file():
-        raise FileNotFoundError(f"no snapshot at {snap_path}; run `plane observe` first")
+        raise FileNotFoundError(
+            f"no snapshot at {snap_path}; run `plane observe` first"
+        )
 
     snapshot = json.loads(snap_path.read_text())
     host = snapshot["host"]
@@ -75,7 +88,13 @@ def run_apply(
     if only_phase is not None:
         entries = [e for e in entries if e.phase == only_phase]
 
-    ctx = Ctx(platform=platform, host=host, now=now, entries=tuple(entries), prior=observed_by_key)
+    ctx = Ctx(
+        platform=platform,
+        host=host,
+        now=now,
+        entries=tuple(entries),
+        prior=observed_by_key,
+    )
     auto_domains: set[str] = set()
     applied: list[Applied] = []
 

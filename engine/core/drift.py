@@ -7,11 +7,12 @@ alert exists.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from engine.core.contracts import Observed
+from engine.core.contracts import Observed, Platform
 from engine.core.discovery import discover_adapters
 from engine.core.observe import snapshot_path
 from engine.core.registry import load_registry
@@ -54,42 +55,60 @@ def _same_major(a: str | None, b: str | None) -> bool:
     return a.split(".", 1)[0] == b.split(".", 1)[0]
 
 
-def triage(entries, observed_by_key: dict[str, Observed], implemented: set[str]) -> DriftReport:
+def triage(
+    entries: Iterable[Entry],
+    observed_by_key: dict[str, Observed],
+    implemented: set[str],
+) -> DriftReport:
     report = DriftReport(host="", ts="")
     for entry in entries:
         # The re-auth checklist is coverage-independent: any interactive
-        # credential contributes a line even when its adapter is unbuilt
-        # (SPEC.md 05 section 1).
+        # credential contributes a line even when its adapter is unbuilt.
         if entry.auth is Auth.interactive:
-            report.reauth.append(_item(entry, "interactive credential; re-auth after migration"))
+            report.reauth.append(
+                _item(entry, "interactive credential; re-auth after migration")
+            )
 
         if entry.adapter not in implemented:
-            report.uncovered.append(_item(entry, f"awaiting the {entry.adapter!r} adapter"))
+            report.uncovered.append(
+                _item(entry, f"awaiting the {entry.adapter!r} adapter")
+            )
             continue
 
         obs = observed_by_key.get(entry.id)
-        present = obs is not None
 
         if entry.lifecycle in ABSENT_LIFECYCLES:
-            if present:
+            if obs is not None:
                 report.alerts.append(
-                    _item(entry, f"listed {entry.lifecycle.value} but still observed present")
+                    _item(
+                        entry,
+                        f"listed {entry.lifecycle.value} but still observed present",
+                    )
                 )
-        else:
-            if not present:
-                if entry.lifecycle in (Lifecycle.active, Lifecycle.maintain):
-                    report.alerts.append(_item(entry, "expected present, not observed"))
-                else:
-                    report.report.append(_item(entry, "parked but not observed"))
+        elif obs is None:
+            if entry.lifecycle in (Lifecycle.active, Lifecycle.maintain):
+                report.alerts.append(_item(entry, "expected present, not observed"))
             else:
-                if obs.facts.get("stale"):
-                    report.report.append(
-                        _item(entry, "attestation stale (>30d); run `plane observe --attest`")
+                report.report.append(_item(entry, "parked but not observed"))
+        else:
+            if obs.facts.get("stale"):
+                report.report.append(
+                    _item(
+                        entry,
+                        "attestation stale (>30d); run `plane observe --attest`",
                     )
-                if entry.pin and _same_major(obs.version, entry.pin) and obs.version != entry.pin:
-                    report.auto_folded.append(
-                        _item(entry, f"version {obs.version} (pinned {entry.pin}, same major)")
+                )
+            if (
+                entry.pin
+                and _same_major(obs.version, entry.pin)
+                and obs.version != entry.pin
+            ):
+                report.auto_folded.append(
+                    _item(
+                        entry,
+                        f"version {obs.version} (pinned {entry.pin}, same major)",
                     )
+                )
 
     return report
 
@@ -98,7 +117,7 @@ def run_drift(
     repo_root: Path,
     *,
     now: datetime | None = None,
-    platform=None,
+    platform: Platform | None = None,
     implemented: set[str] | None = None,
 ) -> DriftReport:
     from engine.core.report import render_drift  # local import avoids cycle

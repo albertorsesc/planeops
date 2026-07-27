@@ -18,7 +18,13 @@ def _ctx(entries, *, prior=None, attest=False, now=None):
 
 def _entry(id="manual/thing", adapter="manual"):
     return entry_from_dict(
-        {"id": id, "adapter": adapter, "domain": "host", "lifecycle": "active", "intent": "x"}
+        {
+            "id": id,
+            "adapter": adapter,
+            "domain": "host",
+            "lifecycle": "active",
+            "intent": "x",
+        }
     )
 
 

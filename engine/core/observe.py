@@ -9,6 +9,7 @@ import fnmatch
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from engine import __version__
 from engine.core.contracts import Adapter, Ctx, Observed, Platform
@@ -39,9 +40,7 @@ def _drop_unmanaged(observed: list[Observed], registry: Registry) -> list[Observ
 
     def managed(obs: Observed) -> bool:
         candidates = [obs.key, obs.facts.get("path", "")]
-        return not any(
-            fnmatch.fnmatch(c, p) for c in candidates if c for p in patterns
-        )
+        return not any(fnmatch.fnmatch(c, p) for c in candidates if c for p in patterns)
 
     return [o for o in observed if managed(o)]
 
@@ -53,7 +52,7 @@ def run_observe(
     now: datetime | None = None,
     platform: Platform | None = None,
     adapters: dict[str, Adapter] | None = None,
-) -> dict:
+) -> dict[str, Any]:
     # Dependencies are injectable and default to the real platform and the
     # package-scanned adapters; tests pass controlled ones.
     now = now or datetime.now()

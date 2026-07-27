@@ -8,14 +8,15 @@ adapters.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
+from typing import Any
 
 
 class SchemaError(ValueError):
     """A registry entry violated the schema."""
 
 
-class Lifecycle(str, Enum):
+class Lifecycle(StrEnum):
     active = "active"
     maintain = "maintain"
     parked = "parked"
@@ -23,25 +24,25 @@ class Lifecycle(str, Enum):
     purge = "purge"
 
 
-class Tolerance(str, Enum):
+class Tolerance(StrEnum):
     auto = "auto"
     report = "report"
     alert = "alert"
 
 
-class Klass(str, Enum):
+class Klass(StrEnum):
     recipe = "recipe"
     data = "data"
     cache = "cache"
 
 
-class Owner(str, Enum):
+class Owner(StrEnum):
     plane = "plane"
     runtime = "runtime"
     human = "human"
 
 
-class Auth(str, Enum):
+class Auth(StrEnum):
     none = "none"
     interactive = "interactive"
 
@@ -69,9 +70,9 @@ class Entry:
     auth: Auth = Auth.none
     phase: int | None = None
     pin: str | None = None
-    secrets: tuple[dict, ...] = ()
-    desired: dict = field(default_factory=dict)
-    data: dict | None = None
+    secrets: tuple[dict[str, Any], ...] = ()
+    desired: dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] | None = None
 
     @property
     def native_id(self) -> str:
@@ -82,7 +83,7 @@ class Entry:
         return "any" in self.hosts or host in self.hosts
 
 
-def _enum(cls, value, field_name: str, entry_id: str):
+def _enum[E: StrEnum](cls: type[E], value: Any, field_name: str, entry_id: str) -> E:
     try:
         return cls(value)
     except ValueError:
@@ -92,7 +93,7 @@ def _enum(cls, value, field_name: str, entry_id: str):
         ) from None
 
 
-def entry_from_dict(raw: dict) -> Entry:
+def entry_from_dict(raw: dict[str, Any]) -> Entry:
     """Build and validate one Entry from a registry mapping."""
     if not isinstance(raw, dict):
         raise SchemaError(f"entry must be a mapping, got {type(raw).__name__}")
@@ -100,12 +101,16 @@ def entry_from_dict(raw: dict) -> Entry:
     entry_id = raw.get("id")
     for required in ("id", "adapter", "domain", "lifecycle", "intent"):
         if not raw.get(required):
-            raise SchemaError(f"entry {entry_id or '<no id>'!r}: missing required field {required!r}")
+            raise SchemaError(
+                f"entry {entry_id or '<no id>'!r}: missing required field {required!r}"
+            )
+    assert entry_id is not None  # guaranteed by the required-field check above
 
     scope = raw.get("scope", "machine")
     if scope not in ("machine", "user") and not scope.startswith("project:"):
         raise SchemaError(
-            f"entry {entry_id!r}: scope={scope!r} must be 'machine', 'user', or 'project:<abs-path>'"
+            f"entry {entry_id!r}: scope={scope!r} must be "
+            "'machine', 'user', or 'project:<abs-path>'"
         )
 
     hosts = raw.get("hosts", ["any"])
@@ -127,7 +132,9 @@ def entry_from_dict(raw: dict) -> Entry:
         scope=scope,
         hosts=tuple(hosts),
         owner=_enum(Owner, raw.get("owner", "runtime"), "owner", entry_id),
-        tolerance=_enum(Tolerance, raw.get("tolerance", "report"), "tolerance", entry_id),
+        tolerance=_enum(
+            Tolerance, raw.get("tolerance", "report"), "tolerance", entry_id
+        ),
         kill_criteria=raw.get("kill_criteria"),
         auth=_enum(Auth, raw.get("auth", "none"), "auth", entry_id),
         phase=raw.get("phase"),

@@ -16,9 +16,10 @@ from __future__ import annotations
 import os
 import plistlib
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Any
 
 from engine.core.contracts import Change, Ctx, Observed, Result
 from engine.core.schema import ABSENT_LIFECYCLES, Entry, Lifecycle
@@ -36,7 +37,9 @@ Runner = Callable[[list[str]], RunResult]
 
 def _default_run(cmd: list[str]) -> RunResult:
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=10, check=False)
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=10, check=False
+        )
     except (OSError, subprocess.TimeoutExpired) as exc:
         return RunResult(127, "", str(exc))
     return RunResult(proc.returncode, proc.stdout, proc.stderr)
@@ -51,11 +54,15 @@ def parse_launchctl_list(text: str) -> dict[str, int | None]:
         if len(parts) != 3 or parts[0] == "PID":
             continue
         pid_str, _status, label = parts
-        jobs[label] = int(pid_str) if pid_str.strip().lstrip("-").isdigit() and pid_str != "-" else None
+        jobs[label] = (
+            int(pid_str)
+            if pid_str.strip().lstrip("-").isdigit() and pid_str != "-"
+            else None
+        )
     return jobs
 
 
-def read_plist(path: Path) -> dict:
+def read_plist(path: Path) -> dict[str, Any]:
     """Extract the fields the adapter reports. Unreadable plists degrade to the
     filename as label rather than crashing the scan."""
     try:
@@ -130,7 +137,12 @@ class LaunchdAdapter:
                     entry_id=entry.id,
                     kind="remove",
                     diff=f"launchd: bootout {label}{tail} ({state})",
-                    action={"op": "bootout", "label": label, "plist_path": plist_path, "delete_plist": purge},
+                    action={
+                        "op": "bootout",
+                        "label": label,
+                        "plist_path": plist_path,
+                        "delete_plist": purge,
+                    },
                 )
             ]
 
@@ -139,8 +151,15 @@ class LaunchdAdapter:
                 Change(
                     entry_id=entry.id,
                     kind="configure",
-                    diff=f"launchd: bootstrap {label} from {plist_path} (present but not loaded)",
-                    action={"op": "bootstrap", "label": label, "plist_path": plist_path},
+                    diff=(
+                        f"launchd: bootstrap {label} from {plist_path} "
+                        "(present but not loaded)"
+                    ),
+                    action={
+                        "op": "bootstrap",
+                        "label": label,
+                        "plist_path": plist_path,
+                    },
                 )
             ]
         return []
@@ -154,18 +173,29 @@ class LaunchdAdapter:
         if op == "bootout":
             res = self._run(["launchctl", "bootout", f"{domain}/{label}"])
             if res.code != 0:
-                return Result(ok=False, detail=f"bootout {label} failed: {res.err.strip() or res.code}")
+                return Result(
+                    ok=False,
+                    detail=f"bootout {label} failed: {res.err.strip() or res.code}",
+                )
             if action.get("delete_plist") and action.get("plist_path"):
                 try:
                     Path(action["plist_path"]).unlink()
                 except OSError as exc:
-                    return Result(ok=False, detail=f"booted out {label} but plist delete failed: {exc}")
+                    return Result(
+                        ok=False,
+                        detail=f"booted out {label} but plist delete failed: {exc}",
+                    )
             return Result(ok=True, detail=f"booted out {label}")
 
         if op == "bootstrap":
-            res = self._run(["launchctl", "bootstrap", domain, action.get("plist_path", "")])
+            res = self._run(
+                ["launchctl", "bootstrap", domain, action.get("plist_path", "")]
+            )
             if res.code != 0:
-                return Result(ok=False, detail=f"bootstrap {label} failed: {res.err.strip() or res.code}")
+                return Result(
+                    ok=False,
+                    detail=f"bootstrap {label} failed: {res.err.strip() or res.code}",
+                )
             return Result(ok=True, detail=f"bootstrapped {label}")
 
         return Result(ok=False, detail=f"unknown launchd op {op!r}")

@@ -4,7 +4,13 @@ from engine.core.schema import entry_from_dict
 
 
 def _entry(**over):
-    base = {"id": "manual/x", "adapter": "manual", "domain": "host", "lifecycle": "active", "intent": "i"}
+    base = {
+        "id": "manual/x",
+        "adapter": "manual",
+        "domain": "host",
+        "lifecycle": "active",
+        "intent": "i",
+    }
     base.update(over)
     return entry_from_dict(base)
 

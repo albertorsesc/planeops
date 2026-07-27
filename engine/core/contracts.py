@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Literal, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, TypeGuard, runtime_checkable
 
 from engine.core.schema import Entry
 
@@ -22,7 +22,7 @@ class Observed:
 
     adapter: str
     native_id: str
-    facts: dict
+    facts: dict[str, Any]
     version: str | None = None
 
     @property
@@ -30,7 +30,7 @@ class Observed:
         """Matches an Entry when this equals `entry.id`."""
         return f"{self.adapter}/{self.native_id}"
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "adapter": self.adapter,
             "native_id": self.native_id,
@@ -39,7 +39,7 @@ class Observed:
         }
 
     @classmethod
-    def from_dict(cls, raw: dict) -> Observed:
+    def from_dict(cls, raw: dict[str, Any]) -> Observed:
         return cls(
             adapter=raw["adapter"],
             native_id=raw["native_id"],
@@ -93,7 +93,7 @@ class Change:
     entry_id: str
     kind: ChangeKind
     diff: str
-    action: dict = field(default_factory=dict)
+    action: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +114,6 @@ class MutatingAdapter(Adapter, Protocol):
     def execute(self, change: Change, ctx: Ctx) -> Result: ...
 
 
-def can_apply(adapter: object) -> bool:
+def can_apply(adapter: object) -> TypeGuard[MutatingAdapter]:
     """True when the adapter implements the mutation capability."""
     return isinstance(adapter, MutatingAdapter)

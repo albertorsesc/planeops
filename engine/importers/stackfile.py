@@ -9,6 +9,7 @@ Uncovered rather than as a violation). Rows with no planned adapter map to
 from __future__ import annotations
 
 import re
+from typing import Any
 
 import yaml
 
@@ -48,10 +49,10 @@ def _slug(text: str) -> str:
     return slug or "item"
 
 
-def parse_stackfile(text: str) -> list[dict]:
+def parse_stackfile(text: str) -> list[dict[str, Any]]:
     """Return proposed entry mappings. Heuristic and lossy by design: every
     row imports with intent 'verify' so a human reviews before it is trusted."""
-    entries: list[dict] = []
+    entries: list[dict[str, Any]] = []
     seen: set[str] = set()
     adapter, domain = "manual", "unknown"
 
@@ -81,5 +82,5 @@ def parse_stackfile(text: str) -> list[dict]:
     return entries
 
 
-def render_proposal(entries: list[dict]) -> str:
+def render_proposal(entries: list[dict[str, Any]]) -> str:
     return yaml.safe_dump({"entries": entries}, sort_keys=False, allow_unicode=True)

@@ -23,7 +23,8 @@ def discover_adapters() -> dict[str, Adapter]:
             continue
         if not isinstance(adapter, Adapter):
             raise TypeError(
-                f"engine.adapters.{info.name}.ADAPTER does not satisfy the Adapter contract"
+                f"engine.adapters.{info.name}.ADAPTER does not satisfy "
+                "the Adapter contract"
             )
         found[adapter.name] = adapter
     return found

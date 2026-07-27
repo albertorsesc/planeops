@@ -1,0 +1,64 @@
+# Contributing
+
+Thanks for helping. This is the public engine repo; machine-specific data lives
+in a separate private instance and never belongs here.
+
+## Development setup
+
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
+
+```bash
+git clone https://github.com/albertorsesc/control_plane
+cd control_plane
+uv sync
+```
+
+## The quality gate
+
+Every change must pass all four checks. CI runs the same ones on Python 3.12 and
+3.13.
+
+```bash
+uv run ruff check engine tests        # lint
+uv run ruff format --check engine tests  # formatting
+uv run mypy                           # types (strict, engine/)
+uv run pytest                         # tests
+```
+
+`uv run ruff format engine tests` applies formatting. Tests live in `tests/`,
+mirroring `engine/` one-to-one; a change ships with its tests.
+
+## Writing an adapter
+
+An adapter teaches the engine about one kind of asset. Adapters are discovered by
+a package scan, so you never edit a central list.
+
+1. Create a package under `engine/adapters/<name>/`.
+2. Implement the `Adapter` protocol from `engine.core.contracts`: set `name` and
+   `domains`, and implement `observe(ctx) -> list[Observed]` (read-only).
+3. Expose the instance as a module-level `ADAPTER`. Discovery imports it and
+   verifies it satisfies the contract.
+4. To let the adapter converge its domain, also implement `MutatingAdapter`:
+   `plan(entry, obs) -> list[Change]` (pure) and `execute(change, ctx) -> Result`.
+   The engine renders each `Change` and takes a confirmation before calling
+   `execute`; an adapter never mutates unprompted.
+5. Add `tests/adapters/<name>/` that exercise `observe` (and `plan`) against
+   recorded fixtures. No test touches the live machine.
+
+## Design invariants
+
+Hold these; a change that breaks one needs a very good reason:
+
+- **No daemon, no open ports.** Every verb is a short-lived command.
+- **Read by default.** Only `apply` writes, and only after a rendered diff and a
+  per-change confirmation.
+- **Secrets are references, never values.** No secret value enters the engine
+  core, the repo, snapshots, or reports.
+- **Provider-neutral.** No feature binds to a single vendor. Adapters shell out to
+  local tools through the injected seam, with no network calls of their own.
+
+## Commits and PRs
+
+Keep commits focused with a clear subject line. Open a PR against `main`; the
+template lists what to confirm. Update `CHANGELOG.md` under `Unreleased` for
+user-facing changes.

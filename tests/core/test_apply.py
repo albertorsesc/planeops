@@ -55,7 +55,15 @@ def _seed(tmp_path):
     obs = tmp_path / "observed" / "testhost"
     obs.mkdir(parents=True)
     (obs / "snapshot.json").write_text(
-        json.dumps({"host": "testhost", "ts": "t", "engine_version": "0", "observed": [], "uncovered": []})
+        json.dumps(
+            {
+                "host": "testhost",
+                "ts": "t",
+                "engine_version": "0",
+                "observed": [],
+                "uncovered": [],
+            }
+        )
     )
 
 
@@ -79,7 +87,10 @@ def test_yes_executes_no_skips(tmp_path, fake_platform):
     fake = FakeMutating({"fake/a": [CA], "fake/b": [CB]})
     applied = _run(tmp_path, fake_platform, {"fake": fake}, ["y", "n"])
     assert fake.executed == [CA]
-    assert [(a.change.entry_id, a.executed) for a in applied] == [("fake/a", True), ("fake/b", False)]
+    assert [(a.change.entry_id, a.executed) for a in applied] == [
+        ("fake/a", True),
+        ("fake/b", False),
+    ]
 
 
 def test_all_in_domain_auto_approves_rest(tmp_path, fake_platform):

@@ -1,7 +1,8 @@
 """macOS platform contract implementation.
 
-M1 needs only host identity and standard paths. Scheduler (launchd load/unload/
-list) and process listing arrive with the launchd adapter in M2.
+Provides host identity and standard paths. Scheduler and process-listing helpers
+can be added here when an adapter needs them; launchd access currently lives in
+the launchd adapter behind its own injected command seam.
 """
 
 from __future__ import annotations

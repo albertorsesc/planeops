@@ -4,7 +4,6 @@ from engine.core.schema import (
     Auth,
     Entry,
     Klass,
-    Lifecycle,
     Owner,
     SchemaError,
     Tolerance,
@@ -58,7 +57,9 @@ def test_bad_lifecycle_names_the_entry_and_allowed_values():
 def test_data_class_requires_data_block():
     with pytest.raises(SchemaError):
         entry_from_dict(_raw(**{"class": "data"}))
-    ok = entry_from_dict(_raw(**{"class": "data", "data": {"location": "~/x", "sync": "git"}}))
+    ok = entry_from_dict(
+        _raw(**{"class": "data", "data": {"location": "~/x", "sync": "git"}})
+    )
     assert ok.klass is Klass.data
 
 

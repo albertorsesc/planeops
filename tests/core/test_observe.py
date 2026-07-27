@@ -48,10 +48,23 @@ def test_observe_writes_snapshot_with_uncovered(tmp_path, fake_platform):
 def test_second_observe_reuses_attestation_no_alerts(tmp_path, fake_platform):
     _seed(tmp_path)
     plat = fake_platform(tmp_path)
-    run_observe(tmp_path, attest=True, now=datetime(2026, 7, 22, 12, 0, 0), platform=plat, adapters=ADAPTERS)
+    run_observe(
+        tmp_path,
+        attest=True,
+        now=datetime(2026, 7, 22, 12, 0, 0),
+        platform=plat,
+        adapters=ADAPTERS,
+    )
     # A later run without --attest reuses the prior attestation, still fresh.
-    run_observe(tmp_path, now=datetime(2026, 7, 25, 5, 0, 0), platform=plat, adapters=ADAPTERS)
-    report = run_drift(tmp_path, now=datetime(2026, 7, 25, 5, 0, 0), platform=plat, implemented=IMPLEMENTED)
+    run_observe(
+        tmp_path, now=datetime(2026, 7, 25, 5, 0, 0), platform=plat, adapters=ADAPTERS
+    )
+    report = run_drift(
+        tmp_path,
+        now=datetime(2026, 7, 25, 5, 0, 0),
+        platform=plat,
+        implemented=IMPLEMENTED,
+    )
     assert report.alert_count == 0
 
 

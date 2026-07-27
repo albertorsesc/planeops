@@ -14,6 +14,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from engine.core.contracts import Ctx, Observed
+from engine.core.schema import Entry
 
 STALE_AFTER = timedelta(days=30)
 
@@ -30,7 +31,7 @@ class ManualAdapter:
             out.append(self._attest(entry, ctx))
         return out
 
-    def _attest(self, entry, ctx: Ctx) -> Observed:
+    def _attest(self, entry: Entry, ctx: Ctx) -> Observed:
         prior = ctx.prior.get(entry.id)
 
         # `--attest` records a fresh attestation. Without it (the scheduled
@@ -39,7 +40,7 @@ class ManualAdapter:
             attested_at: str | None = ctx.now.isoformat()
             stale = False
         else:
-            attested_at = (prior.facts.get("attested_at") if prior else None)
+            attested_at = prior.facts.get("attested_at") if prior else None
             stale = _is_stale(attested_at, ctx.now)
 
         return Observed(
