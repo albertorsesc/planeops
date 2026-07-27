@@ -40,7 +40,7 @@ One entry = one managed asset. Registry files contain `entries: [...]`.
 | `pin` | str | no | | Exact version pin; absent = recorded-or-newer-within-major |
 | `secrets` | list | no | `[]` | Items: `{ref: secret://<backend>/<name>, injected_as: env:NAME \| file:<path>#KEY, rotation: <dur>}` |
 | `desired` | map | no | `{}` | Adapter-specific shape (e.g. `{present: true}`, launchd plist source path, model tag) |
-| `data` | map | `class: data` only | | `{location: <path>, sync: mega \| git \| none}` |
+| `data` | map | `class: data` only | | `{location: <path>, sync: git \| none \| <backend>}` (sync backend is adapter-declared, not a core enum) |
 
 `registry/unmanaged.yaml`: `globs: [{glob: <pattern>, reason: <str>}]`. Observed items matching a glob are skipped before diffing.
 
@@ -138,6 +138,6 @@ Importer emission rule: a rule may name an adapter that is not yet implemented; 
 
 - **M1**: engine core (schema, observe/drift loop, manual adapter, DRIFT rendering) + registry seeded via stackfile import. Machine fully covered, mostly by attestation.
 - **M2**: pkg-brew, pkg-nvm (node runtime), pkg-npm, pkg-uv, launchd adapters with plan/execute. Relocate `update-stack.sh`; the Sunday slot keeps running it (dependency/integration/tool updates stay scheduled) followed by `plane observe && plane drift`, so every update lands already observed and drift-checked. (A legacy gateway retirement, originally this milestone's first transaction, was executed manually before the build.)
-- **M3**: claude-code config adapter (recipe/data split of `~/.claude`), ollama adapter, `mcp` adapter (cross-runtime MCP visibility from a configurable source list).
+- **M3**: `ollama` adapter (done) and `mcp` adapter (done, cross-runtime MCP visibility from a configurable source list). Harness-config reproduction (`~/.claude` and any other tool's config) is delegated to an external, agnostic dotfiles manager (chezmoi) behind a normal adapter, rather than an in-house `claude-code` adapter, so no tool-specific config engine lives in the core.
 - **M4**: secrets (sops+age store, importer, materialization, re-auth checklist) + a service home recipe (declared key-paths in its config, venv rebuild, cron jobs) + first full clean-account rehearsal green.
 - Post-v0.1 (explicitly out): usage/rent, policy compilers, docker adapter, second host.
