@@ -1,14 +1,14 @@
-# control_plane
+# tarmac
 
 Reproduce, observe, and govern a personal AI setup as three planes.
 
-[![CI](https://github.com/albertorsesc/control_plane/actions/workflows/ci.yml/badge.svg)](https://github.com/albertorsesc/control_plane/actions/workflows/ci.yml)
+[![CI](https://github.com/albertorsesc/tarmac/actions/workflows/ci.yml/badge.svg)](https://github.com/albertorsesc/tarmac/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
 
 A single machine accretes AI tools over time: coding harnesses, local models, MCP
 servers, background services, API keys. Nobody writes down what is installed, how
-it is wired, or why. `control_plane` makes that setup explicit and reproducible.
+it is wired, or why. `tarmac` makes that setup explicit and reproducible.
 You declare what should exist in a registry, and the `plane` CLI observes what
 actually exists, reports where the two disagree, and converges the difference one
 confirmed change at a time.
@@ -53,8 +53,8 @@ by a package scan, so adding one never edits a central list.
 Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone https://github.com/albertorsesc/control_plane
-cd control_plane
+git clone https://github.com/albertorsesc/tarmac
+cd tarmac
 uv sync
 ```
 

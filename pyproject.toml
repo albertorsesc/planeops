@@ -1,5 +1,5 @@
 [project]
-name = "control-plane"
+name = "tarmac"
 version = "0.1.0"
 description = "Reproduce, observe, and govern a personal AI setup as three planes."
 readme = "README.md"

@@ -20,4 +20,4 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `DRIFT.md` report with Alerts / Report / Auto-folded / Uncovered / Re-auth
   sections, and a non-zero exit code when alerts exist.
 
-[Unreleased]: https://github.com/albertorsesc/control_plane/commits/main
+[Unreleased]: https://github.com/albertorsesc/tarmac/commits/main

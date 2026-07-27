@@ -9,7 +9,7 @@ days, and coordinated disclosure once a fix is available.
 
 ## Design posture
 
-control_plane is built to keep its own attack surface small:
+tarmac is built to keep its own attack surface small:
 
 - **No daemon, no open ports.** Every verb is a short-lived command that exits.
   There is no long-running process to compromise.

@@ -47,7 +47,7 @@ One entry = one managed asset. Registry files contain `entries: [...]`.
 ## 3. Repo layout (v0.1)
 
 ```
-control_plane/
+tarmac/
 ├── SPEC.md
 ├── engine/                   # Python package: core loop, schema, report, contracts
 │   ├── core/                 # vendor-free: schema, drift triage, rendering, confirm loop
