@@ -17,6 +17,9 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `launchd` adapter: observes user LaunchAgents (loaded/running state) and
   converges them via `plan`/`execute` (bootout a retired-but-loaded service,
   bootstrap an active-but-unloaded one), gated by per-change confirmation.
+- `pkg-brew` adapter: observes installed Homebrew formulae and their versions,
+  and converges presence via `plan`/`execute` (install an absent active formula,
+  uninstall a present retired one).
 - `DRIFT.md` report with Alerts / Report / Auto-folded / Uncovered / Re-auth
   sections, and a non-zero exit code when alerts exist.
 

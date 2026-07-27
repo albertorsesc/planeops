@@ -1,9 +1,9 @@
 # Example registry. Replace with your own machine's entries.
 #
 # It demonstrates every DRIFT section without assuming any particular private
-# tool: entries on the `manual` adapter are covered today; entries whose real
-# adapter is not yet built (claude-code, ollama, launchd) surface under
-# Uncovered, never as violations.
+# tool: entries on the `manual`, `launchd`, and `pkg-brew` adapters are covered
+# today; entries whose real adapter is not yet built (claude-code, ollama)
+# surface under Uncovered, never as violations.
 #
 # LLM access here is bridged through public tools, never a provider API direct:
 # a coding harness (Claude Code), a router (OpenRouter), and local models
@@ -43,11 +43,17 @@ entries:
     intent: "kept on disk but no current consumer"
     kill_criteria: "no consumer for 30 days"
 
+  - id: pkg-brew/ripgrep
+    adapter: pkg-brew
+    domain: package
+    lifecycle: active
+    intent: "fast search, installed via Homebrew"
+
   - id: launchd/com.example.agent-gateway
     adapter: launchd
     domain: service
     lifecycle: active
-    intent: "an always-on local service; launchd adapter lands M2"
+    intent: "an always-on local service, converged by the launchd adapter"
 
   - id: launchd/com.example.retired-gateway
     adapter: launchd
