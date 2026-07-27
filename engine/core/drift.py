@@ -16,7 +16,7 @@ from engine.core.contracts import Observed, Platform
 from engine.core.discovery import discover_adapters
 from engine.core.observe import snapshot_path
 from engine.core.registry import load_registry
-from engine.core.schema import ABSENT_LIFECYCLES, Auth, Entry, Lifecycle
+from engine.core.schema import ABSENT_LIFECYCLES, Auth, Entry, Lifecycle, Tolerance
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +53,18 @@ def _same_major(a: str | None, b: str | None) -> bool:
     if not a or not b:
         return False
     return a.split(".", 1)[0] == b.split(".", 1)[0]
+
+
+def _soft_section(report: DriftReport, tolerance: Tolerance) -> list[DriftItem]:
+    """Where a soft (non-structural) drift signal lands, per the entry's tolerance:
+    `alert` escalates it, `auto` folds it silently, `report` (default) lists it.
+    Structural lifecycle/presence violations are not routed here; they stay alerts
+    regardless, so `tolerance: auto` can never silence a broken active service."""
+    if tolerance is Tolerance.alert:
+        return report.alerts
+    if tolerance is Tolerance.auto:
+        return report.auto_folded
+    return report.report
 
 
 def triage(
@@ -92,7 +104,7 @@ def triage(
                 report.report.append(_item(entry, "parked but not observed"))
         else:
             if obs.facts.get("stale"):
-                report.report.append(
+                _soft_section(report, entry.tolerance).append(
                     _item(
                         entry,
                         "attestation stale (>30d); run `plane observe --attest`",
@@ -103,7 +115,7 @@ def triage(
                 and _same_major(obs.version, entry.pin)
                 and obs.version != entry.pin
             ):
-                report.auto_folded.append(
+                _soft_section(report, entry.tolerance).append(
                     _item(
                         entry,
                         f"version {obs.version} (pinned {entry.pin}, same major)",

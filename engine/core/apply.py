@@ -26,9 +26,12 @@ from engine.core.contracts import (
 from engine.core.discovery import discover_adapters
 from engine.core.observe import snapshot_path
 from engine.core.registry import load_registry
+from engine.core.schema import Owner
 
 # Returns 'y' (apply), 'n' (skip), or 'a' (apply this and the rest of its domain).
 Confirm = Callable[[Change], str]
+
+_UNPHASED = 1000  # entries without an explicit phase converge after phased ones
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +39,34 @@ class Applied:
     change: Change
     executed: bool
     result: Result | None
+
+
+def _write_journal(
+    observed_dir: Path, host: str, now: datetime, applied: list[Applied]
+) -> None:
+    """Append an immutable record of this apply run beside the snapshot: what was
+    proposed, what executed, and the outcome. `actor` is reserved for a future
+    operator/agent identity."""
+    journal = observed_dir / host / "applied.jsonl"
+    journal.parent.mkdir(parents=True, exist_ok=True)
+    with journal.open("a") as fh:
+        for a in applied:
+            fh.write(
+                json.dumps(
+                    {
+                        "ts": now.isoformat(),
+                        "host": host,
+                        "actor": None,
+                        "entry_id": a.change.entry_id,
+                        "kind": a.change.kind,
+                        "diff": a.change.diff,
+                        "executed": a.executed,
+                        "ok": a.result.ok if a.result else None,
+                        "detail": a.result.detail if a.result else None,
+                    }
+                )
+                + "\n"
+            )
 
 
 def prompt_confirm(change: Change) -> str:
@@ -87,6 +118,9 @@ def run_apply(
         entries = [e for e in entries if e.id == only_id]
     if only_phase is not None:
         entries = [e for e in entries if e.phase == only_phase]
+    # Converge in phase order (SPEC.md section 5); unphased entries go last. The
+    # sort is stable, so registry order is preserved within a phase.
+    entries.sort(key=lambda e: e.phase if e.phase is not None else _UNPHASED)
 
     ctx = Ctx(
         platform=platform,
@@ -103,6 +137,8 @@ def run_apply(
         adapter = adapters.get(entry.adapter)
         if adapter is None or not can_apply(adapter):
             continue  # observe-only or unbuilt: nothing to converge
+        if entry.owner is Owner.human:
+            continue  # human-owned: the plane observes and reports, never writes
         obs = observed_by_key.get(entry.id)
         for change in adapter.plan(entry, obs):
             if entry.domain in auto_domains:
@@ -117,4 +153,6 @@ def run_apply(
             else:
                 applied.append(Applied(change, False, None))
 
+    if applied:
+        _write_journal(observed_dir, host, now, applied)
     return applied

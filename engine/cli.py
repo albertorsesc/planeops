@@ -74,6 +74,10 @@ def _cmd_apply(args: argparse.Namespace) -> int:
             f"  [{status}] {a.change.entry_id}: {a.result.detail if a.result else ''}"
         )
     print(f"{len(executed)} applied ({len(failed)} failed), {len(skipped)} skipped")
+    if executed:
+        from engine.core.observe import run_observe
+
+        run_observe(repo)  # re-observe so `plane drift` reflects this apply (SPEC §5)
     return 1 if failed else 0
 
 

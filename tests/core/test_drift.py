@@ -85,3 +85,40 @@ def test_alert_count_property():
     entries = [_entry(id="manual/a"), _entry(id="manual/b")]
     rep = triage(entries, {}, IMPL)
     assert rep.alert_count == 2
+
+
+# ---- tolerance routes the soft signals (staleness, in-major version drift) ----
+
+
+def test_version_drift_folds_when_tolerance_auto():
+    e = _entry(pin="1.2.3", tolerance="auto")
+    obs = Observed("manual", "x", {}, version="1.2.5")
+    rep = triage([e], {"manual/x": obs}, IMPL)
+    assert not rep.alerts and not rep.report and len(rep.auto_folded) == 1
+
+
+def test_version_drift_reports_when_tolerance_report_default():
+    e = _entry(pin="1.2.3")  # tolerance defaults to report
+    obs = Observed("manual", "x", {}, version="1.2.5")
+    rep = triage([e], {"manual/x": obs}, IMPL)
+    assert not rep.alerts and not rep.auto_folded and len(rep.report) == 1
+
+
+def test_version_drift_alerts_when_tolerance_alert():
+    e = _entry(pin="1.2.3", tolerance="alert")
+    obs = Observed("manual", "x", {}, version="1.2.5")
+    rep = triage([e], {"manual/x": obs}, IMPL)
+    assert len(rep.alerts) == 1
+
+
+def test_staleness_escalates_to_alert_when_tolerance_alert():
+    e = _entry(tolerance="alert")
+    rep = triage([e], {"manual/x": _obs("manual/x", stale=True)}, IMPL)
+    assert len(rep.alerts) == 1 and not rep.report
+
+
+def test_lifecycle_violation_stays_alert_even_when_tolerance_auto():
+    # tolerance must never silence a structural violation
+    e = _entry(tolerance="auto")
+    rep = triage([e], {}, IMPL)  # active but absent
+    assert len(rep.alerts) == 1 and not rep.auto_folded

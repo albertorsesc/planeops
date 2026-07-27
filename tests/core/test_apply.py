@@ -49,9 +49,9 @@ def _scripted(answers):
     return lambda change: next(it)
 
 
-def _seed(tmp_path):
+def _seed(tmp_path, reg=REG):
     (tmp_path / "registry").mkdir()
-    (tmp_path / "registry" / "r.yaml").write_text(REG)
+    (tmp_path / "registry" / "r.yaml").write_text(reg)
     obs = tmp_path / "observed" / "testhost"
     obs.mkdir(parents=True)
     (obs / "snapshot.json").write_text(
@@ -121,3 +121,44 @@ def test_apply_without_snapshot_errors(tmp_path, fake_platform):
     (tmp_path / "registry" / "r.yaml").write_text(REG)
     with pytest.raises(FileNotFoundError):
         _run(tmp_path, fake_platform, {"fake": FakeMutating({})}, [])
+
+
+PHASED = (
+    "entries:\n"
+    "  - {id: fake/a, adapter: fake, domain: d, lifecycle: active, intent: i, phase: 5}\n"
+    "  - {id: fake/b, adapter: fake, domain: d, lifecycle: active, intent: i, phase: 1}\n"
+)
+
+HUMAN = (
+    "entries:\n"
+    "  - {id: fake/a, adapter: fake, domain: d, lifecycle: active, intent: i, owner: human}\n"
+)
+
+
+def test_entries_apply_in_phase_order(tmp_path, fake_platform):
+    _seed(tmp_path, PHASED)
+    fake = FakeMutating({"fake/a": [CA], "fake/b": [CB]})
+    _run(tmp_path, fake_platform, {"fake": fake}, ["a"])  # 'a' auto-approves the rest
+    assert fake.executed == [CB, CA]  # phase 1 (b) converges before phase 5 (a)
+
+
+def test_human_owned_entry_is_never_written(tmp_path, fake_platform):
+    _seed(tmp_path, HUMAN)
+    fake = FakeMutating({"fake/a": [CA]})
+    applied = _run(tmp_path, fake_platform, {"fake": fake}, ["y"])
+    assert fake.executed == []  # the plane never writes an owner:human entry
+    assert applied == []
+
+
+def test_apply_writes_an_audit_record(tmp_path, fake_platform):
+    _seed(tmp_path)
+    fake = FakeMutating({"fake/a": [CA], "fake/b": [CB]})
+    _run(tmp_path, fake_platform, {"fake": fake}, ["y", "n"])
+    journal = tmp_path / "observed" / "testhost" / "applied.jsonl"
+    assert journal.is_file()
+    lines = [json.loads(line) for line in journal.read_text().splitlines()]
+    assert {line["entry_id"]: line["executed"] for line in lines} == {
+        "fake/a": True,
+        "fake/b": False,
+    }
+    assert all("ts" in line and "actor" in line for line in lines)
