@@ -20,6 +20,9 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `pkg-brew` adapter: observes installed Homebrew formulae and their versions,
   and converges presence via `plan`/`execute` (install an absent active formula,
   uninstall a present retired one).
+- `ollama` adapter: observes local models (recording each model's digest as its
+  version), and converges presence via `plan`/`execute` (pull an absent active
+  model, remove a present retired one).
 - `DRIFT.md` report with Alerts / Report / Auto-folded / Uncovered / Re-auth
   sections, and a non-zero exit code when alerts exist.
 

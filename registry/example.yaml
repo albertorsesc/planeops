@@ -1,8 +1,8 @@
 # Example registry. Replace with your own machine's entries.
 #
 # It demonstrates every DRIFT section without assuming any particular private
-# tool: entries on the `manual`, `launchd`, and `pkg-brew` adapters are covered
-# today; entries whose real adapter is not yet built (claude-code, ollama)
+# tool: entries on the `manual`, `launchd`, `pkg-brew`, and `ollama` adapters are
+# covered today; entries whose real adapter is not yet built (claude-code)
 # surface under Uncovered, never as violations.
 #
 # LLM access here is bridged through public tools, never a provider API direct:
@@ -34,7 +34,7 @@ entries:
     adapter: ollama
     domain: model
     lifecycle: active
-    intent: "local model; ollama adapter lands M3"
+    intent: "local model, pulled and observed via the ollama adapter"
 
   - id: ollama/some-large-model:70b
     adapter: ollama
