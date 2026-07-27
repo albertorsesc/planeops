@@ -1,42 +1,70 @@
-"""Import a hand-maintained `stack.md`-style manifest into proposed entries.
+"""Import a hand-maintained manifest of a machine's stack into proposed entries.
 
-Mapping follows SPEC.md section 6. The importer always emits the FINAL adapter
-name (even when that adapter is not yet implemented, so the entry surfaces under
-Uncovered rather than as a violation). Rows with no planned adapter map to
-`manual`. Nothing is written; the CLI prints the proposal for the human to edit.
+The section-to-adapter mapping is configuration, not code. Rules live in
+`stackfile-mapping.yaml` at the instance root (see `stackfile-mapping.example.yaml`)
+and are loaded per import, so the importer names no specific tool. A section that
+no rule matches imports as `manual`, for a human to sort out. Nothing is written;
+the CLI prints the proposal for review, and every row is marked for verification.
 """
 
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import yaml
 
-# (header keyword, adapter, domain). First keyword found in a header wins.
-_MAPPING: list[tuple[str, str, str]] = [
-    ("machine", "manual", "host"),
-    ("runtime", "launchd", "service"),
-    ("agent execution", "launchd", "service"),
-    ("browser", "pkg-npm", "package"),
-    ("infrastructure", "manual", "service"),
-    ("custom system", "manual", "project"),
-    ("mcp", "mcp", "mcp-server"),
-    ("skill", "claude-code", "skill"),
-    ("secret", "manual", "secret"),
-    ("api key", "manual", "secret"),
-    ("subscription", "manual", "secret"),
-]
+MAPPING_FILE = "stackfile-mapping.yaml"
 
 _HEADER_RE = re.compile(r"^#{1,6}\s+(.*\S)\s*$")
 _ITEM_RE = re.compile(r"^\s*[-*]\s+(.*\S)\s*$")
 
 
-def _map_header(header: str) -> tuple[str, str]:
+@dataclass(frozen=True, slots=True)
+class HeaderRule:
+    keyword: str  # matched case-insensitively as a substring of a section header
+    adapter: str
+    domain: str
+
+
+def load_rules(repo_root: Path | None) -> list[HeaderRule]:
+    """Read section->adapter rules from `<repo_root>/stackfile-mapping.yaml`.
+    Missing file or root yields no rules (every section then imports as manual)."""
+    if repo_root is None:
+        return []
+    path = repo_root / MAPPING_FILE
+    if not path.is_file():
+        return []
+    try:
+        data = yaml.safe_load(path.read_text())
+    except (yaml.YAMLError, OSError):
+        return []
+    raw = data.get("rules") if isinstance(data, dict) else None
+    if not isinstance(raw, list):
+        return []
+    rules: list[HeaderRule] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        keyword = item.get("keyword")
+        adapter = item.get("adapter")
+        domain = item.get("domain")
+        if (
+            isinstance(keyword, str)
+            and isinstance(adapter, str)
+            and isinstance(domain, str)
+        ):
+            rules.append(HeaderRule(keyword.lower(), adapter, domain))
+    return rules
+
+
+def _map_header(header: str, rules: list[HeaderRule]) -> tuple[str, str]:
     low = header.lower()
-    for keyword, adapter, domain in _MAPPING:
-        if keyword in low:
-            return adapter, domain
+    for rule in rules:
+        if rule.keyword in low:
+            return rule.adapter, rule.domain
     return "manual", "unknown"
 
 
@@ -49,9 +77,9 @@ def _slug(text: str) -> str:
     return slug or "item"
 
 
-def parse_stackfile(text: str) -> list[dict[str, Any]]:
-    """Return proposed entry mappings. Heuristic and lossy by design: every
-    row imports with intent 'verify' so a human reviews before it is trusted."""
+def parse_stackfile(text: str, rules: list[HeaderRule]) -> list[dict[str, Any]]:
+    """Return proposed entry mappings. Heuristic and lossy by design: every row
+    imports with intent 'verify' so a human reviews before it is trusted."""
     entries: list[dict[str, Any]] = []
     seen: set[str] = set()
     adapter, domain = "manual", "unknown"
@@ -59,7 +87,7 @@ def parse_stackfile(text: str) -> list[dict[str, Any]]:
     for line in text.splitlines():
         header = _HEADER_RE.match(line)
         if header:
-            adapter, domain = _map_header(header.group(1))
+            adapter, domain = _map_header(header.group(1), rules)
             continue
         item = _ITEM_RE.match(line)
         if not item:
@@ -76,7 +104,7 @@ def parse_stackfile(text: str) -> list[dict[str, Any]]:
                 "domain": domain,
                 "lifecycle": "active",
                 "tolerance": "report",
-                "intent": "imported from stack.md, verify",
+                "intent": "imported from manifest, verify",
             }
         )
     return entries

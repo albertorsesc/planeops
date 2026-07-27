@@ -81,13 +81,14 @@ def _cmd_import(args: argparse.Namespace) -> int:
     if args.kind != "stackfile":
         print(f"unknown import kind {args.kind!r}", file=sys.stderr)
         return 1
-    from engine.importers.stackfile import parse_stackfile, render_proposal
+    from engine.importers.stackfile import load_rules, parse_stackfile, render_proposal
 
     path = Path(args.path)
     if not path.is_file():
         print(f"no such file: {path}", file=sys.stderr)
         return 1
-    entries = parse_stackfile(path.read_text())
+    repo = find_repo_root(Path(args.repo).resolve())
+    entries = parse_stackfile(path.read_text(), load_rules(repo))
     print(
         f"# proposed {len(entries)} entr(ies) from {path} "
         "- review, then save into registry/"

@@ -105,9 +105,15 @@ Usage    = {last: datetime | None, count: int | None}
 - `plane import stackfile <path>` → proposes registry entries (section 6); writes nothing without confirmation.
 - Converge phases: 1 package managers/runtimes → 2 packages/CLIs → 3 harness config → 4 models → 5 secrets materialization → 6 services (load last, against complete config) → 7 re-auth checklist.
 
-## 6. stack.md import mapping
+## 6. Manifest import mapping
 
-| stack.md section | Adapter | Domain | Notes |
+The section-to-adapter mapping is configuration, not code: rules live in
+`stackfile-mapping.yaml` at the instance root (`stackfile-mapping.example.yaml`
+ships as a template) and the importer names no specific tool. A section matching no
+rule imports as `manual`. The table below is an illustrative mapping; the `Skills`
+row in particular is tool-specific and belongs in an instance's own config.
+
+| manifest section | Adapter | Domain | Notes |
 |---|---|---|---|
 | Machine | `manual` | `host` | attestation only |
 | Runtimes (Agent Execution) | `launchd` / `manual` | `service`, `harness` | services get real entries; harness binaries → package adapters where installable |
@@ -118,7 +124,7 @@ Usage    = {last: datetime | None, count: int | None}
 | Skills | `claude-code` | `skill` | recipe = source (repo/symlink target) |
 | Secrets / API Keys / Subscriptions | `manual` (M1) → sops+age refs (M4) | `secret` | M1 imports names + `auth: interactive` flags as manual entries; M4's importer migrates them to `secret://` refs. Values never read |
 
-Importer emission rule: always emit the FINAL adapter name from this table, even when that adapter is not yet implemented; such entries appear under DRIFT's **Uncovered** section, never as violations, and need no migration when the adapter lands. `manual` is only for rows with no planned adapter. Unmapped or ambiguous rows import as `manual` with `intent: "imported from stack.md, verify"`.
+Importer emission rule: a rule may name an adapter that is not yet implemented; such entries appear under DRIFT's **Uncovered** section, never as violations, and need no migration when the adapter lands. `manual` is the fallback for sections no rule matches. Every imported row carries `intent: "imported from manifest, verify"` for a human to confirm.
 
 ## 7. Testing
 

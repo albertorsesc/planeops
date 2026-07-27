@@ -7,6 +7,9 @@ observed/
 # real MCP source list is instance-specific; only the .example ships
 mcp-sources.yaml
 
+# real stackfile import mapping is instance-specific; only the .example ships
+stackfile-mapping.yaml
+
 # python
 .venv/
 __pycache__/

@@ -1,0 +1,39 @@
+# Map manifest section headers to tarmac adapters for `plane import stackfile`.
+#
+# The first rule whose `keyword` appears (case-insensitive) in a section header
+# wins. A section that matches no rule imports as `manual`, for you to sort out.
+#
+# Copy this file to `stackfile-mapping.yaml` (gitignored) and edit it for your
+# manifest's section names and the adapters you run. This file is the only place
+# tool-specific mappings live; the importer itself names no tool.
+
+rules:
+  - keyword: machine
+    adapter: manual
+    domain: host
+
+  - keyword: service
+    adapter: launchd
+    domain: service
+
+  - keyword: package
+    adapter: pkg-brew
+    domain: package
+
+  - keyword: model
+    adapter: ollama
+    domain: model
+
+  - keyword: mcp
+    adapter: mcp
+    domain: mcp-server
+
+  - keyword: secret
+    adapter: manual
+    domain: secret
+
+  # Tool-specific example: map a "skills" section to your coding harness's
+  # adapter once it exists. Uncomment and adapt.
+  # - keyword: skill
+  #   adapter: my-harness
+  #   domain: skill
