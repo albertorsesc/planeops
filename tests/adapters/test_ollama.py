@@ -5,13 +5,13 @@ from engine.adapters.ollama import ADAPTER, OllamaAdapter, parse_ollama_list
 from engine.core.contracts import Change, Ctx, Observed, can_apply
 from engine.core.schema import entry_from_dict
 
-# Recorded from `ollama list`, trimmed. Columns are whitespace-aligned; SIZE is
-# two tokens ("18 GB") and MODIFIED is fuzzy ("3 months ago").
+# Illustrative `ollama list` output. Columns are whitespace-aligned; SIZE is two
+# tokens ("4.1 GB") and MODIFIED is fuzzy ("3 months ago").
 OLLAMA_LIST = (
     "NAME                        ID              SIZE      MODIFIED     \n"
-    "qwen3:30b                   ad815644918f    18 GB     3 months ago    \n"
-    "llama3.2:3b                 a80c4f17acd5    2.0 GB    3 months ago    \n"
-    "qwen3-embedding:0.6b        ac6da0dfba84    639 MB    2 months ago    \n"
+    "mistral:7b                  aaaa11112222    4.1 GB    3 months ago    \n"
+    "llama3.2:3b                 bbbb33334444    2.0 GB    3 months ago    \n"
+    "nomic-embed-text:latest     cccc55556666    274 MB    2 months ago    \n"
 )
 
 
@@ -55,15 +55,15 @@ def _obs(name, model_id="deadbeef1234"):
 
 def test_parse_ollama_list_skips_header_and_reads_id_and_size():
     models = parse_ollama_list(OLLAMA_LIST)
-    assert models["qwen3:30b"] == {"id": "ad815644918f", "size": "18 GB"}
-    assert models["qwen3-embedding:0.6b"]["size"] == "639 MB"
+    assert models["mistral:7b"] == {"id": "aaaa11112222", "size": "4.1 GB"}
+    assert models["nomic-embed-text:latest"]["size"] == "274 MB"
     assert "NAME" not in models
 
 
 def test_observe_reports_models_with_id_as_version():
     out = {o.native_id: o for o in OllamaAdapter(run=_run_ok).observe(_ctx())}
-    assert out["qwen3:30b"].version == "ad815644918f"
-    assert out["qwen3:30b"].facts["size"] == "18 GB"
+    assert out["mistral:7b"].version == "aaaa11112222"
+    assert out["mistral:7b"].facts["size"] == "4.1 GB"
     assert out["llama3.2:3b"].key == "ollama/llama3.2:3b"
 
 
@@ -82,22 +82,22 @@ def test_ollama_is_a_mutating_adapter():
 
 
 def test_plan_active_but_absent_proposes_pull():
-    changes = ADAPTER.plan(_entry("ollama/qwen3:30b", "active"), None)
+    changes = ADAPTER.plan(_entry("ollama/mistral:7b", "active"), None)
     assert len(changes) == 1
     assert changes[0].kind == "install"
-    assert changes[0].action == {"op": "pull", "model": "qwen3:30b"}
+    assert changes[0].action == {"op": "pull", "model": "mistral:7b"}
 
 
 def test_plan_retired_but_present_proposes_remove():
-    changes = ADAPTER.plan(_entry("ollama/qwen3:30b", "retired"), _obs("qwen3:30b"))
+    changes = ADAPTER.plan(_entry("ollama/mistral:7b", "retired"), _obs("mistral:7b"))
     assert len(changes) == 1
     assert changes[0].kind == "remove"
-    assert changes[0].action == {"op": "remove", "model": "qwen3:30b"}
+    assert changes[0].action == {"op": "remove", "model": "mistral:7b"}
 
 
 def test_plan_conformant_states_propose_nothing():
-    assert ADAPTER.plan(_entry("ollama/qwen3:30b", "active"), _obs("qwen3:30b")) == []
-    assert ADAPTER.plan(_entry("ollama/qwen3:30b", "retired"), None) == []
+    assert ADAPTER.plan(_entry("ollama/mistral:7b", "active"), _obs("mistral:7b")) == []
+    assert ADAPTER.plan(_entry("ollama/mistral:7b", "retired"), None) == []
 
 
 # ---- execute -------------------------------------------------------------
@@ -106,21 +106,21 @@ def test_plan_conformant_states_propose_nothing():
 def test_execute_pull_calls_ollama():
     rec = RecordingRun(code=0)
     change = Change(
-        "ollama/qwen3:30b", "install", "d", {"op": "pull", "model": "qwen3:30b"}
+        "ollama/mistral:7b", "install", "d", {"op": "pull", "model": "mistral:7b"}
     )
     res = OllamaAdapter(run=rec).execute(change, _ctx())
     assert res.ok
-    assert rec.calls == [["ollama", "pull", "qwen3:30b"]]
+    assert rec.calls == [["ollama", "pull", "mistral:7b"]]
 
 
 def test_execute_remove_calls_ollama_rm():
     rec = RecordingRun(code=0)
     change = Change(
-        "ollama/qwen3:30b", "remove", "d", {"op": "remove", "model": "qwen3:30b"}
+        "ollama/mistral:7b", "remove", "d", {"op": "remove", "model": "mistral:7b"}
     )
     res = OllamaAdapter(run=rec).execute(change, _ctx())
     assert res.ok
-    assert rec.calls == [["ollama", "rm", "qwen3:30b"]]
+    assert rec.calls == [["ollama", "rm", "mistral:7b"]]
 
 
 def test_execute_failure_is_reported():
