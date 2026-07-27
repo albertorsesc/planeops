@@ -140,7 +140,18 @@ def run_apply(
         if entry.owner is Owner.human:
             continue  # human-owned: the plane observes and reports, never writes
         obs = observed_by_key.get(entry.id)
-        for change in adapter.plan(entry, obs):
+        try:
+            changes = adapter.plan(entry, obs)
+        except Exception as exc:  # a broken adapter must not abort the whole run
+            applied.append(
+                Applied(
+                    Change(entry.id, "patch", f"plan failed: {exc}", {}),
+                    False,
+                    Result(ok=False, detail=str(exc)),
+                )
+            )
+            continue
+        for change in changes:
             if entry.domain in auto_domains:
                 decision = "y"
             else:
@@ -149,7 +160,11 @@ def run_apply(
                     auto_domains.add(entry.domain)
                     decision = "y"
             if decision == "y":
-                applied.append(Applied(change, True, adapter.execute(change, ctx)))
+                try:
+                    result = adapter.execute(change, ctx)
+                except Exception as exc:  # contain a crashing execute
+                    result = Result(ok=False, detail=f"execute raised: {exc}")
+                applied.append(Applied(change, True, result))
             else:
                 applied.append(Applied(change, False, None))
 

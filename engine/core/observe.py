@@ -17,6 +17,8 @@ from engine.core.discovery import discover_adapters
 from engine.core.registry import Registry, load_registry
 from engine.platform import current_platform
 
+SNAPSHOT_SCHEMA_VERSION = 1  # bump when the snapshot / entry wire format changes
+
 
 def snapshot_path(observed_dir: Path, host: str) -> Path:
     return observed_dir / host / "snapshot.json"
@@ -80,18 +82,24 @@ def run_observe(
     )
 
     observed: list[Observed] = []
-    for adapter in adapters.values():
-        observed.extend(adapter.observe(ctx))
+    failed: list[dict[str, str]] = []
+    for name, adapter in adapters.items():
+        try:
+            observed.extend(adapter.observe(ctx))
+        except Exception as exc:  # one bad adapter must not sink the whole scan
+            failed.append({"adapter": name, "error": str(exc)})
     observed = _drop_unmanaged(observed, registry)
 
     uncovered = sorted(registry.declared_adapters() - set(adapters))
 
-    snapshot = {
+    snapshot: dict[str, Any] = {
         "host": host,
         "ts": now.isoformat(),
+        "schema_version": SNAPSHOT_SCHEMA_VERSION,
         "engine_version": __version__,
         "observed": [o.to_dict() for o in observed],
         "uncovered": uncovered,
+        "failed": failed,
     }
 
     out_path.parent.mkdir(parents=True, exist_ok=True)

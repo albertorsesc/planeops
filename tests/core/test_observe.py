@@ -90,3 +90,24 @@ def test_drift_without_snapshot_errors(tmp_path, fake_platform):
         assert "plane observe" in str(exc)
     else:
         raise AssertionError("expected FileNotFoundError")
+
+
+class RaisingAdapter:
+    name = "boom"
+    domains: tuple[str, ...] = ()
+
+    def observe(self, ctx):
+        raise RuntimeError("kaboom")
+
+
+def test_one_failing_adapter_degrades_not_crashes(tmp_path, fake_platform):
+    _seed(tmp_path)
+    plat = fake_platform(tmp_path)
+    now = datetime(2026, 7, 22, 12, 0, 0)
+    adapters = {"manual": MANUAL, "boom": RaisingAdapter()}
+    snap = run_observe(tmp_path, attest=True, now=now, platform=plat, adapters=adapters)
+    # manual is still observed; the crashing adapter is recorded, not fatal
+    keys = {o["adapter"] + "/" + o["native_id"] for o in snap["observed"]}
+    assert keys == {"manual/inv", "manual/key"}
+    assert snap["failed"] == [{"adapter": "boom", "error": "kaboom"}]
+    assert snap["schema_version"] == 1

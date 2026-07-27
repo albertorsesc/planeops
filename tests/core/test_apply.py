@@ -44,6 +44,20 @@ class FakeObserveOnly:
         return []
 
 
+class FakeRaisingExecute:
+    name = "fake"
+    domains = ("d",)
+
+    def observe(self, ctx):
+        return []
+
+    def plan(self, entry, obs):
+        return [CA] if entry.id == "fake/a" else []
+
+    def execute(self, change, ctx):
+        raise RuntimeError("execute boom")
+
+
 def _scripted(answers):
     it = iter(answers)
     return lambda change: next(it)
@@ -148,6 +162,15 @@ def test_human_owned_entry_is_never_written(tmp_path, fake_platform):
     applied = _run(tmp_path, fake_platform, {"fake": fake}, ["y"])
     assert fake.executed == []  # the plane never writes an owner:human entry
     assert applied == []
+
+
+def test_execute_exception_is_contained(tmp_path, fake_platform):
+    _seed(tmp_path)
+    applied = _run(tmp_path, fake_platform, {"fake": FakeRaisingExecute()}, ["y"])
+    assert len(applied) == 1
+    assert applied[0].executed
+    assert applied[0].result is not None and not applied[0].result.ok
+    assert "execute raised" in applied[0].result.detail
 
 
 def test_apply_writes_an_audit_record(tmp_path, fake_platform):
