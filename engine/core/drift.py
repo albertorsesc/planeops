@@ -110,6 +110,10 @@ def triage(
                         "attestation stale (>30d); run `plane observe --attest`",
                     )
                 )
+            if obs.facts.get("drifted"):
+                _soft_section(report, entry.tolerance).append(
+                    _item(entry, "drifted from its declared source; apply to converge")
+                )
             if (
                 entry.pin
                 and _same_major(obs.version, entry.pin)

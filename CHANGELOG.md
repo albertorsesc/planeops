@@ -35,6 +35,15 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and names no specific tool: the sources are configuration, not code.
 - `Ctx` now carries the instance `repo_root`, so an adapter can read
   instance-level configuration.
+- `chezmoi` adapter: delegates config/dotfile reproduction to chezmoi. Observes
+  managed files and their drift (`chezmoi status`) and converges a drifted file by
+  invoking `chezmoi apply`; chezmoi owns the writing, secrets, and templating while
+  tarmac governs it as one domain.
+- Drift triage surfaces a general content-drift signal (`facts.drifted`) from any
+  adapter, routed by the entry's tolerance.
+- `plane apply` records every run to an immutable `applied.jsonl`, re-observes so
+  drift reflects it, honors `owner: human` (never writes it), converges in `phase`
+  order, and contains a crashing adapter instead of aborting the run.
 - `DRIFT.md` report with Alerts / Report / Auto-folded / Uncovered / Re-auth
   sections, and a non-zero exit code when alerts exist.
 

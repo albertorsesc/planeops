@@ -122,3 +122,11 @@ def test_lifecycle_violation_stays_alert_even_when_tolerance_auto():
     e = _entry(tolerance="auto")
     rep = triage([e], {}, IMPL)  # active but absent
     assert len(rep.alerts) == 1 and not rep.auto_folded
+
+
+def test_content_drift_fact_is_reported():
+    # any adapter (e.g. chezmoi) can set facts["drifted"] to signal content drift
+    e = _entry()  # default tolerance report
+    rep = triage([e], {"manual/x": _obs("manual/x", drifted=True)}, IMPL)
+    assert not rep.alerts and len(rep.report) == 1
+    assert "drifted" in rep.report[0].message

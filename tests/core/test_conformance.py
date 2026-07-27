@@ -14,6 +14,7 @@ from datetime import datetime
 import pytest
 
 from engine.adapters._run import RunResult
+from engine.adapters.chezmoi import ChezmoiAdapter
 from engine.adapters.launchd import LaunchdAdapter
 from engine.adapters.manual import ManualAdapter
 from engine.adapters.mcp import McpAdapter
@@ -46,6 +47,7 @@ def _hermetic_adapters(tmp_path):
         "pkg-npm": PkgNpmAdapter(run=_empty_run),
         "pkg-nvm": PkgNvmAdapter(nvm_dir=empty),
         "mcp": McpAdapter(sources=[]),
+        "chezmoi": ChezmoiAdapter(run=_empty_run),
     }
 
 
@@ -56,6 +58,7 @@ _SAMPLE = {
     "pkg-brew": ("package", "ripgrep"),
     "pkg-uv": ("package", "ruff"),
     "pkg-npm": ("package", "typescript"),
+    "chezmoi": ("config", "somefile"),
 }
 
 

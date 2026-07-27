@@ -2,10 +2,10 @@
 #
 # It demonstrates every DRIFT section without assuming any particular private
 # tool: entries on the `manual`, `launchd`, `pkg-brew`, `pkg-uv`, `pkg-npm`,
-# `pkg-nvm`, `ollama`, and `mcp` adapters are covered today; entries whose real
-# adapter is not yet built (claude-code) surface under Uncovered, never as
+# `pkg-nvm`, `ollama`, `mcp`, and `chezmoi` adapters are covered today; entries
+# whose real adapter is not yet built (docker) surface under Uncovered, never as
 # violations. The `mcp` adapter reads its source list from `mcp-sources.yaml`
-# (see `mcp-sources.example.yaml`).
+# (see `mcp-sources.example.yaml`); `chezmoi` reproduces config files.
 #
 # LLM access here is bridged through public tools, never a provider API direct:
 # a coding harness (Claude Code), a router (OpenRouter), and local models
@@ -18,12 +18,17 @@ entries:
     lifecycle: active
     intent: "attested host inventory until adapters cover it"
 
-  - id: claude-code/harness
-    adapter: claude-code
-    domain: harness
+  - id: docker/local-registry
+    adapter: docker
+    domain: service
     lifecycle: active
-    auth: interactive
-    intent: "primary coding harness; config adapter lands M3"
+    intent: "a container service; the docker adapter is deferred, so this is Uncovered"
+
+  - id: chezmoi/.zshrc
+    adapter: chezmoi
+    domain: config
+    lifecycle: active
+    intent: "shell config, reproduced from a chezmoi source"
 
   - id: manual/openrouter-api-key
     adapter: manual
