@@ -11,12 +11,12 @@ Date: 2026-07-22.
 | Repo shape | Public engine repo (this repo: engine, spec, example registry, tests); machine-specific data (real registry, snapshots, secrets) lives in a separate private instance | engine/instance split |
 | Language | Python >= 3.12, uv-managed, `src`-less flat `engine/` package, pytest | Matches the target machine's tooling (uv present) |
 | CLI | `plane` entry point (`uv run plane <verb>`); verbs: `observe`, `drift`, `apply`, `import` | `cp` collides with coreutils |
-| Secrets | sops+age file in-repo is primary; Keychain and env files are materialization targets; age private key travels out-of-band | 05 §2.3 |
-| Reconciler | Human. Engine has no code path that mutates the machine without rendering a change and receiving confirmation; the scheduled job may run `observe` + `drift` only | 04 C5 |
-| Daemons | None, ever | 01 §3 |
-| Adapter wire | In-process Python protocol (section 4); adapters are packages under `engine/adapters/`, discovered by package scan, never by a central edit list | 04 C2; OCP |
-| Formats | `registry/` = YAML (human-authored, any file grouping); `observed/<host>/snapshot.json` = generated JSON; `observed/<host>/DRIFT.md` = generated report | 02 §1, 05 |
-| Rent/usage | Optional capability, not v0.1 scope | 05 §2.6 |
+| Secrets | sops+age file in-repo is primary; Keychain and env files are materialization targets; age private key travels out-of-band | portable across machines; values never in-repo |
+| Reconciler | Human. Engine has no code path that mutates the machine without rendering a change and receiving confirmation; the scheduled job may run `observe` + `drift` only | no unattended mutation |
+| Daemons | None, ever | smallest attack surface |
+| Adapter wire | In-process Python protocol (section 4); adapters are packages under `engine/adapters/`, discovered by package scan, never by a central edit list | OCP: add an adapter without editing the core |
+| Formats | `registry/` = YAML (human-authored, any file grouping); `observed/<host>/snapshot.json` = generated JSON; `observed/<host>/DRIFT.md` = generated report | desired state authored, observed state generated |
+| Rent/usage | Optional capability, not v0.1 scope | deferred |
 
 ## 2. Entry schema (field reference)
 
@@ -27,11 +27,11 @@ One entry = one managed asset. Registry files contain `entries: [...]`.
 | `id` | str | yes | | Unique. Convention `<adapter>/<native-id>`, e.g. `launchd/ai.example.gateway`, `ollama/qwen3:30b` |
 | `adapter` | str | yes | | Owning adapter name |
 | `domain` | str | yes | | Adapter-declared, open set: `service`, `model`, `package`, `mcp-server`, `skill`, ... |
-| `class` | enum | no | `recipe` | `recipe` \| `data` \| `cache` (05 §1). `data` entries reproduce via their declared sync; `cache` normally appears only in `unmanaged` |
+| `class` | enum | no | `recipe` | `recipe` \| `data` \| `cache`. `data` entries reproduce via their declared sync; `cache` normally appears only in `unmanaged` |
 | `scope` | str | no | `machine` | `machine` \| `user` \| `project:<abs-path>` |
 | `hosts` | list[str] | no | `[any]` | Pin to named hosts; observed state is always per-host |
 | `lifecycle` | enum | yes | | `active` \| `maintain` \| `parked` \| `retired` \| `purge` |
-| `owner` | enum | file-backed only | `runtime` | `plane` \| `runtime` \| `human` (05 §3, single-writer rule) |
+| `owner` | enum | file-backed only | `runtime` | `plane` \| `runtime` \| `human` (single-writer rule) |
 | `tolerance` | enum | no | `report` | `auto` \| `report` \| `alert` |
 | `intent` | str | yes | | One line: why this exists |
 | `kill_criteria` | str | no | | Falsifiable where possible |
@@ -75,7 +75,7 @@ class Adapter(Protocol):
     def usage(self, entry: Entry, ctx: Ctx) -> Usage | None: ...  # optional
 ```
 
-This protocol supersedes the contract sketches in docs 03 §5 and 04 C2: `apply` is split into `plan` + `execute` so the engine owns confirmation; per-adapter `diff` is dropped (the engine computes structural diffs from `Observed`); `compile` is deferred post-v0.1 along with the policy compilers it serves.
+This protocol splits `apply` into `plan` + `execute` so the engine owns confirmation; per-adapter `diff` is dropped (the engine computes structural diffs from `Observed`); `compile` is deferred post-v0.1 along with the policy compilers it serves.
 
 Core wire types (M1 scope):
 
@@ -92,7 +92,7 @@ Usage    = {last: datetime | None, count: int | None}
 ```
 
 - Engine, not adapters, owns confirmation: `plan()` returns `Change` objects; `execute()` is invoked per confirmed change. An adapter with no `plan/execute` is observe-only (report coverage without apply).
-- `Ctx` carries platform + secrets handles. `ctx.secrets.get()` raises outside `execute()` (and, post-v0.1, compile paths): the 04 C6 redaction guarantee, enforced in code.
+- `Ctx` carries platform + secrets handles. `ctx.secrets.get()` raises outside `execute()` (and, post-v0.1, compile paths): the redaction guarantee, enforced in code.
 - `SecretsBackend`: `exists(name)`, `meta(name) -> {created, rotated} | None`, `set(name)` (interactive), `get(name)` (gated as above).
 - `PlatformDarwin`: scheduler (launchd load/unload/list), standard paths, process listing.
 - A `manual` adapter ships in core: observe = attestation recorded in observed state, no execute. Attestation prompts run only in interactive `plane observe --attest`; in non-TTY runs (the Sunday slot) `manual` reuses the last attestation and marks it stale after 30 days (stale attestation = report-level drift). `manual` is reserved for assets with no planned adapter; rows whose real adapter is merely unbuilt keep the real adapter name and surface under **Uncovered** until it lands.
@@ -125,7 +125,7 @@ Importer emission rule: always emit the FINAL adapter name from this table, even
 - Unit: each adapter tested against fixture outputs of its tool (recorded real output, then edited variants); no test touches the live machine.
 - Contract conformance: one shared parametrized suite every adapter must pass (observe returns valid `Observed`, plan is pure, execute never runs unconfirmed).
 - Engine: schema validation, triage, redaction gate (a test proves `secrets.get` raises during observe).
-- Acceptance: the clean-account rehearsal (05 §4), scoped per adapter during the build, full pass at milestone M4.
+- Acceptance: the clean-account rehearsal, scoped per adapter during the build, full pass at milestone M4.
 - `tests/` mirrors `engine/` one-to-one.
 
 ## 8. Milestones
