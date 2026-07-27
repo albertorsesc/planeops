@@ -1,9 +1,9 @@
 # Example registry. Replace with your own machine's entries.
 #
 # It demonstrates every DRIFT section without assuming any particular private
-# tool: entries on the `manual`, `launchd`, `pkg-brew`, and `ollama` adapters are
-# covered today; entries whose real adapter is not yet built (claude-code)
-# surface under Uncovered, never as violations.
+# tool: entries on the `manual`, `launchd`, `pkg-brew`, `pkg-uv`, `pkg-npm`,
+# `pkg-nvm`, and `ollama` adapters are covered today; entries whose real adapter
+# is not yet built (claude-code) surface under Uncovered, never as violations.
 #
 # LLM access here is bridged through public tools, never a provider API direct:
 # a coding harness (Claude Code), a router (OpenRouter), and local models
@@ -48,6 +48,24 @@ entries:
     domain: package
     lifecycle: active
     intent: "fast search, installed via Homebrew"
+
+  - id: pkg-uv/httpie
+    adapter: pkg-uv
+    domain: package
+    lifecycle: active
+    intent: "HTTP client installed as a uv tool"
+
+  - id: pkg-npm/typescript
+    adapter: pkg-npm
+    domain: package
+    lifecycle: active
+    intent: "global TypeScript compiler"
+
+  - id: pkg-nvm/22.11.0
+    adapter: pkg-nvm
+    domain: runtime
+    lifecycle: active
+    intent: "pinned node runtime (observe-only; nvm is a shell function)"
 
   - id: launchd/com.example.agent-gateway
     adapter: launchd

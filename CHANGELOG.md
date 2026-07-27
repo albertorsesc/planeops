@@ -23,6 +23,12 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `ollama` adapter: observes local models (recording each model's digest as its
   version), and converges presence via `plan`/`execute` (pull an absent active
   model, remove a present retired one).
+- `pkg-uv` adapter: observes tools installed via `uv tool install` and converges
+  presence via `plan`/`execute`.
+- `pkg-npm` adapter: observes global npm packages and converges presence via
+  `plan`/`execute`.
+- `pkg-nvm` adapter: observes node runtimes under `~/.nvm/versions/node`
+  (observe-only, since nvm is a shell function rather than a binary).
 - `DRIFT.md` report with Alerts / Report / Auto-folded / Uncovered / Re-auth
   sections, and a non-zero exit code when alerts exist.
 
