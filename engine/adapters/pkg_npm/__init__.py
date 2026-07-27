@@ -52,7 +52,9 @@ class PkgNpmAdapter:
             for name, version in parse_npm_globals(res.out).items()
         ]
 
-    def plan(self, entry: Entry, obs: Observed | None) -> list[Change]:
+    def plan(
+        self, entry: Entry, obs: Observed | None, ctx: Ctx | None = None
+    ) -> list[Change]:
         package = entry.native_id
         if entry.lifecycle in ABSENT_LIFECYCLES:
             if obs is None:

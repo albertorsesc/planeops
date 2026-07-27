@@ -96,7 +96,9 @@ class LaunchdAdapter:
             )
         return out
 
-    def plan(self, entry: Entry, obs: Observed | None) -> list[Change]:
+    def plan(
+        self, entry: Entry, obs: Observed | None, ctx: Ctx | None = None
+    ) -> list[Change]:
         if obs is None:
             return []  # nothing observed on disk to load or unload
         facts = obs.facts

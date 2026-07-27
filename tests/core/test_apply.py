@@ -28,7 +28,7 @@ class FakeMutating:
     def observe(self, ctx):
         return []
 
-    def plan(self, entry, obs):
+    def plan(self, entry, obs, ctx=None):
         return self._changes.get(entry.id, [])
 
     def execute(self, change, ctx):
@@ -51,7 +51,7 @@ class FakeRaisingExecute:
     def observe(self, ctx):
         return []
 
-    def plan(self, entry, obs):
+    def plan(self, entry, obs, ctx=None):
         return [CA] if entry.id == "fake/a" else []
 
     def execute(self, change, ctx):

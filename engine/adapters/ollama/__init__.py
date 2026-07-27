@@ -51,7 +51,9 @@ class OllamaAdapter:
             for name, meta in parse_ollama_list(res.out).items()
         ]
 
-    def plan(self, entry: Entry, obs: Observed | None) -> list[Change]:
+    def plan(
+        self, entry: Entry, obs: Observed | None, ctx: Ctx | None = None
+    ) -> list[Change]:
         model = entry.native_id
         if entry.lifecycle in ABSENT_LIFECYCLES:
             if obs is None:

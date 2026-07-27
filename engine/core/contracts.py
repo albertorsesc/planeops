@@ -105,12 +105,14 @@ class Result:
 
 @runtime_checkable
 class MutatingAdapter(Adapter, Protocol):
-    """An adapter that can converge its domain. `plan` is pure (proposes
-    Changes from an entry and its observed state); `execute` runs one confirmed
-    Change. The engine owns confirmation between them, so an adapter never
-    mutates unprompted."""
+    """An adapter that can converge its domain. `plan` is pure (proposes Changes
+    from an entry, its observed state, and a read-only `ctx` for host/repo/secrets
+    resolution); `execute` runs one confirmed Change. The engine owns confirmation
+    between them, so an adapter never mutates unprompted."""
 
-    def plan(self, entry: Entry, obs: Observed | None) -> list[Change]: ...
+    def plan(
+        self, entry: Entry, obs: Observed | None, ctx: Ctx | None = None
+    ) -> list[Change]: ...
 
     def execute(self, change: Change, ctx: Ctx) -> Result: ...
 

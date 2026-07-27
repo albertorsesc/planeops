@@ -141,7 +141,7 @@ def run_apply(
             continue  # human-owned: the plane observes and reports, never writes
         obs = observed_by_key.get(entry.id)
         try:
-            changes = adapter.plan(entry, obs)
+            changes = adapter.plan(entry, obs, ctx)
         except Exception as exc:  # a broken adapter must not abort the whole run
             applied.append(
                 Applied(

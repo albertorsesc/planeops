@@ -46,7 +46,9 @@ class PkgBrewAdapter:
             for name, version in parse_brew_versions(res.out).items()
         ]
 
-    def plan(self, entry: Entry, obs: Observed | None) -> list[Change]:
+    def plan(
+        self, entry: Entry, obs: Observed | None, ctx: Ctx | None = None
+    ) -> list[Change]:
         formula = entry.native_id
         if entry.lifecycle in ABSENT_LIFECYCLES:
             if obs is None:
