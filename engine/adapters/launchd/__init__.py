@@ -15,34 +15,12 @@ from __future__ import annotations
 
 import os
 import plistlib
-import subprocess
-from collections.abc import Callable
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from engine.adapters._run import Runner, default_run
 from engine.core.contracts import Change, Ctx, Observed, Result
 from engine.core.schema import ABSENT_LIFECYCLES, Entry, Lifecycle
-
-
-@dataclass(frozen=True, slots=True)
-class RunResult:
-    code: int
-    out: str = ""
-    err: str = ""
-
-
-Runner = Callable[[list[str]], RunResult]
-
-
-def _default_run(cmd: list[str]) -> RunResult:
-    try:
-        proc = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=10, check=False
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        return RunResult(127, "", str(exc))
-    return RunResult(proc.returncode, proc.stdout, proc.stderr)
 
 
 def parse_launchctl_list(text: str) -> dict[str, int | None]:
@@ -82,7 +60,7 @@ class LaunchdAdapter:
     domains: tuple[str, ...] = ("service",)
 
     def __init__(self, run: Runner | None = None, agents_dir: Path | None = None):
-        self._run = run or _default_run
+        self._run = run or default_run
         self._agents_dir_override = agents_dir
 
     def _agents_dir(self, ctx: Ctx) -> Path:

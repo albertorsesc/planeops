@@ -2,10 +2,10 @@ import os
 import plistlib
 from datetime import datetime
 
+from engine.adapters._run import RunResult
 from engine.adapters.launchd import (
     ADAPTER,
     LaunchdAdapter,
-    RunResult,
     parse_launchctl_list,
 )
 from engine.core.contracts import Change, Ctx, can_apply
