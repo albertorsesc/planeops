@@ -11,7 +11,7 @@ against recorded `ollama` output and never shells out under test.
 
 from __future__ import annotations
 
-from engine.adapters._run import Runner, default_run
+from engine._run import Runner, default_run
 from engine.core.contracts import Change, Ctx, Observed, Result
 from engine.core.schema import ABSENT_LIFECYCLES, Entry
 

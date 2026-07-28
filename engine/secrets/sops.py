@@ -14,7 +14,7 @@ from typing import Any
 
 import yaml
 
-from engine.adapters._run import Runner, default_run
+from engine._run import Runner, default_run
 
 
 class SopsBackend:

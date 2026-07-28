@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from engine.adapters._run import RunResult
+from engine._run import RunResult
 from engine.adapters.pkg_brew import ADAPTER, PkgBrewAdapter, parse_brew_versions
 from engine.core.contracts import Change, Ctx, Observed, can_apply
 from engine.core.schema import entry_from_dict

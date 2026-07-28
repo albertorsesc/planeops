@@ -1,7 +1,7 @@
 import pytest
 import yaml
 
-from engine.adapters._run import RunResult
+from engine._run import RunResult
 from engine.secrets.sops import SopsBackend
 
 # A sops file: keys plaintext, values encrypted, plus the `sops` metadata block.

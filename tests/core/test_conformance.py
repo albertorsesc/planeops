@@ -13,7 +13,7 @@ from datetime import datetime
 
 import pytest
 
-from engine.adapters._run import RunResult
+from engine._run import RunResult
 from engine.adapters.chezmoi import ChezmoiAdapter
 from engine.adapters.launchd import LaunchdAdapter
 from engine.adapters.manual import ManualAdapter
