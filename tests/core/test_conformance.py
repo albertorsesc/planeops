@@ -24,6 +24,7 @@ from engine.adapters.pkg_npm import PkgNpmAdapter
 from engine.adapters.pkg_nvm import PkgNvmAdapter
 from engine.adapters.pkg_uv import PkgUvAdapter
 from engine.adapters.secrets import SecretsAdapter
+from engine.adapters.systemd import SystemdAdapter
 from engine.core.contracts import Adapter, Change, Ctx, Observed, can_apply
 from engine.core.discovery import discover_adapters
 from engine.core.schema import entry_from_dict
@@ -50,6 +51,7 @@ def _hermetic_adapters(tmp_path):
         "mcp": McpAdapter(sources=[]),
         "chezmoi": ChezmoiAdapter(run=_empty_run),
         "secrets": SecretsAdapter(),
+        "systemd": SystemdAdapter(run=_empty_run, units_dir=empty),
     }
 
 
@@ -62,6 +64,7 @@ _SAMPLE = {
     "pkg-npm": ("package", "typescript"),
     "chezmoi": ("config", "somefile"),
     "secrets": ("secret", "openrouter-api-key"),
+    "systemd": ("service", "sample.service"),
 }
 
 
