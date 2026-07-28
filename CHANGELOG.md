@@ -10,6 +10,13 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Engine core: entry schema, the `observe`/`plan`/`execute` adapter contract,
   package-scan adapter discovery, and an injectable platform seam.
+- Platform implementations are discovered by package scan and selected by a
+  declared `sys_platforms` selector (no OS if/elif); a `linux` platform ships
+  alongside `darwin` so the engine runs off macOS.
+- Integration tests exercise the real `sops`/`age`/`chezmoi` binaries (skipped when
+  absent, so the default gate stays green without them); a CI job installs them on
+  Linux so the real-tool paths, not just the faked unit paths, are verified on
+  every PR.
 - `plane` CLI with four verbs: `observe`, `drift`, `apply`, and `import`.
 - Importers are discovered by package scan, like adapters: each exposes a module
   `IMPORTER`, and the CLI learns its `import` kinds from discovery rather than a
