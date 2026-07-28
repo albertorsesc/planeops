@@ -7,6 +7,10 @@ observed/
 # real per-machine adapter settings are instance-specific; only the .example ships
 instance.yaml
 
+# local-only clean-room verification env (Docker); not shipped, run per feature/fix
+rehearsal/
+.dockerignore
+
 # python
 .venv/
 __pycache__/

@@ -35,3 +35,34 @@ jobs:
 
       - name: Tests
         run: uv run --frozen pytest -q
+
+  # Linux parity: run the real-tool integration tests against actual sops/age/chezmoi.
+  integration:
+    runs-on: ubuntu-latest
+    env:
+      SOPS_VERSION: "3.13.3"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install sops, age, chezmoi
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends age
+          curl -fsSL "https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.amd64" \
+            -o "$HOME/.local/bin/sops"
+          chmod +x "$HOME/.local/bin/sops"
+          sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Integration tests (real sops/age/chezmoi, must not skip)
+        run: uv run --frozen pytest tests/integration -v

@@ -13,6 +13,7 @@ from pathlib import Path
 
 class PlatformDarwin:
     name = "darwin"
+    sys_platforms: tuple[str, ...] = ("darwin",)
 
     def hostname(self) -> str:
         # Local, stable host label. Strip the .local suffix Bonjour appends so
@@ -21,3 +22,6 @@ class PlatformDarwin:
 
     def home(self) -> Path:
         return Path.home()
+
+
+PLATFORM = PlatformDarwin()
