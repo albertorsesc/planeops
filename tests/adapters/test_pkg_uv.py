@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from engine.adapters._run import RunResult
+from engine._run import RunResult
 from engine.adapters.pkg_uv import ADAPTER, PkgUvAdapter, parse_uv_tools
 from engine.core.contracts import Change, Ctx, Observed, can_apply
 from engine.core.schema import entry_from_dict

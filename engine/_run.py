@@ -1,9 +1,11 @@
-"""Shared subprocess seam for adapters.
+"""Shared subprocess seam.
 
-Every adapter that shells out takes a `Runner` in its constructor and defaults to
-`default_run`. Tests inject a canned runner so an adapter is exercised against
-recorded tool output and never touches the real machine. The sops secrets backend
-uses it too; the engine's diff/triage logic does not shell out.
+A neutral top-level module (not under `adapters/`) so anything that shells out can
+depend on it without creating a core -> adapters import edge. Every adapter that
+shells out takes a `Runner` in its constructor and defaults to `default_run`, and
+the sops secrets backend uses it too. Tests inject a canned runner so callers are
+exercised against recorded tool output and never touch the real machine. The
+engine's diff/triage logic does not shell out.
 """
 
 from __future__ import annotations
