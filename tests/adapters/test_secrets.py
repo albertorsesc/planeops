@@ -158,7 +158,9 @@ def test_execute_writes_value_only_to_target_and_redacts_result(tmp_path):
     [change] = SecretsAdapter().plan(secret, None, _ctx([secret, consumer]))
 
     value = materialization_handle(FakeBackend(["openrouter-api-key"]))
-    res = SecretsAdapter().execute(change, _ctx([secret, consumer], secrets=value))
+    res = SecretsAdapter().execute(
+        change, _ctx([secret, consumer], repo_root=tmp_path, secrets=value)
+    )
 
     assert res.ok
     assert "VALUE" not in res.detail  # the result never carries the value
@@ -175,7 +177,9 @@ def test_execute_fails_closed_with_a_presence_only_handle(tmp_path):
     [change] = SecretsAdapter().plan(secret, None, _ctx([secret, consumer]))
 
     presence = SecretsHandle(FakeBackend(["openrouter-api-key"]))  # get() raises
-    res = SecretsAdapter().execute(change, _ctx([secret, consumer], secrets=presence))
+    res = SecretsAdapter().execute(
+        change, _ctx([secret, consumer], repo_root=tmp_path, secrets=presence)
+    )
 
     assert not res.ok
     assert not target.exists()  # a presence-only handle materializes nothing
@@ -191,16 +195,17 @@ def test_execute_refuses_a_symlinked_target(tmp_path):
     [change] = SecretsAdapter().plan(secret, None, _ctx([secret, consumer]))
 
     value = materialization_handle(FakeBackend(["openrouter-api-key"]))
-    res = SecretsAdapter().execute(change, _ctx([secret, consumer], secrets=value))
+    res = SecretsAdapter().execute(
+        change, _ctx([secret, consumer], repo_root=tmp_path, secrets=value)
+    )
 
     assert not res.ok  # refused
     assert real.read_text() == "PRE=existing\n"  # link target never written through
 
 
 def test_execute_follows_a_legitimate_symlinked_parent(tmp_path):
-    # A symlinked ANCESTOR directory (e.g. macOS /var -> /private/var) must still
-    # work: only the final component is guarded against symlinks, so real system
-    # paths are not broken. (Ancestor containment is a separate allowlist feature.)
+    # A symlinked ANCESTOR that resolves to WITHIN an allowed base (e.g. macOS
+    # /var -> /private/var) must still work, so real system paths are not broken.
     real_dir = tmp_path / "real"
     real_dir.mkdir()
     link_dir = tmp_path / "link"
@@ -211,7 +216,9 @@ def test_execute_follows_a_legitimate_symlinked_parent(tmp_path):
     [change] = SecretsAdapter().plan(secret, None, _ctx([secret, consumer]))
 
     value = materialization_handle(FakeBackend(["openrouter-api-key"]))
-    res = SecretsAdapter().execute(change, _ctx([secret, consumer], secrets=value))
+    res = SecretsAdapter().execute(
+        change, _ctx([secret, consumer], repo_root=tmp_path, secrets=value)
+    )
 
     assert res.ok  # legitimate symlinked parent is followed
     assert (
@@ -227,8 +234,58 @@ def test_execute_appends_without_disturbing_other_keys(tmp_path):
     [change] = SecretsAdapter().plan(secret, None, _ctx([secret, consumer]))
 
     value = materialization_handle(FakeBackend(["openrouter-api-key"]))
-    SecretsAdapter().execute(change, _ctx([secret, consumer], secrets=value))
+    SecretsAdapter().execute(
+        change, _ctx([secret, consumer], repo_root=tmp_path, secrets=value)
+    )
 
     lines = target.read_text().splitlines()
     assert "KEEP=1" in lines and "OTHER=2" in lines
     assert "OPENROUTER_API_KEY=VALUE::openrouter-api-key" in lines
+
+
+def _materialize(tmp_path, target, *, repo_root, allow=None):
+    """Drive one materialization to `target` and return the Result."""
+    if allow is not None:
+        (repo_root / "instance.yaml").write_text(
+            "secrets:\n  allow_targets:\n" + "".join(f"    - {p}\n" for p in allow)
+        )
+    consumer = _consumer("openrouter-api-key", f"file:{target}#OPENROUTER_API_KEY")
+    secret = _entry("openrouter-api-key")
+    [change] = SecretsAdapter().plan(secret, None, _ctx([secret, consumer]))
+    value = materialization_handle(FakeBackend(["openrouter-api-key"]))
+    return SecretsAdapter().execute(
+        change, _ctx([secret, consumer], repo_root=repo_root, secrets=value)
+    )
+
+
+def test_execute_refuses_a_target_outside_the_allowed_bases(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    outside = tmp_path / "outside" / "env"  # not under repo (or home)
+    res = _materialize(tmp_path, outside, repo_root=repo)
+    assert not res.ok and "allowed bases" in res.detail
+    assert not outside.exists()
+
+
+def test_execute_refuses_an_ancestor_symlink_that_escapes_the_bases(tmp_path):
+    # Bypass B: a symlinked ancestor inside the repo pointing OUT of it must not
+    # redirect the secret into the attacker directory.
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    attacker = tmp_path / "attacker"
+    attacker.mkdir()
+    (repo / "link").symlink_to(attacker, target_is_directory=True)
+    res = _materialize(tmp_path, repo / "link" / "env", repo_root=repo)
+    assert not res.ok and "allowed bases" in res.detail
+    assert not (attacker / "env").exists()  # nothing landed in the attacker dir
+
+
+def test_allow_targets_extends_the_bases(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    extra = tmp_path / "extra"  # outside repo, explicitly allowlisted
+    res = _materialize(tmp_path, extra / "env", repo_root=repo, allow=[str(extra)])
+    assert res.ok
+    assert (
+        extra / "env"
+    ).read_text() == "OPENROUTER_API_KEY=VALUE::openrouter-api-key\n"

@@ -60,6 +60,11 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`secrets: [{ref, injected_as: file:<path>#KEY}]`), decrypting via `sops -d`. The
   confirmation diff and the journal are value-redacted; the value lands only in the
   target file (created 0600, replaced atomically, symlinked targets refused).
+- Injection-path containment: a materialized secret may only be written into the
+  instance repo, the home directory, or a base listed in `instance.yaml`'s
+  `secrets.allow_targets`. A target that resolves outside every base (including via
+  a symlinked ancestor directory) is refused, so a secret can't be redirected out
+  of trusted space.
 - `DRIFT.md` report with Alerts / Report / Auto-folded / Uncovered / Re-auth
   sections, and a non-zero exit code when alerts exist.
 

@@ -17,6 +17,7 @@ import os
 from pathlib import Path
 from typing import Any, Protocol
 
+from engine.config import section as instance_section
 from engine.core.contracts import Change, Ctx, Observed, Result
 from engine.core.schema import Entry
 from engine.secrets import SecretsBackend
@@ -94,19 +95,27 @@ class SecretsAdapter:
         name = str(change.action["name"])
         target = Path(str(change.action["path"]))
         key = str(change.action["key"])
+        # Containment: resolve the target's parent (following legitimate symlinks)
+        # and refuse if it escapes the allowed injection bases, so a symlinked
+        # ancestor can't redirect the value out of trusted space.
+        real_parent = Path(os.path.realpath(target.parent))
+        if not _within(real_parent, _allowed_bases(ctx)):
+            return Result(
+                ok=False,
+                detail=f"refusing to materialize outside the allowed bases: {target}",
+            )
         try:
             # Raises unless this is the engine's materialization handle (secrets
             # adapter, post-confirmation); fail closed rather than proceed.
             value = ctx.secrets.get(name)
         except Exception as exc:
             return Result(ok=False, detail=f"could not read secret {name}: {exc}")
+        dest = real_parent / target.name
         try:
-            _upsert_env(target, key, value)
+            _upsert_env(real_parent, target.name, key, value)
         except Exception as exc:  # symlink refusal, write/replace failure, etc.
             return Result(ok=False, detail=f"could not materialize {key}: {exc}")
-        return Result(
-            ok=True, detail=f"materialized {key} -> {target} (value redacted)"
-        )
+        return Result(ok=True, detail=f"materialized {key} -> {dest} (value redacted)")
 
 
 def _targets_for(name: str, entries: tuple[Entry, ...]) -> list[tuple[str, str]]:
@@ -156,54 +165,85 @@ def _has_key(target: Path, key: str) -> bool:
     )
 
 
-def _read_lines_nofollow(target: Path) -> list[str]:
-    """Read the target's existing lines, opening it O_NOFOLLOW so a symlink AT the
-    target path (including one racing an earlier check) is refused, not followed. A
-    missing file reads as empty. Ancestor directories are traversed normally, so a
-    legitimate system symlink (e.g. macOS /var -> /private/var) still works."""
+def _allowed_bases(ctx: Ctx) -> list[Path]:
+    """Directories a secret may be materialized into: the instance repo and the home
+    dir by default, plus any `secrets.allow_targets` in instance.yaml. Each is
+    realpath-resolved, so containment compares resolved paths to resolved bases."""
+    bases: list[Path] = []
+    if ctx.repo_root is not None:
+        bases.append(Path(os.path.realpath(ctx.repo_root)))
+    home = ctx.platform.home() if ctx.platform is not None else None
+    if home is not None:
+        bases.append(Path(os.path.realpath(home)))
+    configured = instance_section(ctx.repo_root, "secrets").get("allow_targets")
+    if isinstance(configured, list):
+        for item in configured:
+            if isinstance(item, str) and item:
+                resolved = _resolve(item, home or Path.home())
+                bases.append(Path(os.path.realpath(resolved)))
+    return bases
+
+
+def _within(path: Path, bases: list[Path]) -> bool:
+    """True if `path` is one of `bases` or nested under one. Empty bases (nothing
+    resolvable and nothing configured) means deny-by-default."""
+    return any(path == base or base in path.parents for base in bases)
+
+
+def _read_lines(name: str, dir_fd: int) -> list[str]:
+    """Read the target's existing lines via openat with O_NOFOLLOW, so a symlink at
+    the target path (including one racing a prior check) is refused, not followed.
+    A missing file reads as empty."""
     try:
-        fd = os.open(str(target), os.O_RDONLY | os.O_NOFOLLOW)
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=dir_fd)
     except FileNotFoundError:
         return []
     except OSError as exc:
         if exc.errno == errno.ELOOP:
             raise RuntimeError(
-                f"refusing to materialize into a symlink: {target}"
+                f"refusing to materialize into a symlink: {name}"
             ) from exc
         raise
     with os.fdopen(fd, "r") as fh:
         return fh.read().splitlines()
 
 
-def _upsert_env(target: Path, key: str, value: str) -> None:
-    """Set `key=value` in a dotenv-style file and replace it atomically. The target
-    and temp files are opened O_NOFOLLOW, so a symlink planted AT the target path
-    (even one racing a prior check) is refused rather than followed; the temp is
-    created 0600 from the start and removed on any failure. A symlinked ANCESTOR
-    directory can still redirect the write: path containment (an allowlist of
-    injection bases) is the fix for that and is tracked as a follow-up, so ancestor
-    traversal stays permissive here to keep legitimate system symlinks working."""
-    target.parent.mkdir(parents=True, exist_ok=True)
-    lines = _read_lines_nofollow(target)
-    row = f"{key}={value}"
-    for i, line in enumerate(lines):
-        if line.split("=", 1)[0].strip() == key:
-            lines[i] = row
-            break
-    else:
-        lines.append(row)
-    content = "\n".join(lines) + "\n"
-
-    tmp = str(target) + ".tmp"
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+def _upsert_env(directory: Path, name: str, key: str, value: str) -> None:
+    """Set `key=value` in `directory`/`name` and replace it atomically. `directory`
+    is the caller's realpath-resolved, containment-checked parent; all file ops run
+    relative to its directory fd so the verified parent can't be swapped mid-write.
+    The final component and temp are opened O_NOFOLLOW (a symlinked target is
+    refused); the temp is created 0600 and removed on any failure."""
+    directory.mkdir(parents=True, exist_ok=True)
+    dir_fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
     try:
-        with os.fdopen(fd, "w") as fh:
-            fh.write(content)
-        os.replace(tmp, target)
-    except BaseException:
-        with contextlib.suppress(FileNotFoundError):
-            os.unlink(tmp)  # never leave plaintext behind on failure
-        raise
+        lines = _read_lines(name, dir_fd)
+        row = f"{key}={value}"
+        for i, line in enumerate(lines):
+            if line.split("=", 1)[0].strip() == key:
+                lines[i] = row
+                break
+        else:
+            lines.append(row)
+        content = "\n".join(lines) + "\n"
+
+        tmp = name + ".tmp"
+        fd = os.open(
+            tmp,
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW,
+            0o600,
+            dir_fd=dir_fd,
+        )
+        try:
+            with os.fdopen(fd, "w") as fh:
+                fh.write(content)
+            os.replace(tmp, name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
+        except BaseException:
+            with contextlib.suppress(FileNotFoundError):
+                os.unlink(tmp, dir_fd=dir_fd)  # never leave plaintext behind
+            raise
+    finally:
+        os.close(dir_fd)
 
 
 ADAPTER = SecretsAdapter()

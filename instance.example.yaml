@@ -65,7 +65,15 @@ importer:
     #   adapter: my-harness
     #   domain: skill
 
-# --- secrets adapter: where the sops store lives (presence tracked, not values)
-# Path is relative to the instance root. Omit this section to use the default.
+# --- secrets adapter: the sops store, and where secrets may be materialized ----
+# `store` (relative to the instance root) holds presence-tracked secrets; omit it
+# to use the default. `allow_targets` bounds where `plane apply` may write a
+# materialized secret value: the instance repo and your home directory are always
+# allowed, and each entry here adds another base. A target that resolves outside
+# every base (e.g. via a symlinked directory) is refused, so a secret can't be
+# redirected out of trusted space.
 secrets:
   store: registry/secrets.sops.yaml
+  # allow_targets:
+  #   - ~/.config/some-tool
+  #   - /etc/some-service
