@@ -13,10 +13,12 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Platform implementations are discovered by package scan and selected by a
   declared `sys_platforms` selector (no OS if/elif); a `linux` platform ships
   alongside `darwin` so the engine runs off macOS.
-- Integration tests exercise the real `sops`/`age`/`chezmoi` binaries (skipped when
-  absent, so the default gate stays green without them); a CI job installs them on
-  Linux so the real-tool paths, not just the faked unit paths, are verified on
-  every PR.
+- Integration tests exercise the real external tools instead of faked runners:
+  `sops`/`age`/`chezmoi`, and `launchctl` on macOS. Each skips when its tool is
+  absent, so the default gate stays green. A CI job installs sops/age/chezmoi on
+  Linux and runs them on every PR; the launchd test runs on macOS against a
+  throwaway agent loaded from a temp plist and booted out in teardown, so real
+  services are never touched.
 - `plane` CLI with four verbs: `observe`, `drift`, `apply`, and `import`.
 - Importers are discovered by package scan, like adapters: each exposes a module
   `IMPORTER`, and the CLI learns its `import` kinds from discovery rather than a
