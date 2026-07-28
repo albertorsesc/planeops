@@ -7,29 +7,47 @@ from engine.core.schema import entry_from_dict
 
 
 class Fake:
-    """systemctl seam: is-enabled/is-active answer by exit code; list-units gates
-    the session probe; enable/disable succeed unless the unit is in `fail`."""
+    """systemctl seam driven by a per-subcommand dispatch table (not an if-chain).
+    is-enabled/is-active answer with a status WORD; list-units gates the session
+    probe; enable/disable succeed unless the unit is in `fail`."""
 
-    def __init__(self, *, session=True, enabled=(), active=(), fail=()):
+    def __init__(self, *, session=True, enabled=(), active=(), static=(), fail=()):
         self.calls: list[list[str]] = []
         self.session = session
         self.enabled = set(enabled)
         self.active = set(active)
+        self.static = set(static)
         self.fail = set(fail)
+
+    def _is_enabled(self, unit):
+        if unit in self.static:
+            return RunResult(0, "static")  # exit 0, but NOT enable-able
+        return (
+            RunResult(0, "enabled")
+            if unit in self.enabled
+            else RunResult(1, "disabled")
+        )
+
+    def _handlers(self):
+        return {
+            "list-units": lambda _u: RunResult(0 if self.session else 1),
+            "is-enabled": self._is_enabled,
+            "is-active": lambda u: (
+                RunResult(0, "active") if u in self.active else RunResult(3, "inactive")
+            ),
+            "enable": lambda u: (
+                RunResult(1, "", "boom") if u in self.fail else RunResult(0)
+            ),
+            "disable": lambda u: (
+                RunResult(1, "", "boom") if u in self.fail else RunResult(0)
+            ),
+            "daemon-reload": lambda _u: RunResult(0),
+        }
 
     def __call__(self, cmd):
         self.calls.append(cmd)
-        if cmd == ["systemctl", "--user", "list-units", "--no-legend"]:
-            return RunResult(0 if self.session else 1)
-        if len(cmd) == 5 and cmd[2] == "is-enabled":
-            return RunResult(0 if cmd[4] in self.enabled else 1)
-        if len(cmd) == 5 and cmd[2] == "is-active":
-            return RunResult(0 if cmd[4] in self.active else 3)
-        if cmd[2] in ("enable", "disable"):
-            return RunResult(1, "", "boom") if cmd[-1] in self.fail else RunResult(0)
-        if cmd[2] == "daemon-reload":
-            return RunResult(0)
-        return RunResult(1, "", "unexpected")
+        handler = self._handlers().get(cmd[2])
+        return handler(cmd[-1]) if handler else RunResult(1, "", f"unexpected {cmd}")
 
 
 def _units(tmp_path, *names):
@@ -83,6 +101,21 @@ def test_observe_degrades_without_a_user_session(tmp_path):
 
 def test_observe_empty_when_no_units_dir(tmp_path):
     assert SystemdAdapter(run=Fake(), units_dir=tmp_path / "nope").observe(_ctx()) == []
+
+
+def test_observe_treats_a_static_unit_as_not_enabled(tmp_path):
+    # is-enabled prints 'static' with exit 0; reading the word (not the exit code)
+    # keeps a static unit from being reported enabled (regression: caught in CI).
+    d = _units(tmp_path, "s.service")
+    out = SystemdAdapter(run=Fake(static={"s.service"}), units_dir=d).observe(_ctx())[0]
+    assert out.facts["enabled"] is False
+
+
+def test_observe_skips_template_units(tmp_path):
+    # a template (worker@.service) is not a runnable unit; instances are worker@X
+    d = _units(tmp_path, "app.service", "worker@.service")
+    out = {o.native_id for o in SystemdAdapter(run=Fake(), units_dir=d).observe(_ctx())}
+    assert out == {"app.service"}
 
 
 # ---- plan ----------------------------------------------------------------

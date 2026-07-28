@@ -7,8 +7,9 @@ enabled/running. plan/execute converge that, `enable --now` an active-but-off un
 engine owns confirmation, so execute runs only per confirmed Change.
 
 Two axes, unlike launchd's single "loaded": systemd separates ENABLED (starts on
-login, `is-enabled`) from ACTIVE (running now, `is-active`); each is read by exit
-code, one unit per call. User unit files live in `~/.config/systemd/user/*.service`.
+login, `is-enabled`) from ACTIVE (running now, `is-active`); each is read from the
+status WORD, one unit per call, because the exit code alone conflates `static` and
+`masked` with enabled/disabled. User unit files live in `~/.config/systemd/user/`.
 OS access goes through the injected `run` seam plus `ctx.platform.home()`, so the
 adapter is testable against fixtures and, where no `systemd --user` session exists
 (e.g. macOS), observes nothing rather than crashing.
@@ -48,8 +49,10 @@ class SystemdAdapter:
         out: list[Observed] = []
         for unit_path in sorted(units_dir.glob("*.service")):
             unit = unit_path.name
-            enabled = self._is(unit, "is-enabled")
-            active = self._is(unit, "is-active")
+            if unit.endswith("@.service"):
+                continue  # a template, not a runnable unit; instances are foo@X.service
+            enabled = self._state(unit, "is-enabled") in ("enabled", "enabled-runtime")
+            active = self._state(unit, "is-active") == "active"
             out.append(
                 Observed(
                     adapter=self.name,
@@ -63,10 +66,11 @@ class SystemdAdapter:
             )
         return out
 
-    def _is(self, unit: str, check: str) -> bool:
-        # is-enabled / is-active answer by EXIT CODE (0 = yes). One unit per call:
-        # the aggregate exit code is unreliable with multiple units.
-        return self._run(["systemctl", "--user", check, "--quiet", unit]).code == 0
+    def _state(self, unit: str, check: str) -> str:
+        # The status WORD from is-enabled/is-active, one unit per call. The exit code
+        # alone is ambiguous: `static` and `masked` also exit 0/non-0 in ways that
+        # would read as enabled/disabled, so decide on the word instead.
+        return self._run(["systemctl", "--user", check, unit]).out.strip()
 
     def plan(
         self, entry: Entry, obs: Observed | None, ctx: Ctx | None = None

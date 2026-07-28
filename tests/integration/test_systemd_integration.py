@@ -69,11 +69,14 @@ def _cleanup() -> None:
 @pytest.fixture
 def unit_file():
     _USER_DIR.mkdir(parents=True, exist_ok=True)
-    (_USER_DIR / UNIT).write_text(
-        "[Unit]\nDescription=tarmac test\n[Service]\nExecStart=/bin/sleep 3600\n"
-    )
-    subprocess.run(["systemctl", "--user", "daemon-reload"], capture_output=True)
     try:
+        # Inside the try so cleanup runs even if setup (write/daemon-reload) fails.
+        (_USER_DIR / UNIT).write_text(
+            "[Unit]\nDescription=tarmac test\n"
+            "[Service]\nExecStart=/bin/sleep 3600\n"
+            "[Install]\nWantedBy=default.target\n"  # enable-able (not a `static` unit)
+        )
+        subprocess.run(["systemctl", "--user", "daemon-reload"], capture_output=True)
         yield
     finally:
         _cleanup()  # never leave the test unit enabled/running or on disk
