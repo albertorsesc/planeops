@@ -107,6 +107,42 @@ def test_yes_executes_no_skips(tmp_path, fake_platform):
     ]
 
 
+def test_unphased_entries_converge_by_adapter_default_phase(tmp_path, fake_platform):
+    # An unphased secret-like adapter (default_phase=5) must converge before an
+    # unphased service-like adapter (no default_phase -> last), even though the
+    # registry lists the service first.
+    reg = (
+        "entries:\n"
+        "  - {id: svc/x, adapter: svc, domain: s, lifecycle: active, intent: i}\n"
+        "  - {id: sec/y, adapter: sec, domain: sd, lifecycle: active, intent: i}\n"
+    )
+    _seed(tmp_path, reg)
+    order = []
+
+    class Recorder:
+        def __init__(self, name, domain, **kw):
+            self.name, self.domains = name, (domain,)
+            for k, v in kw.items():
+                setattr(self, k, v)
+
+        def observe(self, ctx):
+            return []
+
+        def plan(self, entry, obs, ctx=None):
+            return [Change(entry.id, "configure", "d", {})]
+
+        def execute(self, change, ctx):
+            order.append(change.entry_id)
+            return Result(ok=True, detail="")
+
+    adapters = {
+        "sec": Recorder("sec", "sd", default_phase=5),
+        "svc": Recorder("svc", "s"),  # no default_phase -> converges last
+    }
+    _run(tmp_path, fake_platform, adapters, ["y", "y"])
+    assert order == ["sec/y", "svc/x"]
+
+
 def test_all_in_domain_auto_approves_rest(tmp_path, fake_platform):
     _seed(tmp_path)
     fake = FakeMutating({"fake/a": [CA], "fake/b": [CB]})

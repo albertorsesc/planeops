@@ -61,6 +61,7 @@ _SAMPLE = {
     "pkg-uv": ("package", "ruff"),
     "pkg-npm": ("package", "typescript"),
     "chezmoi": ("config", "somefile"),
+    "secrets": ("secret", "openrouter-api-key"),
 }
 
 
@@ -158,5 +159,5 @@ def test_plan_is_pure_and_wellformed(tmp_path):
 
 def test_observe_only_adapters_do_not_expose_apply(tmp_path):
     adapters = _hermetic_adapters(tmp_path)
-    for name in ("manual", "mcp", "pkg-nvm", "secrets"):
+    for name in ("manual", "mcp", "pkg-nvm"):
         assert not can_apply(adapters[name])

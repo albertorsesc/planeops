@@ -6,7 +6,9 @@
 # entries whose real adapter is not yet built (docker) surface under Uncovered,
 # never as violations. Per-machine adapter settings (mcp sources, import rules,
 # the secrets store path) live in `instance.yaml`; `chezmoi` reproduces config
-# files; `secrets` tracks secret presence from a sops store (never values).
+# files; `secrets` tracks secret presence from a sops store and, at apply time,
+# materializes values into the injection targets a consumer declares (see the
+# launchd gateway below); a value never enters a snapshot or a report.
 #
 # LLM access here is bridged through public tools, never a provider API direct:
 # a coding harness (Claude Code), a router (OpenRouter), and local models
@@ -36,7 +38,8 @@ entries:
     domain: secret
     lifecycle: active
     auth: interactive
-    intent: "bridged LLM router key; presence tracked from the sops store"
+    phase: 5  # materialize before phase-6 services load, so their config is complete
+    intent: "bridged LLM router key; presence tracked, materialized into consumers"
 
   - id: ollama/llama3.2:3b
     adapter: ollama
@@ -79,7 +82,13 @@ entries:
     adapter: launchd
     domain: service
     lifecycle: active
+    phase: 6  # loads after secrets materialize (phase 5), against complete config
     intent: "an always-on local service, converged by the launchd adapter"
+    secrets:
+      # The secrets adapter writes this key's value into the file below at apply
+      # time; the value is read from the sops store only inside execute.
+      - ref: secret://sops/openrouter-api-key
+        injected_as: "file:~/.example-gateway/env#OPENROUTER_API_KEY"
 
   - id: launchd/com.example.retired-gateway
     adapter: launchd

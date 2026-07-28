@@ -16,6 +16,7 @@ from engine.core.contracts import Adapter, Ctx, Observed, Platform
 from engine.core.discovery import discover_adapters
 from engine.core.registry import Registry, load_registry
 from engine.platform import current_platform
+from engine.secrets.store import build_handle
 
 SNAPSHOT_SCHEMA_VERSION = 1  # bump when the snapshot / entry wire format changes
 
@@ -79,6 +80,7 @@ def run_observe(
         prior=prior,
         attest=attest,
         repo_root=repo_root,
+        secrets=build_handle(repo_root),  # sealed: get() raises during observe
     )
 
     observed: list[Observed] = []

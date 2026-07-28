@@ -1,5 +1,7 @@
+import pytest
 import yaml
 
+from engine.adapters._run import RunResult
 from engine.secrets.sops import SopsBackend
 
 # A sops file: keys plaintext, values encrypted, plus the `sops` metadata block.
@@ -43,3 +45,37 @@ def test_meta_present_for_configured_secret(tmp_path):
     assert SopsBackend(_write_store(tmp_path)).meta("openrouter_api_key") == {
         "configured": True
     }
+
+
+def test_get_decrypts_via_sops(tmp_path):
+    calls = []
+
+    def fake_run(cmd):
+        calls.append(cmd)
+        return RunResult(0, "sk-secret-value\n", "")
+
+    b = SopsBackend(_write_store(tmp_path), run=fake_run)
+    assert b.get("openrouter_api_key") == "sk-secret-value"  # trailing newline trimmed
+    assert calls == [
+        ["sops", "-d", "--extract", '["openrouter_api_key"]', str(b._store)]
+    ]
+
+
+def test_get_refuses_an_absent_key_without_shelling_out(tmp_path):
+    called = False
+
+    def fake_run(cmd):
+        nonlocal called
+        called = True
+        return RunResult(0, "", "")
+
+    b = SopsBackend(_write_store(tmp_path), run=fake_run)
+    with pytest.raises(KeyError):
+        b.get("nonexistent_key")
+    assert called is False
+
+
+def test_get_raises_when_sops_fails(tmp_path):
+    b = SopsBackend(_write_store(tmp_path), run=lambda cmd: RunResult(1, "", "no key"))
+    with pytest.raises(RuntimeError):
+        b.get("openrouter_api_key")
