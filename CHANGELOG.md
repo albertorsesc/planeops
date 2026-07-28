@@ -10,8 +10,12 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Engine core: entry schema, the `observe`/`plan`/`execute` adapter contract,
   package-scan adapter discovery, and an injectable platform seam.
-- `plane` CLI with four verbs: `observe`, `drift`, `apply`, and
-  `import stackfile`.
+- `plane` CLI with four verbs: `observe`, `drift`, `apply`, and `import`.
+- Importers are discovered by package scan, like adapters: each exposes a module
+  `IMPORTER`, and the CLI learns its `import` kinds from discovery rather than a
+  central list. `import stackfile` seeds entries from a stack manifest;
+  `import envfile` proposes `secrets/<name>` entries from a `.env` file, reading
+  only the keys (values are discarded, never printed or stored).
 - `manual` adapter: attestation-based observation for assets without a
   dedicated adapter, with 30-day staleness.
 - `launchd` adapter: observes user LaunchAgents (loaded/running state) and

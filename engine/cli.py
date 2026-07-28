@@ -82,21 +82,21 @@ def _cmd_apply(args: argparse.Namespace) -> int:
 
 
 def _cmd_import(args: argparse.Namespace) -> int:
-    if args.kind != "stackfile":
-        print(f"unknown import kind {args.kind!r}", file=sys.stderr)
-        return 1
-    from engine.importers.stackfile import load_rules, parse_stackfile, render_proposal
+    from engine.importers import discover_importers, render_proposal
 
     path = Path(args.path)
     if not path.is_file():
         print(f"no such file: {path}", file=sys.stderr)
         return 1
+
+    importer = discover_importers().get(args.kind)
+    if importer is None:  # argparse choices normally prevents this
+        print(f"unknown import kind {args.kind!r}", file=sys.stderr)
+        return 1
+
     repo = find_repo_root(Path(args.repo).resolve())
-    entries = parse_stackfile(path.read_text(), load_rules(repo))
-    print(
-        f"# proposed {len(entries)} entr(ies) from {path} "
-        "- review, then save into registry/"
-    )
+    entries = importer.propose(path.read_text(), repo)
+    print(importer.note(path, len(entries)))
     print(render_proposal(entries), end="")
     return 0
 
@@ -130,8 +130,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_apply.set_defaults(func=_cmd_apply)
 
+    from engine.importers import discover_importers
+
     p_import = sub.add_parser("import", help="propose registry entries from a manifest")
-    p_import.add_argument("kind", choices=["stackfile"])
+    p_import.add_argument("kind", choices=sorted(discover_importers()))
     p_import.add_argument("path")
     p_import.set_defaults(func=_cmd_import)
 
