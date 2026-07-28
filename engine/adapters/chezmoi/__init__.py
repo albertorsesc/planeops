@@ -24,6 +24,14 @@ from engine.core.contracts import Change, Ctx, Observed, Result
 from engine.core.schema import ABSENT_LIFECYCLES, Entry
 
 
+def _abs_target(path: str, ctx: Ctx) -> str:
+    """`chezmoi managed` yields home-relative paths; resolve to the absolute target
+    `chezmoi apply` expects. An already-absolute path is returned unchanged."""
+    if path.startswith("/") or ctx.platform is None:
+        return path
+    return str(ctx.platform.home() / path)
+
+
 def parse_chezmoi_managed(text: str) -> list[str]:
     """The target paths chezmoi manages, one per line."""
     return [line.strip() for line in text.splitlines() if line.strip()]
@@ -85,14 +93,19 @@ class ChezmoiAdapter:
     def execute(self, change: Change, ctx: Ctx) -> Result:
         action = change.action
         op = action.get("op")
-        path = action.get("path", "")
+        path = str(action.get("path", ""))
         if op != "apply":
             return Result(ok=False, detail=f"unknown chezmoi op {op!r}")
-        res = self._run(["chezmoi", "apply", path])
+        # `chezmoi managed` yields home-relative paths, but `chezmoi apply` resolves
+        # its argument against the CWD, so pass the absolute target. `--force`
+        # because tarmac already confirmed this change; without it chezmoi re-prompts
+        # on a TTY when the target changed since it last wrote, which fails headless.
+        target = _abs_target(path, ctx)
+        res = self._run(["chezmoi", "apply", "--force", target])
         if res.code != 0:
             detail = res.err.strip() or str(res.code)
-            return Result(ok=False, detail=f"chezmoi apply {path} failed: {detail}")
-        return Result(ok=True, detail=f"chezmoi apply {path}")
+            return Result(ok=False, detail=f"chezmoi apply {target} failed: {detail}")
+        return Result(ok=True, detail=f"chezmoi apply {target}")
 
 
 ADAPTER = ChezmoiAdapter()
