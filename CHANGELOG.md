@@ -48,9 +48,23 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   drift reflects it, honors `owner: human` (never writes it), converges in `phase`
   order, and contains a crashing adapter instead of aborting the run.
 - `secrets` adapter and a sops backend: track whether each declared secret is
-  configured, read from a sops store's key structure without decrypting a value
-  (presence only, never values). A declared-but-unconfigured secret is an alert.
-  Materialization and the redaction gate are a later slice.
+  configured, read from a sops store's key structure without decrypting a value.
+  A declared-but-unconfigured secret is an alert.
+- Redaction gate: `ctx.secrets` is a presence-only handle during observe, plan,
+  and every non-secrets execute, so requesting a value raises `RedactionError`. The
+  engine builds a value-capable handle only for the secrets adapter's confirmed
+  execute, so a secret value cannot reach a snapshot, a report, or the journal on
+  the ordinary paths.
+- Secrets materialization: at apply time the `secrets` adapter writes a secret's
+  value into the injection targets a consumer declares
+  (`secrets: [{ref, injected_as: file:<path>#KEY}]`), decrypting via `sops -d`. The
+  confirmation diff and the journal are value-redacted; the value lands only in the
+  target file (created 0600, replaced atomically, symlinked targets refused).
+- Injection-path containment: a materialized secret may only be written into the
+  instance repo, the home directory, or a base listed in `instance.yaml`'s
+  `secrets.allow_targets`. A target that resolves outside every base (including via
+  a symlinked ancestor directory) is refused, so a secret can't be redirected out
+  of trusted space.
 - `DRIFT.md` report with Alerts / Report / Auto-folded / Uncovered / Re-auth
   sections, and a non-zero exit code when alerts exist.
 

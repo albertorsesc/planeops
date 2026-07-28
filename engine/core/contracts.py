@@ -1,9 +1,9 @@
 """Core wire types and the adapter/platform contracts (SPEC.md section 4).
 
 Every interface here has a live implementer: `Adapter` (observe) is honored by
-the manual and launchd adapters; `MutatingAdapter` (plan/execute) by launchd,
-which `plane apply` drives. The usage contract and secrets handles are still
-deferred to their own milestones and are therefore not declared yet.
+the manual and launchd adapters; `MutatingAdapter` (plan/execute) by launchd and
+secrets, which `plane apply` drives. `Ctx.secrets` carries the redaction gate. The
+usage contract is still deferred to its own milestone and is not declared yet.
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Literal, Protocol, TypeGuard, runtime_checkable
 
 from engine.core.schema import Entry
+from engine.secrets import SecretsHandle
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +71,9 @@ class Ctx:
     prior: dict[str, Observed] = field(default_factory=dict)
     attest: bool = False
     repo_root: Path | None = None
+    # Sealed during observe/plan, unsealed by the engine only for execute. None
+    # when no secrets store is resolvable (e.g. no repo_root).
+    secrets: SecretsHandle | None = None
 
 
 @runtime_checkable

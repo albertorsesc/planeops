@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 
@@ -26,7 +26,9 @@ from engine.core.contracts import (
 from engine.core.discovery import discover_adapters
 from engine.core.observe import snapshot_path
 from engine.core.registry import load_registry
-from engine.core.schema import Owner
+from engine.core.schema import Entry, Owner
+from engine.secrets import SecretsBackend, SecretsHandle, materialization_handle
+from engine.secrets.store import resolve_backend
 
 # Returns 'y' (apply), 'n' (skip), or 'a' (apply this and the rest of its domain).
 Confirm = Callable[[Change], str]
@@ -91,6 +93,7 @@ def run_apply(
     adapters: dict[str, Adapter] | None = None,
     confirm: Confirm | None = None,
     now: datetime | None = None,
+    secrets_backend: SecretsBackend | None = None,
 ) -> list[Applied]:
     from engine.platform import current_platform
 
@@ -113,27 +116,45 @@ def run_apply(
     }
 
     registry = load_registry(repo_root / "registry")
-    entries = list(registry.entries_for_host(host))
+    # ctx sees the FULL host registry so an adapter can resolve cross-references
+    # (e.g. secrets materialization scans consumers). Only `to_converge` is narrowed
+    # by --id/--phase: filtering the ctx too would hide the consumers a --phase-5
+    # secrets run must materialize into phase-6 services.
+    all_entries = list(registry.entries_for_host(host))
+    to_converge = all_entries
     if only_id is not None:
-        entries = [e for e in entries if e.id == only_id]
+        to_converge = [e for e in to_converge if e.id == only_id]
     if only_phase is not None:
-        entries = [e for e in entries if e.phase == only_phase]
-    # Converge in phase order (SPEC.md section 5); unphased entries go last. The
-    # sort is stable, so registry order is preserved within a phase.
-    entries.sort(key=lambda e: e.phase if e.phase is not None else _UNPHASED)
+        to_converge = [e for e in to_converge if e.phase == only_phase]
 
+    def _phase_of(entry: Entry) -> int:
+        # entry phase wins; else the adapter's declared default; else last.
+        if entry.phase is not None:
+            return entry.phase
+        default = getattr(adapters.get(entry.adapter), "default_phase", None)
+        return default if default is not None else _UNPHASED
+
+    # Stable sort, so registry order is preserved within a phase.
+    to_converge = sorted(to_converge, key=_phase_of)
+
+    backend = (
+        secrets_backend if secrets_backend is not None else resolve_backend(repo_root)
+    )
     ctx = Ctx(
         platform=platform,
         host=host,
         now=now,
-        entries=tuple(entries),
+        entries=tuple(all_entries),
         prior=observed_by_key,
         repo_root=repo_root,
+        # Presence-only here (and for every non-secrets execute). The value-capable
+        # handle is built per-execute below, and only for a secret-domain adapter.
+        secrets=SecretsHandle(backend) if backend is not None else None,
     )
     auto_domains: set[str] = set()
     applied: list[Applied] = []
 
-    for entry in entries:
+    for entry in to_converge:
         adapter = adapters.get(entry.adapter)
         if adapter is None or not can_apply(adapter):
             continue  # observe-only or unbuilt: nothing to converge
@@ -151,6 +172,9 @@ def run_apply(
                 )
             )
             continue
+        # Only a secret-domain adapter's execute may obtain a value, and only if a
+        # backend resolved. Every other execute keeps the presence-only handle.
+        may_materialize = backend is not None and "secret" in adapter.domains
         for change in changes:
             if entry.domain in auto_domains:
                 decision = "y"
@@ -160,8 +184,11 @@ def run_apply(
                     auto_domains.add(entry.domain)
                     decision = "y"
             if decision == "y":
+                exec_ctx = ctx
+                if may_materialize and backend is not None:
+                    exec_ctx = replace(ctx, secrets=materialization_handle(backend))
                 try:
-                    result = adapter.execute(change, ctx)
+                    result = adapter.execute(change, exec_ctx)
                 except Exception as exc:  # contain a crashing execute
                     result = Result(ok=False, detail=f"execute raised: {exc}")
                 applied.append(Applied(change, True, result))

@@ -2,8 +2,8 @@
 
 Every adapter that shells out takes a `Runner` in its constructor and defaults to
 `default_run`. Tests inject a canned runner so an adapter is exercised against
-recorded tool output and never touches the real machine. The engine core never
-imports this; only adapters do.
+recorded tool output and never touches the real machine. The sops secrets backend
+uses it too; the engine's diff/triage logic does not shell out.
 """
 
 from __future__ import annotations
