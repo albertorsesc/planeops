@@ -90,6 +90,15 @@ entries:
       - ref: secret://sops/openrouter-api-key
         injected_as: "file:~/.example-gateway/env#OPENROUTER_API_KEY"
 
+  - id: launchd/com.example.weekly-maintenance
+    adapter: launchd
+    domain: service
+    lifecycle: active
+    intent: "your own scheduled maintenance script (updates, etc.), governed as a
+      service. The script and its plist live in YOUR private instance, out of any
+      cloud-synced directory, and are never committed here; tarmac only tracks that
+      the service exists and matches desired state."
+
   - id: launchd/com.example.retired-gateway
     adapter: launchd
     domain: service

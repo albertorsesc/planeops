@@ -57,7 +57,6 @@ tarmac/
 ├── registry/                 # entries + unmanaged.yaml (+ secrets.sops.yaml encrypted)
 ├── policy/                   # deferred beyond secrets rotation classes
 ├── observed/<host>/          # snapshot.json + DRIFT.md (generated; commit is opt-in)
-├── services/                 # update-stack.sh + plists once relocated
 ├── tests/                    # mirrors engine/ one-to-one
 └── pyproject.toml            # uv-managed; console script `plane`
 ```
@@ -137,7 +136,7 @@ Importer emission rule: a rule may name an adapter that is not yet implemented; 
 ## 8. Milestones
 
 - **M1**: engine core (schema, observe/drift loop, manual adapter, DRIFT rendering) + registry seeded via stackfile import. Machine fully covered, mostly by attestation.
-- **M2**: pkg-brew, pkg-nvm (node runtime), pkg-npm, pkg-uv, launchd adapters with plan/execute. Relocate `update-stack.sh`; the Sunday slot keeps running it (dependency/integration/tool updates stay scheduled) followed by `plane observe && plane drift`, so every update lands already observed and drift-checked. (A legacy gateway retirement, originally this milestone's first transaction, was executed manually before the build.)
+- **M2**: pkg-brew, pkg-nvm (node runtime), pkg-npm, pkg-uv, launchd adapters with plan/execute. A machine's own scheduled maintenance script (e.g. a weekly stack updater) stays in that machine's private instance, out of any cloud-synced directory, and is governed here only as a `launchd` service entry, never committed to this repo. Its scheduled slot runs the update, then `plane observe && plane drift`, so every update lands already observed and drift-checked. (A legacy gateway retirement, originally this milestone's first transaction, was executed manually before the build.)
 - **M3**: `ollama` adapter (done) and `mcp` adapter (done, cross-runtime MCP visibility from a configurable source list). Harness-config reproduction (`~/.claude` and any other tool's config) is delegated to an external, agnostic dotfiles manager (chezmoi) behind a normal adapter, rather than an in-house `claude-code` adapter, so no tool-specific config engine lives in the core.
 - **M4**: secrets (sops+age store, importer, materialization, re-auth checklist) + a service home recipe (declared key-paths in its config, venv rebuild, cron jobs) + first full clean-account rehearsal green.
 - Post-v0.1 (explicitly out): usage/rent, policy compilers, docker adapter, second host.
