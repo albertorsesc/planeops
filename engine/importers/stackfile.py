@@ -1,10 +1,11 @@
 """Import a hand-maintained manifest of a machine's stack into proposed entries.
 
-The section-to-adapter mapping is configuration, not code. Rules live in
-`stackfile-mapping.yaml` at the instance root (see `stackfile-mapping.example.yaml`)
-and are loaded per import, so the importer names no specific tool. A section that
-no rule matches imports as `manual`, for a human to sort out. Nothing is written;
-the CLI prints the proposal for review, and every row is marked for verification.
+The section-to-adapter mapping is configuration, not code. Rules live under the
+`importer.rules` key of `instance.yaml` at the instance root (see
+`instance.example.yaml`) and are loaded per import, so the importer names no
+specific tool. A section that no rule matches imports as `manual`, for a human to
+sort out. Nothing is written; the CLI prints the proposal for review, and every row
+is marked for verification.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from typing import Any
 
 import yaml
 
-MAPPING_FILE = "stackfile-mapping.yaml"
+from engine.config import section as instance_section
 
 _HEADER_RE = re.compile(r"^#{1,6}\s+(.*\S)\s*$")
 _ITEM_RE = re.compile(r"^\s*[-*]\s+(.*\S)\s*$")
@@ -30,18 +31,9 @@ class HeaderRule:
 
 
 def load_rules(repo_root: Path | None) -> list[HeaderRule]:
-    """Read section->adapter rules from `<repo_root>/stackfile-mapping.yaml`.
-    Missing file or root yields no rules (every section then imports as manual)."""
-    if repo_root is None:
-        return []
-    path = repo_root / MAPPING_FILE
-    if not path.is_file():
-        return []
-    try:
-        data = yaml.safe_load(path.read_text())
-    except (yaml.YAMLError, OSError):
-        return []
-    raw = data.get("rules") if isinstance(data, dict) else None
+    """Read section->adapter rules from `instance.yaml`'s `importer.rules`. Missing
+    file, root, or section yields no rules (every section then imports as manual)."""
+    raw = instance_section(repo_root, "importer").get("rules")
     if not isinstance(raw, list):
         return []
     rules: list[HeaderRule] = []

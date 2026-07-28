@@ -70,8 +70,12 @@ def test_proposal_is_valid_yaml_roundtrip():
 
 
 def test_load_rules_reads_the_mapping_file(tmp_path):
-    (tmp_path / "stackfile-mapping.yaml").write_text(
-        "rules:\n  - keyword: mcp\n    adapter: mcp\n    domain: mcp-server\n"
+    (tmp_path / "instance.yaml").write_text(
+        "importer:\n"
+        "  rules:\n"
+        "    - keyword: mcp\n"
+        "      adapter: mcp\n"
+        "      domain: mcp-server\n"
     )
     assert load_rules(tmp_path) == [HeaderRule("mcp", "mcp", "mcp-server")]
 

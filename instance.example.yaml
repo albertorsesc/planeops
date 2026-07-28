@@ -1,0 +1,71 @@
+# Per-machine adapter settings for this instance.
+#
+# Three kinds of config live in a tarmac instance, kept apart on purpose:
+#   registry/*.yaml        what should exist (desired state; one file or many)
+#   registry/*.sops.yaml   encrypted secret values (a sops store)
+#   instance.yaml (this)   how this machine's adapters read: where they look
+#
+# Copy this file to `instance.yaml` (gitignored) and edit the sections for the
+# adapters you actually run. The engine names no tool; every tool-specific path
+# appears only here. Each section is optional: omit one and that adapter falls
+# back to its default (no sources / no rules / the default secrets store).
+
+# --- mcp adapter: where MCP servers are wired on this machine ----------------
+# Each source: label (shown as the source), path (`~` expands to home), format
+# (`json` or `yaml`), key (the mapping holding the servers; default mcpServers).
+mcp:
+  sources:
+    - label: coding-harness
+      path: ~/.some-harness/config.json
+      format: json
+      key: mcpServers
+
+    - label: desktop-app
+      path: ~/Library/Application Support/SomeApp/config.json
+      format: json
+      key: mcpServers
+
+    - label: gateway
+      path: ~/.some-gateway/config.yaml
+      format: yaml
+      key: mcp_servers
+
+# --- import: manifest section -> adapter mapping for `plane import stackfile` -
+# The first rule whose `keyword` appears (case-insensitively) in a section header
+# wins. A section that matches no rule imports as `manual`, for you to sort out.
+importer:
+  rules:
+    - keyword: machine
+      adapter: manual
+      domain: host
+
+    - keyword: service
+      adapter: launchd
+      domain: service
+
+    - keyword: package
+      adapter: pkg-brew
+      domain: package
+
+    - keyword: model
+      adapter: ollama
+      domain: model
+
+    - keyword: mcp
+      adapter: mcp
+      domain: mcp-server
+
+    - keyword: secret
+      adapter: secrets
+      domain: secret
+
+    # Tool-specific example: map a "skills" section to your coding harness's
+    # adapter once it exists. Uncomment and adapt.
+    # - keyword: skill
+    #   adapter: my-harness
+    #   domain: skill
+
+# --- secrets adapter: where the sops store lives (presence tracked, not values)
+# Path is relative to the instance root. Omit this section to use the default.
+secrets:
+  store: registry/secrets.sops.yaml

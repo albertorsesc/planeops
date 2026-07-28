@@ -107,8 +107,8 @@ Usage    = {last: datetime | None, count: int | None}
 
 ## 6. Manifest import mapping
 
-The section-to-adapter mapping is configuration, not code: rules live in
-`stackfile-mapping.yaml` at the instance root (`stackfile-mapping.example.yaml`
+The section-to-adapter mapping is configuration, not code: rules live under
+`instance.yaml`'s `importer.rules` at the instance root (`instance.example.yaml`
 ships as a template) and the importer names no specific tool. A section matching no
 rule imports as `manual`. The table below is an illustrative mapping; the `Skills`
 row in particular is tool-specific and belongs in an instance's own config.
@@ -120,7 +120,7 @@ row in particular is tool-specific and belongs in an instance's own config.
 | Browser Automation | `pkg-npm` / `manual` | `package`, `app` | |
 | Infrastructure | `manual` (docker adapter deferred) | `service` | observe-only in v0.1 |
 | Custom Systems | `manual` | `project` | `class: data` pointers to repos + their sync |
-| MCP Servers | `mcp` | `mcp-server` | reads a configurable source list (`mcp-sources.yaml`), merges servers by name across runtimes |
+| MCP Servers | `mcp` | `mcp-server` | reads a configurable source list (`instance.yaml`'s `mcp.sources`), merges servers by name across runtimes |
 | Skills | `claude-code` | `skill` | recipe = source (repo/symlink target) |
 | Secrets / API Keys / Subscriptions | `manual` (M1) → sops+age refs (M4) | `secret` | M1 imports names + `auth: interactive` flags as manual entries; M4's importer migrates them to `secret://` refs. Values never read |
 
