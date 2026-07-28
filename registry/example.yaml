@@ -2,10 +2,11 @@
 #
 # It demonstrates every DRIFT section without assuming any particular private
 # tool: entries on the `manual`, `launchd`, `pkg-brew`, `pkg-uv`, `pkg-npm`,
-# `pkg-nvm`, `ollama`, `mcp`, and `chezmoi` adapters are covered today; entries
-# whose real adapter is not yet built (docker) surface under Uncovered, never as
-# violations. The `mcp` adapter reads its source list from `mcp-sources.yaml`
-# (see `mcp-sources.example.yaml`); `chezmoi` reproduces config files.
+# `pkg-nvm`, `ollama`, `mcp`, `chezmoi`, and `secrets` adapters are covered today;
+# entries whose real adapter is not yet built (docker) surface under Uncovered,
+# never as violations. Per-machine adapter settings (mcp sources, import rules,
+# the secrets store path) live in `instance.yaml`; `chezmoi` reproduces config
+# files; `secrets` tracks secret presence from a sops store (never values).
 #
 # LLM access here is bridged through public tools, never a provider API direct:
 # a coding harness (Claude Code), a router (OpenRouter), and local models
@@ -30,12 +31,12 @@ entries:
     lifecycle: active
     intent: "shell config, reproduced from a chezmoi source"
 
-  - id: manual/openrouter-api-key
-    adapter: manual
+  - id: secrets/openrouter-api-key
+    adapter: secrets
     domain: secret
     lifecycle: active
     auth: interactive
-    intent: "bridged LLM router (OpenRouter); presence-only until secrets land M4"
+    intent: "bridged LLM router key; presence tracked from the sops store"
 
   - id: ollama/llama3.2:3b
     adapter: ollama

@@ -103,6 +103,8 @@ def triage(
             else:
                 report.report.append(_item(entry, "parked but not observed"))
         else:
+            if obs.facts.get("configured") is False:
+                report.alerts.append(_item(entry, "required secret is not configured"))
             if obs.facts.get("stale"):
                 _soft_section(report, entry.tolerance).append(
                     _item(

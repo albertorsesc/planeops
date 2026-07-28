@@ -23,6 +23,7 @@ from engine.adapters.pkg_brew import PkgBrewAdapter
 from engine.adapters.pkg_npm import PkgNpmAdapter
 from engine.adapters.pkg_nvm import PkgNvmAdapter
 from engine.adapters.pkg_uv import PkgUvAdapter
+from engine.adapters.secrets import SecretsAdapter
 from engine.core.contracts import Adapter, Change, Ctx, Observed, can_apply
 from engine.core.discovery import discover_adapters
 from engine.core.schema import entry_from_dict
@@ -48,6 +49,7 @@ def _hermetic_adapters(tmp_path):
         "pkg-nvm": PkgNvmAdapter(nvm_dir=empty),
         "mcp": McpAdapter(sources=[]),
         "chezmoi": ChezmoiAdapter(run=_empty_run),
+        "secrets": SecretsAdapter(),
     }
 
 
@@ -156,5 +158,5 @@ def test_plan_is_pure_and_wellformed(tmp_path):
 
 def test_observe_only_adapters_do_not_expose_apply(tmp_path):
     adapters = _hermetic_adapters(tmp_path)
-    for name in ("manual", "mcp", "pkg-nvm"):
+    for name in ("manual", "mcp", "pkg-nvm", "secrets"):
         assert not can_apply(adapters[name])
