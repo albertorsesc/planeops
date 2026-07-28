@@ -15,9 +15,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from engine.config import section as instance_section
+from engine.importers import render_proposal
 
 _HEADER_RE = re.compile(r"^#{1,6}\s+(.*\S)\s*$")
 _ITEM_RE = re.compile(r"^\s*[-*]\s+(.*\S)\s*$")
@@ -102,5 +101,26 @@ def parse_stackfile(text: str, rules: list[HeaderRule]) -> list[dict[str, Any]]:
     return entries
 
 
-def render_proposal(entries: list[dict[str, Any]]) -> str:
-    return yaml.safe_dump({"entries": entries}, sort_keys=False, allow_unicode=True)
+class StackfileImporter:
+    kind = "stackfile"
+
+    def propose(self, text: str, repo_root: Path | None) -> list[dict[str, Any]]:
+        return parse_stackfile(text, load_rules(repo_root))
+
+    def note(self, path: Path, count: int) -> str:
+        return (
+            f"# proposed {count} entr(ies) from {path} "
+            "- review, then save into registry/"
+        )
+
+
+IMPORTER = StackfileImporter()
+
+__all__ = [
+    "IMPORTER",
+    "HeaderRule",
+    "StackfileImporter",
+    "load_rules",
+    "parse_stackfile",
+    "render_proposal",
+]
