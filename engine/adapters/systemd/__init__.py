@@ -1,0 +1,151 @@
+"""systemd adapter (Linux user services).
+
+The Linux parity to the launchd adapter: observe reports which user units exist and
+whether they are enabled and active, so drift catches a `retired` service still
+enabled/running. plan/execute converge that, `enable --now` an active-but-off unit,
+`disable --now` a retired-but-on one, mirroring launchd's bootstrap/bootout. The
+engine owns confirmation, so execute runs only per confirmed Change.
+
+Two axes, unlike launchd's single "loaded": systemd separates ENABLED (starts on
+login, `is-enabled`) from ACTIVE (running now, `is-active`); each is read by exit
+code, one unit per call. User unit files live in `~/.config/systemd/user/*.service`.
+OS access goes through the injected `run` seam plus `ctx.platform.home()`, so the
+adapter is testable against fixtures and, where no `systemd --user` session exists
+(e.g. macOS), observes nothing rather than crashing.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from engine._run import Runner, default_run
+from engine.core.contracts import Change, Ctx, Observed, Result
+from engine.core.schema import ABSENT_LIFECYCLES, Entry, Lifecycle
+
+
+class SystemdAdapter:
+    name = "systemd"
+    domains: tuple[str, ...] = ("service",)
+
+    def __init__(self, run: Runner | None = None, units_dir: Path | None = None):
+        self._run = run or default_run
+        self._units_dir_override = units_dir
+
+    def _units_dir(self, ctx: Ctx) -> Path:
+        if self._units_dir_override is not None:
+            return self._units_dir_override
+        return ctx.platform.home() / ".config" / "systemd" / "user"
+
+    def observe(self, ctx: Ctx) -> list[Observed]:
+        units_dir = self._units_dir(ctx)
+        if not units_dir.is_dir():
+            return []
+        # No `systemd --user` session (macOS, or no user bus): report nothing rather
+        # than emitting false "disabled/inactive" facts for every unit file.
+        if self._run(["systemctl", "--user", "list-units", "--no-legend"]).code != 0:
+            return []
+
+        out: list[Observed] = []
+        for unit_path in sorted(units_dir.glob("*.service")):
+            unit = unit_path.name
+            enabled = self._is(unit, "is-enabled")
+            active = self._is(unit, "is-active")
+            out.append(
+                Observed(
+                    adapter=self.name,
+                    native_id=unit,
+                    facts={
+                        "enabled": enabled,
+                        "active": active,
+                        "unit_path": str(unit_path),
+                    },
+                )
+            )
+        return out
+
+    def _is(self, unit: str, check: str) -> bool:
+        # is-enabled / is-active answer by EXIT CODE (0 = yes). One unit per call:
+        # the aggregate exit code is unreliable with multiple units.
+        return self._run(["systemctl", "--user", check, "--quiet", unit]).code == 0
+
+    def plan(
+        self, entry: Entry, obs: Observed | None, ctx: Ctx | None = None
+    ) -> list[Change]:
+        if obs is None:
+            return []  # no unit file observed to enable or disable
+        facts = obs.facts
+        unit = obs.native_id
+        unit_path = facts.get("unit_path")
+        enabled = bool(facts.get("enabled"))
+        active = bool(facts.get("active"))
+
+        if entry.lifecycle in ABSENT_LIFECYCLES:
+            if not enabled and not active:
+                return []  # already off as desired
+            purge = entry.lifecycle is Lifecycle.purge
+            tail = " and delete its unit file" if purge else ""
+            return [
+                Change(
+                    entry_id=entry.id,
+                    kind="remove",
+                    diff=f"systemd: disable --now {unit}{tail} "
+                    f"(enabled={enabled}, active={active})",
+                    action={
+                        "op": "disable",
+                        "unit": unit,
+                        "unit_path": unit_path,
+                        "delete_unit": purge,
+                    },
+                )
+            ]
+
+        if not (enabled and active):
+            return [
+                Change(
+                    entry_id=entry.id,
+                    kind="configure",
+                    diff=f"systemd: enable --now {unit} "
+                    f"(enabled={enabled}, active={active})",
+                    action={"op": "enable", "unit": unit, "unit_path": unit_path},
+                )
+            ]
+        return []
+
+    def execute(self, change: Change, ctx: Ctx) -> Result:
+        action = change.action
+        op = action.get("op")
+        unit = action.get("unit", "")
+
+        if op == "enable":
+            # Pick up a freshly written unit file, then enable + start in one call.
+            self._run(["systemctl", "--user", "daemon-reload"])
+            res = self._run(["systemctl", "--user", "enable", "--now", unit])
+            if res.code != 0:
+                return Result(
+                    ok=False,
+                    detail=f"enable {unit} failed: {res.err.strip() or res.code}",
+                )
+            return Result(ok=True, detail=f"enabled + started {unit}")
+
+        if op == "disable":
+            res = self._run(["systemctl", "--user", "disable", "--now", unit])
+            if res.code != 0:
+                return Result(
+                    ok=False,
+                    detail=f"disable {unit} failed: {res.err.strip() or res.code}",
+                )
+            if action.get("delete_unit") and action.get("unit_path"):
+                try:
+                    Path(action["unit_path"]).unlink()
+                except OSError as exc:
+                    return Result(
+                        ok=False,
+                        detail=f"disabled {unit} but unit-file delete failed: {exc}",
+                    )
+                self._run(["systemctl", "--user", "daemon-reload"])
+            return Result(ok=True, detail=f"disabled + stopped {unit}")
+
+        return Result(ok=False, detail=f"unknown systemd op {op!r}")
+
+
+ADAPTER = SystemdAdapter()

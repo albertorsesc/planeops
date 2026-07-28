@@ -13,6 +13,11 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Platform implementations are discovered by package scan and selected by a
   declared `sys_platforms` selector (no OS if/elif); a `linux` platform ships
   alongside `darwin` so the engine runs off macOS.
+- `systemd` adapter: Linux user-service parity to `launchd`. Observes each user
+  unit's enabled and active state (`systemctl --user is-enabled`/`is-active`, by
+  exit code) and converges via `enable --now`/`disable --now`; a `purge` entry also
+  removes the unit file. Has a real-`systemctl` integration test that runs where a
+  `systemd --user` session exists (the CI Linux job sets one up).
 - Integration tests exercise the real external tools instead of faked runners:
   `sops`/`age`/`chezmoi`, and `launchctl` on macOS. Each skips when its tool is
   absent, so the default gate stays green. A CI job installs sops/age/chezmoi on

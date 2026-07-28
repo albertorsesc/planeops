@@ -36,7 +36,8 @@ jobs:
       - name: Tests
         run: uv run --frozen pytest -q
 
-  # Linux parity: run the real-tool integration tests against actual sops/age/chezmoi.
+  # Linux parity: run the real-tool integration tests against actual
+  # sops/age/chezmoi and (via a systemd --user session) systemctl.
   integration:
     runs-on: ubuntu-latest
     env:
@@ -61,8 +62,19 @@ jobs:
           chmod +x "$HOME/.local/bin/sops"
           sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
 
+      - name: Start a systemd --user session (for the systemd integration test)
+        run: |
+          set -uo pipefail
+          sudo loginctl enable-linger "$USER" || true
+          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
+          for _ in $(seq 1 15); do
+            XDG_RUNTIME_DIR="/run/user/$(id -u)" systemctl --user list-units --no-legend >/dev/null 2>&1 && break
+            sleep 1
+          done
+          XDG_RUNTIME_DIR="/run/user/$(id -u)" systemctl --user is-system-running || true
+
       - name: Sync dependencies
         run: uv sync --frozen
 
-      - name: Integration tests (real sops/age/chezmoi, must not skip)
+      - name: Integration tests (real sops/age/chezmoi + systemctl --user)
         run: uv run --frozen pytest tests/integration -v
