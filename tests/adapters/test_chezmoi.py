@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 
 from engine._run import RunResult
 from engine.adapters.chezmoi import (
@@ -108,14 +109,21 @@ def test_plan_clean_or_absent_proposes_nothing():
 # ---- execute -------------------------------------------------------------
 
 
-def test_execute_apply_calls_chezmoi():
+def test_execute_apply_forces_and_resolves_the_absolute_target(fake_platform):
+    # `chezmoi apply` resolves its arg against the CWD, so the home-relative managed
+    # path must be made absolute; --force because tarmac already confirmed the change.
     rec = RecordingRun(code=0)
     change = Change(
         "chezmoi/.zshrc", "configure", "d", {"op": "apply", "path": ".zshrc"}
     )
-    res = ChezmoiAdapter(run=rec).execute(change, _ctx())
+    ctx = Ctx(
+        platform=fake_platform(Path("/home/tester")),
+        host="testhost",
+        now=datetime(2026, 7, 27),
+    )
+    res = ChezmoiAdapter(run=rec).execute(change, ctx)
     assert res.ok
-    assert rec.calls == [["chezmoi", "apply", ".zshrc"]]
+    assert rec.calls == [["chezmoi", "apply", "--force", "/home/tester/.zshrc"]]
 
 
 def test_execute_failure_and_unknown_op():
