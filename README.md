@@ -77,6 +77,24 @@ uv run plane import stackfile ./stack.md
 `registry/example.yaml` shows the entry shape and every drift section without
 assuming any particular tool. Copy it and describe your own machine.
 
+## Governing your own scheduled script
+
+A personal maintenance routine (a weekly updater, a backup job) is just a service,
+so tarmac governs it without ever containing it:
+
+1. Keep the script in your own instance, in a stable location that is **not** cloud-
+   synced (a synced directory means anything that writes there silently changes code
+   that later runs as you). `~/.local/libexec/` is a good home.
+2. Point your scheduler at it (a `launchd` plist on macOS, a systemd timer on Linux).
+   The plist/unit is machine state; it is never committed here.
+3. Declare it as one `launchd/<label>` entry in your registry (see
+   `com.example.weekly-maintenance` in the example). `plane drift` then tells you if
+   the service goes missing or stops matching desired state.
+4. Have the script end with `plane observe && plane drift`, so every run lands
+   already observed and drift-checked.
+
+The engine ships the adapter and this pattern; your actual script stays yours.
+
 ## Design principles
 
 - **No daemon, no open ports.** Every verb is a short-lived command that exits.
