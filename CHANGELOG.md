@@ -30,11 +30,14 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `pkg-nvm` adapter: observes node runtimes under `~/.nvm/versions/node`
   (observe-only, since nvm is a shell function rather than a binary).
 - `mcp` adapter: reads MCP-server wirings from a configurable source list
-  (`mcp-sources.yaml`) and merges them by name across tools, so a server wired
+  (`instance.yaml`'s `mcp.sources`) and merges them by name across tools, so a server wired
   into one tool but not another is visible as a reuse candidate. Observe-only,
   and names no specific tool: the sources are configuration, not code.
 - `Ctx` now carries the instance `repo_root`, so an adapter can read
   instance-level configuration.
+- Per-machine adapter settings are consolidated into one `instance.yaml`
+  (sectioned by concern: `mcp.sources`, `importer.rules`, `secrets.store`),
+  replacing separate `mcp-sources.yaml` and `stackfile-mapping.yaml` files.
 - `chezmoi` adapter: delegates config/dotfile reproduction to chezmoi. Observes
   managed files and their drift (`chezmoi status`) and converges a drifted file by
   invoking `chezmoi apply`; chezmoi owns the writing, secrets, and templating while
@@ -44,6 +47,10 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `plane apply` records every run to an immutable `applied.jsonl`, re-observes so
   drift reflects it, honors `owner: human` (never writes it), converges in `phase`
   order, and contains a crashing adapter instead of aborting the run.
+- `secrets` adapter and a sops backend: track whether each declared secret is
+  configured, read from a sops store's key structure without decrypting a value
+  (presence only, never values). A declared-but-unconfigured secret is an alert.
+  Materialization and the redaction gate are a later slice.
 - `DRIFT.md` report with Alerts / Report / Auto-folded / Uncovered / Re-auth
   sections, and a non-zero exit code when alerts exist.
 

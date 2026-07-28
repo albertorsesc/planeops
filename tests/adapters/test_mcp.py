@@ -123,12 +123,13 @@ def test_mcp_is_observe_only():
 
 
 def test_load_sources_reads_the_source_list(tmp_path):
-    (tmp_path / "mcp-sources.yaml").write_text(
-        "sources:\n"
-        "  - label: harness\n"
-        "    path: ~/.harness.json\n"
-        "    format: json\n"
-        "    key: mcpServers\n"
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n"
+        "  sources:\n"
+        "    - label: harness\n"
+        "      path: ~/.harness.json\n"
+        "      format: json\n"
+        "      key: mcpServers\n"
     )
     sources = load_sources(tmp_path)
     assert sources == [McpSource("harness", "~/.harness.json", "json", "mcpServers")]
@@ -140,12 +141,13 @@ def test_load_sources_missing_file_is_empty():
 
 def test_default_adapter_loads_sources_from_config(tmp_path, fake_platform):
     # home and instance root both at tmp_path for the test
-    (tmp_path / "mcp-sources.yaml").write_text(
-        "sources:\n"
-        "  - label: harness\n"
-        "    path: ~/.harness.json\n"
-        "    format: json\n"
-        "    key: mcpServers\n"
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n"
+        "  sources:\n"
+        "    - label: harness\n"
+        "      path: ~/.harness.json\n"
+        "      format: json\n"
+        "      key: mcpServers\n"
     )
     (tmp_path / ".harness.json").write_text(
         json.dumps({"mcpServers": {"filesystem": {"command": "npx"}}})

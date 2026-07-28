@@ -130,3 +130,11 @@ def test_content_drift_fact_is_reported():
     rep = triage([e], {"manual/x": _obs("manual/x", drifted=True)}, IMPL)
     assert not rep.alerts and len(rep.report) == 1
     assert "drifted" in rep.report[0].message
+
+
+def test_unconfigured_secret_is_alert():
+    e = _entry(id="secrets/key", adapter="secrets", domain="secret")
+    rep = triage(
+        [e], {"secrets/key": _obs("secrets/key", configured=False)}, {"secrets"}
+    )
+    assert len(rep.alerts) == 1 and "secret" in rep.alerts[0].message

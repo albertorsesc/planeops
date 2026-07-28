@@ -9,11 +9,11 @@ sources each is wired into (`facts.sources`). A server that shows only one sourc
 is a candidate to reuse in the others.
 
 This adapter names no specific tool. The sources are configuration: a list of
-`{label, path, format, key}` in `mcp-sources.yaml` at the instance root (see
-`mcp-sources.example.yaml`). The engine reads that list; it never hardcodes where
-any particular tool keeps its config. Observe-only: wiring a server into a tool
-means writing that tool's config, deferred past v1. Env values are never recorded,
-they can hold secrets.
+`{label, path, format, key}` under the `mcp.sources` key of `instance.yaml` at the
+instance root (see `instance.example.yaml`). The engine reads that list; it never
+hardcodes where any particular tool keeps its config. Observe-only: wiring a server
+into a tool means writing that tool's config, deferred past v1. Env values are never
+recorded, they can hold secrets.
 """
 
 from __future__ import annotations
@@ -25,9 +25,8 @@ from typing import Any
 
 import yaml
 
+from engine.config import section as instance_section
 from engine.core.contracts import Ctx, Observed
-
-SOURCES_FILE = "mcp-sources.yaml"
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,18 +54,9 @@ def servers_from_mapping(servers: object) -> dict[str, dict[str, Any]]:
 
 
 def load_sources(repo_root: Path | None) -> list[McpSource]:
-    """Read the source list from `<repo_root>/mcp-sources.yaml`. Missing file or
-    root yields no sources (the adapter then observes nothing)."""
-    if repo_root is None:
-        return []
-    path = repo_root / SOURCES_FILE
-    if not path.is_file():
-        return []
-    try:
-        data = yaml.safe_load(path.read_text())
-    except (yaml.YAMLError, OSError):
-        return []
-    raw = data.get("sources") if isinstance(data, dict) else None
+    """Read the source list from `instance.yaml`'s `mcp.sources`. Missing file,
+    root, or section yields no sources (the adapter then observes nothing)."""
+    raw = instance_section(repo_root, "mcp").get("sources")
     if not isinstance(raw, list):
         return []
     sources: list[McpSource] = []
