@@ -125,6 +125,13 @@ def _cmd_import(args: argparse.Namespace) -> int:
 
     repo = find_repo_root(Path(args.repo).resolve())
     entries = importer.propose(path.read_text(), repo)
+    if args.adapter:  # onboard one type at a time (e.g. --adapter mcp)
+        entries = [e for e in entries if e.get("adapter") == args.adapter]
+        if not entries:  # clarify 0 results vs an unrecognized adapter name
+            print(
+                f"note: --adapter {args.adapter!r} matched no proposed entries",
+                file=sys.stderr,
+            )
     print(importer.note(path, len(entries)))
     print(render_proposal(entries), end="")
     return 0
@@ -185,6 +192,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_import = sub.add_parser("import", help="propose registry entries from a manifest")
     p_import.add_argument("kind", choices=sorted(discover_importers()))
     p_import.add_argument("path")
+    p_import.add_argument(
+        "--adapter",
+        default=None,
+        help="propose only entries for this adapter (onboard one type at a time)",
+    )
     p_import.set_defaults(func=_cmd_import)
 
     return parser

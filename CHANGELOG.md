@@ -37,6 +37,12 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   central list. `import stackfile` seeds entries from a stack manifest;
   `import envfile` proposes `secrets/<name>` entries from a `.env` file, reading
   only the keys (values are discarded, never printed or stored).
+- `import observed` scaffolds the registry from the machine's own `observe`
+  snapshot, so onboarding is prune-a-list rather than hand-author-from-blank: it
+  proposes one entry per observed item not already declared (each `active`, marked
+  to verify), grouped by adapter. `--adapter <name>` scopes the proposal to one
+  type, so a stack is onboarded a slice at a time. Writes nothing; the CLI prints
+  the proposal for review.
 - `manual` adapter: attestation-based observation for assets without a
   dedicated adapter, with 30-day staleness.
 - `launchd` adapter: observes user LaunchAgents (loaded/running state) and
