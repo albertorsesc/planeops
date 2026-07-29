@@ -11,6 +11,12 @@ dependencies = [
 
 [project.scripts]
 plane = "engine.cli:main"
+plane-mcp = "engine.mcp_server.server:main"  # needs the `mcp` extra
+
+[project.optional-dependencies]
+mcp = [
+    "mcp>=2",
+]
 
 [dependency-groups]
 dev = [
@@ -18,6 +24,7 @@ dev = [
     "ruff>=0.14",
     "mypy>=1.18",
     "types-PyYAML>=6",
+    "mcp>=2",
 ]
 
 [build-system]

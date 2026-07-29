@@ -137,6 +137,7 @@ def run_drift(
     now: datetime | None = None,
     platform: Platform | None = None,
     implemented: set[str] | None = None,
+    write: bool = True,
 ) -> DriftReport:
     from engine.core.report import (  # local import avoids cycle
         render_drift,
@@ -170,8 +171,9 @@ def run_drift(
     result.host = host
     result.ts = now.isoformat()
 
-    out_dir = observed_dir / host
-    out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "DRIFT.md").write_text(render_drift(result))  # human pane
-    (out_dir / "DRIFT.json").write_text(render_drift_json(result))  # machine pane
+    if write:  # a pure-read caller (e.g. the MCP drift tool) passes write=False
+        out_dir = observed_dir / host
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / "DRIFT.md").write_text(render_drift(result))  # human pane
+        (out_dir / "DRIFT.json").write_text(render_drift_json(result))  # machine pane
     return result
