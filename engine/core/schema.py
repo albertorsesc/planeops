@@ -70,6 +70,7 @@ class Entry:
     auth: Auth = Auth.none
     phase: int | None = None
     pin: str | None = None
+    needs: tuple[str, ...] = ()  # ids of entries this one depends on
     secrets: tuple[dict[str, Any], ...] = ()
     desired: dict[str, Any] = field(default_factory=dict)
     data: dict[str, Any] | None = None
@@ -122,6 +123,12 @@ def entry_from_dict(raw: dict[str, Any]) -> Entry:
     if klass is Klass.data and not data:
         raise SchemaError(f"entry {entry_id!r}: class 'data' requires a 'data' block")
 
+    needs = raw.get("needs", [])
+    if not isinstance(needs, list) or not all(isinstance(n, str) and n for n in needs):
+        raise SchemaError(
+            f"entry {entry_id!r}: needs must be a list of entry ids (strings)"
+        )
+
     return Entry(
         id=entry_id,
         adapter=raw["adapter"],
@@ -139,6 +146,7 @@ def entry_from_dict(raw: dict[str, Any]) -> Entry:
         auth=_enum(Auth, raw.get("auth", "none"), "auth", entry_id),
         phase=raw.get("phase"),
         pin=raw.get("pin"),
+        needs=tuple(needs),
         secrets=tuple(raw.get("secrets", ())),
         desired=raw.get("desired", {}) or {},
         data=data,

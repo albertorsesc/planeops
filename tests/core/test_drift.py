@@ -190,3 +190,83 @@ def test_summary_counts_match_sections():
 def test_render_drift_json_round_trips_to_the_dict():
     rep = triage([_entry()], {}, IMPL)
     assert json.loads(render_drift_json(rep)) == drift_report_dict(rep)
+
+
+# ---- needs: a consumer can't be pruned out from under (dependency integrity) ----
+
+
+def test_needs_a_retired_dependency_alerts_the_consumer():
+    # The protective case: mark the embedding `retired` and the tool that needs it
+    # alerts BEFORE you ever apply the removal.
+    consumer = _entry(id="mcp/gitnexus", adapter="mcp", needs=["ollama/emb"])
+    dep = _entry(id="ollama/emb", adapter="ollama", lifecycle="retired")
+    obs = {"mcp/gitnexus": _obs("mcp/gitnexus"), "ollama/emb": _obs("ollama/emb")}
+    rep = triage([consumer, dep], obs, {"mcp", "ollama"})
+    consumer_alerts = [a for a in rep.alerts if a.entry_id == "mcp/gitnexus"]
+    assert len(consumer_alerts) == 1
+    assert "needs ollama/emb" in consumer_alerts[0].message
+    assert "retired" in consumer_alerts[0].message
+
+
+def test_needs_an_absent_dependency_alerts_the_consumer():
+    consumer = _entry(id="mcp/gitnexus", adapter="mcp", needs=["ollama/emb"])
+    rep = triage([consumer], {"mcp/gitnexus": _obs("mcp/gitnexus")}, {"mcp"})
+    assert [a.entry_id for a in rep.alerts] == ["mcp/gitnexus"]
+    assert "needs ollama/emb" in rep.alerts[0].message
+    assert "not present" in rep.alerts[0].message
+
+
+def test_needs_a_present_active_dependency_is_conformant():
+    consumer = _entry(id="mcp/gitnexus", adapter="mcp", needs=["ollama/emb"])
+    dep = _entry(id="ollama/emb", adapter="ollama")  # active + present
+    obs = {"mcp/gitnexus": _obs("mcp/gitnexus"), "ollama/emb": _obs("ollama/emb")}
+    assert not triage([consumer, dep], obs, {"mcp", "ollama"}).alerts
+
+
+def test_needs_is_not_checked_for_a_non_active_consumer():
+    # A consumer that isn't active isn't relying on its deps right now.
+    consumer = _entry(
+        id="mcp/gitnexus", adapter="mcp", lifecycle="parked", needs=["ollama/emb"]
+    )
+    rep = triage([consumer], {}, {"mcp"})  # emb absent, but the consumer is parked
+    assert not rep.alerts  # parked+absent is a report, not an alert, and no needs-alert
+
+
+def test_needs_defaults_to_empty():
+    assert _entry().needs == ()
+
+
+def test_needs_a_declared_but_absent_dependency_says_not_present():
+    consumer = _entry(id="mcp/gitnexus", adapter="mcp", needs=["ollama/emb"])
+    dep = _entry(id="ollama/emb", adapter="ollama")  # active, but not observed
+    rep = triage(
+        [consumer, dep], {"mcp/gitnexus": _obs("mcp/gitnexus")}, {"mcp", "ollama"}
+    )
+    consumer_alerts = [a for a in rep.alerts if a.entry_id == "mcp/gitnexus"]
+    assert len(consumer_alerts) == 1 and "not present" in consumer_alerts[0].message
+
+
+def test_needs_a_dependency_whose_adapter_is_unbuilt_does_not_false_alarm():
+    # The dep's adapter isn't implemented, so presence can't be judged; the consumer
+    # must NOT be told "not present" (it's uncovered, not absent).
+    consumer = _entry(id="mcp/gitnexus", adapter="mcp", needs=["future/thing"])
+    dep = _entry(id="future/thing", adapter="future")
+    rep = triage([consumer, dep], {"mcp/gitnexus": _obs("mcp/gitnexus")}, {"mcp"})
+    assert not [a for a in rep.alerts if a.entry_id == "mcp/gitnexus"]
+
+
+def test_needs_is_checked_for_a_maintain_consumer():
+    consumer = _entry(
+        id="mcp/x", adapter="mcp", lifecycle="maintain", needs=["ollama/emb"]
+    )
+    dep = _entry(id="ollama/emb", adapter="ollama", lifecycle="retired")
+    obs = {"mcp/x": _obs("mcp/x"), "ollama/emb": _obs("ollama/emb")}
+    rep = triage([consumer, dep], obs, {"mcp", "ollama"})
+    assert any(a.entry_id == "mcp/x" and "ollama/emb" in a.message for a in rep.alerts)
+
+
+def test_needs_cycle_and_self_reference_terminate_without_alert():
+    a = _entry(id="mcp/a", adapter="mcp", needs=["mcp/b", "mcp/a"])
+    b = _entry(id="mcp/b", adapter="mcp", needs=["mcp/a"])
+    obs = {"mcp/a": _obs("mcp/a"), "mcp/b": _obs("mcp/b")}
+    assert not triage([a, b], obs, {"mcp"}).alerts
