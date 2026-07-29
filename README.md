@@ -27,7 +27,7 @@ long-running process.
 
 ## How it works
 
-One loop, four verbs, a human in the reconcile seat:
+One loop, a human in the reconcile seat:
 
 ```
 observe  ->  drift  ->  apply
@@ -37,16 +37,29 @@ observe  ->  drift  ->  apply
 - `plane observe` scans the machine and writes a snapshot. Read-only, safe to run
   on a schedule.
 - `plane drift` diffs the registry (desired) against the snapshot (observed) and
-  writes `DRIFT.md`: alerts, report, auto-folded version drift, uncovered entries,
-  and a re-auth checklist. Exits non-zero when alerts exist.
+  writes `DRIFT.md` (the human pane) and `DRIFT.json` (the machine pane): alerts,
+  report, auto-folded version drift, uncovered entries, and a re-auth checklist.
+  Exits non-zero when alerts exist. `--json` prints the report to stdout.
+- `plane status` prints the last report without rescanning: instant and read-only.
+  `--short` gives a shell-prompt indicator (the alert count, empty when clean).
 - `plane apply` plans changes, renders each as a diff, and asks before every
   mutation. Nothing changes the machine without an explicit confirmation.
-- `plane import stackfile <path>` proposes registry entries from an existing
-  manifest. It writes nothing without confirmation.
+- `plane import <kind> <path>` proposes registry entries and writes nothing:
+  `stackfile` from a hand-written manifest, `envfile` from a `.env` (key names only,
+  values discarded), and `observed` from the machine's own snapshot, so onboarding
+  is prune-a-list rather than author-from-blank. `--adapter <type>` scopes a proposal
+  to one kind.
 
 Adapters teach the engine about one kind of asset each (a service manager, a model
 runner, a package manager). They are packages under `engine/adapters/`, discovered
-by a package scan, so adding one never edits a central list.
+by a package scan, so adding one never edits a central list. An entry can also
+declare `needs: [id, ...]`; drift alerts when an active entry's dependency is being
+retired or is absent, so a model or package a tool relies on can't be pruned out
+from under it.
+
+Assistants can read the plane over an optional MCP server (`plane-mcp`, install the
+`mcp` extra): the read-only tools `tarmac_observe` and `tarmac_drift` answer "what is
+on this machine?" and "what has drifted?" without ever changing it.
 
 ## Install
 
@@ -55,8 +68,13 @@ Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 ```bash
 git clone https://github.com/albertorsesc/tarmac
 cd tarmac
-uv sync
+uv sync                 # core engine + the `plane` CLI
+uv sync --extra mcp     # optional: also install the `plane-mcp` assistant server
 ```
+
+`make test` runs the full gate (lint, format, type-check, tests); `make observe`,
+`make drift`, and `make status` (with `REPO=<your-instance>`) wrap the common
+commands so you don't retype `uv run plane --repo ...`.
 
 ## Usage
 
@@ -64,14 +82,18 @@ uv sync
 # scan the machine and write observed/<host>/snapshot.json
 uv run plane observe
 
-# report where desired and observed disagree
+# report where desired and observed disagree (writes DRIFT.md + DRIFT.json)
 uv run plane drift
+
+# show the last report without rescanning; --short drives a shell prompt
+uv run plane status
+uv run plane status --short          # e.g. "drift:3", prints nothing when clean
+
+# scaffold entries from what is already on the machine, one type at a time
+uv run plane import observed observed/<host>/snapshot.json --adapter mcp
 
 # converge confirmed changes, one at a time
 uv run plane apply --id launchd/ai.example.gateway
-
-# seed a registry from an existing stack manifest
-uv run plane import stackfile ./stack.md
 ```
 
 `registry/example.yaml` shows the entry shape and every drift section without
@@ -107,15 +129,18 @@ The engine ships the adapter and this pattern; your actual script stays yours.
 
 `SPEC.md` is the authoritative build specification.
 
-## Status and roadmap
+## Status
 
-Milestone M1 (the observe/drift engine, schema, `manual` and `launchd` adapters,
-and `DRIFT.md` rendering) is implemented. See `CHANGELOG.md` for details.
+The observe/drift/apply loop runs on macOS and Linux, with adapters for services
+(`launchd`, `systemd`), packages (`brew`, `npm`, `uv`), node runtimes (`nvm`), local
+models (`ollama`), config files (delegated to `chezmoi`), MCP-server wiring
+(read-only), and a `sops`+`age` secrets store (presence-tracked without ever
+decrypting a value). Structured `DRIFT.json`, `plane status`, entry `needs`
+dependencies, the `observed` importer, and the optional MCP server are all in place.
+See `CHANGELOG.md` for the full history.
 
-- **M2**: package and runtime adapters (brew, npm, uv, node) with `plan`/`execute`.
-- **M3**: coding-harness config, local-model, and MCP-server adapters.
-- **M4**: sops+age secrets, materialization, re-auth checklist, and a clean-account
-  reproduction rehearsal as the acceptance test.
+Not yet: a tagged release / installable package, and a holistic clean-account
+reproduction rehearsal as the end-to-end acceptance test.
 
 ## Repository layout
 
