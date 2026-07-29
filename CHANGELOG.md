@@ -8,6 +8,13 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Optional read-only MCP server (`plane-mcp`, install with the `mcp` extra) exposing
+  two tools, `tarmac_observe` (inventory the machine) and `tarmac_drift` (structured
+  drift, the same shape as `plane drift --json`). Both are annotated read-only; there
+  are deliberately no mutation tools, so an assistant can read state but converging
+  drift stays behind `plane apply`'s per-change confirmation. The logic is a thin
+  pass-through to `run_observe`/`run_drift` (no re-implemented triage), and the core
+  CLI carries no MCP dependency.
 - Engine core: entry schema, the `observe`/`plan`/`execute` adapter contract,
   package-scan adapter discovery, and an injectable platform seam.
 - Platform implementations are discovered by package scan and selected by a
