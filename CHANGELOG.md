@@ -6,6 +6,13 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Renamed the project and distribution from `tarmac` to `planeops`. The PyPI name
+  `tarmac` was taken by an unrelated deployment tool, blocking a clean install; the
+  MCP server's tools are now `planeops_observe`/`planeops_drift`. The CLI command is
+  unchanged: it is still `plane` (and `plane-mcp`).
+
 ### Added
 
 - `plane mcp`: a read-only cross-client view of MCP servers from the last snapshot.
@@ -17,7 +24,7 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   never scans the machine. This is the observability half of MCP management; wiring
   servers across clients (converge) stays deferred behind `plane apply`.
 - Optional read-only MCP server (`plane-mcp`, install with the `mcp` extra) exposing
-  two tools, `tarmac_observe` (inventory the machine) and `tarmac_drift` (structured
+  two tools, `planeops_observe` (inventory the machine) and `planeops_drift` (structured
   drift, the same shape as `plane drift --json`). Both are annotated read-only; there
   are deliberately no mutation tools, so an assistant can read state but converging
   drift stays behind `plane apply`'s per-change confirmation. The logic is a thin
@@ -80,7 +87,7 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `chezmoi` adapter: delegates config/dotfile reproduction to chezmoi. Observes
   managed files and their drift (`chezmoi status`) and converges a drifted file by
   invoking `chezmoi apply`; chezmoi owns the writing, secrets, and templating while
-  tarmac governs it as one domain.
+  planeops governs it as one domain.
 - Drift triage surfaces a general content-drift signal (`facts.drifted`) from any
   adapter, routed by the entry's tolerance.
 - `plane apply` records every run to an immutable `applied.jsonl`, re-observes so
@@ -120,4 +127,4 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   is observed absent, so a resource a consumer depends on (e.g. an embedding model a
   tool uses) can't be pruned out from under it.
 
-[Unreleased]: https://github.com/albertorsesc/tarmac/commits/main
+[Unreleased]: https://github.com/albertorsesc/planeops/commits/main

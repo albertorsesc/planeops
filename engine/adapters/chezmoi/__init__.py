@@ -1,10 +1,10 @@
 """chezmoi adapter (config/dotfile reproduction, delegated).
 
-tarmac does not reproduce config files itself: that is a solved, security-heavy
+planeops does not reproduce config files itself: that is a solved, security-heavy
 problem (path hardening, atomic writes, secrets, templating, permissions) that
 chezmoi already owns. This adapter observes what chezmoi manages and whether each
 file has drifted from its source, and converges by invoking `chezmoi apply` on the
-drifted target. chezmoi does the writing; tarmac governs it (drift + per-change
+drifted target. chezmoi does the writing; planeops governs it (drift + per-change
 confirmation) as one domain among many.
 
 observe reads `chezmoi managed` (the full set) and `chezmoi status` (the drifted
@@ -98,7 +98,7 @@ class ChezmoiAdapter:
             return Result(ok=False, detail=f"unknown chezmoi op {op!r}")
         # `chezmoi managed` yields home-relative paths, but `chezmoi apply` resolves
         # its argument against the CWD, so pass the absolute target. `--force`
-        # because tarmac already confirmed this change; without it chezmoi re-prompts
+        # because planeops already confirmed this change; without it chezmoi re-prompts
         # on a TTY when the target changed since it last wrote, which fails headless.
         target = _abs_target(path, ctx)
         res = self._run(["chezmoi", "apply", "--force", target])

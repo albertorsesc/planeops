@@ -1,8 +1,8 @@
-"""The MCP server: exposes tarmac's read verbs as tools over stdio.
+"""The MCP server: exposes planeops's read verbs as tools over stdio.
 
 Two tools, thin wrappers over engine.mcp_server.tools (which call run_observe /
-run_drift): `tarmac_observe` rescans the machine and records a snapshot (a writer,
-so annotated not-read-only, not-idempotent), and `tarmac_drift` reads the last
+run_drift): `planeops_observe` rescans the machine and records a snapshot (a writer,
+so annotated not-read-only, not-idempotent), and `planeops_drift` reads the last
 snapshot and reports drift (a pure read: writes nothing, read-only + idempotent).
 Neither converges the managed machine. There are deliberately NO mutation tools:
 apply stays behind the CLI's per-change confirmation gate, so an assistant can read
@@ -32,9 +32,9 @@ _REFRESH = ToolAnnotations(
 )
 
 _INSTRUCTIONS = (
-    "Read-only view of a machine's tarmac control plane: no tool here converges or "
-    "changes the managed machine. Call tarmac_observe to refresh the recorded "
-    "inventory (this rescans and writes a snapshot), then tarmac_drift to see what "
+    "Read-only view of a machine's planeops control plane: no tool here converges or "
+    "changes the managed machine. Call planeops_observe to refresh the recorded "
+    "inventory (this rescans and writes a snapshot), then planeops_drift to see what "
     "has drifted from the declared desired state (a pure read of the last snapshot). "
     "Converging drift is the human's job via `plane apply`, behind a per-change "
     "confirmation gate."
@@ -42,7 +42,7 @@ _INSTRUCTIONS = (
 
 
 def build_server() -> MCPServer:
-    mcp = MCPServer("tarmac", version=__version__, instructions=_INSTRUCTIONS)
+    mcp = MCPServer("planeops", version=__version__, instructions=_INSTRUCTIONS)
 
     @mcp.tool(
         annotations=_REFRESH,
@@ -52,7 +52,7 @@ def build_server() -> MCPServer:
             "uncovered adapters. Writes snapshot.json (does not change the machine)."
         ),
     )
-    def tarmac_observe(repo: str = ".") -> dict[str, Any]:
+    def planeops_observe(repo: str = ".") -> dict[str, Any]:
         return observe_state(find_repo_root(Path(repo).resolve()))
 
     @mcp.tool(
@@ -61,10 +61,10 @@ def build_server() -> MCPServer:
             "Report drift between declared desired state and the last observed "
             "snapshot, as structured triage (alerts / report / uncovered / re-auth) "
             "with an exit_code (2 iff alerts). A pure read: writes nothing. Call "
-            "tarmac_observe first for a current answer."
+            "planeops_observe first for a current answer."
         ),
     )
-    def tarmac_drift(repo: str = ".") -> dict[str, Any]:
+    def planeops_drift(repo: str = ".") -> dict[str, Any]:
         return drift_state(find_repo_root(Path(repo).resolve()))
 
     return mcp

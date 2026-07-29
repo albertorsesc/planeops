@@ -26,7 +26,7 @@ pytestmark = pytest.mark.skipif(
     reason="requires macOS launchctl",
 )
 
-LABEL = f"com.tarmac.integration-test.{os.getpid()}.{uuid.uuid4().hex[:8]}"
+LABEL = f"com.planeops.integration-test.{os.getpid()}.{uuid.uuid4().hex[:8]}"
 
 
 class _Platform:

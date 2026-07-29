@@ -96,7 +96,7 @@ entries:
     lifecycle: active
     intent: "your own scheduled maintenance script (updates, etc.), governed as a
       service. The script and its plist live in YOUR private instance, out of any
-      cloud-synced directory, and are never committed here; tarmac only tracks that
+      cloud-synced directory, and are never committed here; planeops only tracks that
       the service exists and matches desired state."
 
   - id: launchd/com.example.retired-gateway
