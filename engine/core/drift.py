@@ -83,6 +83,7 @@ def triage(
     implemented: set[str],
 ) -> DriftReport:
     report = DriftReport(host="", ts="")
+    entries = list(entries)  # walked twice: per-entry triage, then dependency checks
     for entry in entries:
         # The re-auth checklist is coverage-independent: any interactive
         # credential contributes a line even when its adapter is unbuilt.
@@ -136,6 +137,27 @@ def triage(
                         entry,
                         f"version {obs.version} (pinned {entry.pin}, same major)",
                     )
+                )
+
+    # Dependency integrity: an active/maintain entry that `needs` something being
+    # retired/purged or absent is an alert, so a resource a consumer depends on
+    # (e.g. an embedding model a tool uses) can't be pruned out from under it.
+    by_id = {e.id: e for e in entries}
+    for entry in entries:
+        if entry.lifecycle not in (Lifecycle.active, Lifecycle.maintain):
+            continue
+        for need in entry.needs:
+            dep = by_id.get(need)
+            # A dep whose adapter isn't built can't be judged present/absent (same
+            # coverage gate the per-entry pass uses), so it's never a false "absent".
+            judgeable = dep is None or dep.adapter in implemented
+            if dep is not None and dep.lifecycle in ABSENT_LIFECYCLES:
+                report.alerts.append(
+                    _item(entry, f"needs {need}, which is listed {dep.lifecycle.value}")
+                )
+            elif judgeable and need not in observed_by_key:
+                report.alerts.append(
+                    _item(entry, f"needs {need}, which is not present")
                 )
 
     return report

@@ -101,5 +101,9 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   of `DRIFT.json` (no machine scan, no writes), with `--short` for a shell-prompt
   indicator (prints nothing when clean) and `--json` to emit the stored report. Exit
   code mirrors drift (2 when alerts exist), so it composes into prompts and scripts.
+- Entries may declare `needs: [id, ...]`, the entries they depend on (cross-adapter).
+  Drift alerts when an `active` entry needs something that is being retired/purged or
+  is observed absent, so a resource a consumer depends on (e.g. an embedding model a
+  tool uses) can't be pruned out from under it.
 
 [Unreleased]: https://github.com/albertorsesc/tarmac/commits/main

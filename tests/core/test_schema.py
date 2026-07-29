@@ -78,3 +78,15 @@ def test_applies_to_host():
     assert pinned.applies_to_host("laptop")
     assert not pinned.applies_to_host("server")
     assert entry_from_dict(_raw()).applies_to_host("anything")
+
+
+def test_needs_defaults_empty_and_parses_a_list():
+    assert entry_from_dict(_raw()).needs == ()
+    e = entry_from_dict(_raw(needs=["ollama/emb", "pkg-brew/gh"]))
+    assert e.needs == ("ollama/emb", "pkg-brew/gh")
+
+
+@pytest.mark.parametrize("bad", ["ollama/emb", [1, 2], [""], [None]])
+def test_needs_must_be_a_list_of_nonempty_strings(bad):
+    with pytest.raises(SchemaError):
+        entry_from_dict(_raw(needs=bad))
