@@ -1,5 +1,8 @@
+import json
+
 from engine.core.contracts import Observed
 from engine.core.drift import triage
+from engine.core.report import drift_report_dict, render_drift_json
 from engine.core.schema import entry_from_dict
 
 
@@ -138,3 +141,52 @@ def test_unconfigured_secret_is_alert():
         [e], {"secrets/key": _obs("secrets/key", configured=False)}, {"secrets"}
     )
     assert len(rep.alerts) == 1 and "secret" in rep.alerts[0].message
+
+
+# ---- structured JSON pane (feeds the drift notification + the MCP surface) ----
+
+
+def test_drift_report_dict_has_documented_shape():
+    rep = triage([_entry()], {}, IMPL)  # active but absent -> one alert
+    rep.host, rep.ts = "h", "2026-07-28T00:00:00"
+    d = drift_report_dict(rep)
+    assert set(d) == {
+        "schema_version", "host", "ts", "alert_count", "exit_code",
+        "summary", "sections",
+    }  # fmt: skip
+    assert d["host"] == "h" and d["ts"] == "2026-07-28T00:00:00"
+    assert set(d["sections"]) == {
+        "alerts", "report", "auto_folded", "uncovered", "reauth",
+    }  # fmt: skip
+    assert set(d["sections"]["alerts"][0]) == {"entry_id", "lifecycle", "message"}
+    assert d["sections"]["alerts"][0]["entry_id"] == "manual/x"
+
+
+def test_drift_report_dict_exit_code_tracks_alerts():
+    absent = triage([_entry()], {}, IMPL)  # active + absent -> alert
+    assert drift_report_dict(absent)["alert_count"] == 1
+    assert drift_report_dict(absent)["exit_code"] == 2
+
+    silent = triage([_entry(lifecycle="retired")], {}, IMPL)  # retired + absent
+    assert drift_report_dict(silent)["alert_count"] == 0
+    assert drift_report_dict(silent)["exit_code"] == 0
+
+
+def test_drift_report_dict_items_sorted_by_entry_id():
+    entries = [_entry(id="manual/c"), _entry(id="manual/a"), _entry(id="manual/b")]
+    rep = triage(entries, {}, IMPL)  # all active + absent -> alerts
+    ids = [i["entry_id"] for i in drift_report_dict(rep)["sections"]["alerts"]]
+    assert ids == ["manual/a", "manual/b", "manual/c"]
+
+
+def test_summary_counts_match_sections():
+    entries = [_entry(id="manual/a"), _entry(id="launchd/svc", adapter="launchd")]
+    rep = triage(entries, {}, IMPL)  # 1 alert + 1 uncovered
+    d = drift_report_dict(rep)
+    assert d["summary"] == {k: len(v) for k, v in d["sections"].items()}
+    assert d["summary"]["alerts"] == 1 and d["summary"]["uncovered"] == 1
+
+
+def test_render_drift_json_round_trips_to_the_dict():
+    rep = triage([_entry()], {}, IMPL)
+    assert json.loads(render_drift_json(rep)) == drift_report_dict(rep)

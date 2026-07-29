@@ -44,10 +44,15 @@ def _cmd_drift(args: argparse.Namespace) -> int:
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 1
-    print(
-        f"{report.alert_count} alert(s), {len(report.report)} report, "
-        f"{len(report.uncovered)} uncovered -> observed/{report.host}/DRIFT.md"
-    )
+    if args.as_json:
+        from engine.core.report import render_drift_json
+
+        print(render_drift_json(report), end="")  # stdout is pure JSON, pipeable
+    else:
+        print(
+            f"{report.alert_count} alert(s), {len(report.report)} report, "
+            f"{len(report.uncovered)} uncovered -> observed/{report.host}/DRIFT.md"
+        )
     return 2 if report.alert_count else 0
 
 
@@ -117,7 +122,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_observe.set_defaults(func=_cmd_observe)
 
-    p_drift = sub.add_parser("drift", help="diff desired vs observed, write DRIFT.md")
+    p_drift = sub.add_parser(
+        "drift", help="diff desired vs observed, write DRIFT.md + DRIFT.json"
+    )
+    p_drift.add_argument(
+        "--json",
+        dest="as_json",
+        action="store_true",
+        help="print the drift report as JSON to stdout (for piping / MCP)",
+    )
     p_drift.set_defaults(func=_cmd_drift)
 
     p_apply = sub.add_parser("apply", help="converge confirmed changes, one at a time")

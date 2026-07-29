@@ -81,6 +81,23 @@ def test_drift_triage_over_seed(tmp_path, fake_platform):
     assert (tmp_path / "observed" / report.host / "DRIFT.md").is_file()
 
 
+def test_drift_writes_machine_readable_json_pane(tmp_path, fake_platform):
+    _seed(tmp_path)
+    plat = fake_platform(tmp_path)
+    now = datetime(2026, 7, 22, 12, 0, 0)
+    run_observe(tmp_path, attest=True, now=now, platform=plat, adapters=ADAPTERS)
+    report = run_drift(tmp_path, now=now, platform=plat, implemented=IMPLEMENTED)
+
+    drift_json = tmp_path / "observed" / report.host / "DRIFT.json"
+    assert drift_json.is_file()  # written alongside DRIFT.md, no flag needed
+    data = json.loads(drift_json.read_text())
+    assert data["host"] == report.host
+    assert data["ts"] == now.isoformat()
+    assert data["exit_code"] == (2 if report.alert_count else 0)
+    assert [i["entry_id"] for i in data["sections"]["uncovered"]] == ["launchd/svc"]
+    assert [i["entry_id"] for i in data["sections"]["reauth"]] == ["manual/key"]
+
+
 def test_drift_without_snapshot_errors(tmp_path, fake_platform):
     _seed(tmp_path)
     plat = fake_platform(tmp_path)

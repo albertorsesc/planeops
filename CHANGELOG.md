@@ -85,5 +85,10 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   of trusted space.
 - `DRIFT.md` report with Alerts / Report / Auto-folded / Uncovered / Re-auth
   sections, and a non-zero exit code when alerts exist.
+- `plane drift` also writes a machine-readable `DRIFT.json` beside `DRIFT.md`, and
+  `plane drift --json` prints that structured report to stdout. Same triage as the
+  markdown pane (a versioned schema, per-section items, and an `exit_code` mirroring
+  the process exit), so a drift notification or an MCP surface reads structured data
+  instead of scraping markdown.
 
 [Unreleased]: https://github.com/albertorsesc/tarmac/commits/main
