@@ -1,12 +1,13 @@
-"""`plane` CLI. Verbs: observe, drift, apply, import.
+"""`plane` CLI. Verbs: observe, drift, apply, import, status.
 
-observe and drift are read-only. apply renders a diff and requires confirmation
-before each mutation; the engine owns that gate, not the adapters.
+observe, drift, and status are read-only. apply renders a diff and requires
+confirmation before each mutation; the engine owns that gate, not the adapters.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import cast
@@ -86,6 +87,29 @@ def _cmd_apply(args: argparse.Namespace) -> int:
     return 1 if failed else 0
 
 
+def _cmd_status(args: argparse.Namespace) -> int:
+    from engine.core.status import read_status
+
+    repo = find_repo_root(Path(args.repo).resolve())
+    data = read_status(repo)  # last DRIFT.json, no recompute
+    if data is None:
+        if not args.short:  # a prompt wants silence, not an error, when unseeded
+            print("no drift report yet; run `plane drift`", file=sys.stderr)
+        return 0
+    if args.as_json:
+        print(json.dumps(data, indent=2))
+    elif args.short:  # a shell-prompt token: nothing when clean
+        if data["alert_count"]:
+            print(f"drift:{data['alert_count']}")
+    else:
+        summary = data["summary"]
+        print(
+            f"{data['alert_count']} alert(s), {summary['report']} report, "
+            f"{summary['uncovered']} uncovered (as of {data['ts']})"
+        )
+    return 2 if data["alert_count"] else 0
+
+
 def _cmd_import(args: argparse.Namespace) -> int:
     from engine.importers import discover_importers, render_proposal
 
@@ -132,6 +156,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="print the drift report as JSON to stdout (for piping / MCP)",
     )
     p_drift.set_defaults(func=_cmd_drift)
+
+    p_status = sub.add_parser(
+        "status", help="show the last drift report without recomputing (read-only)"
+    )
+    p_status.add_argument(
+        "--json", dest="as_json", action="store_true",
+        help="emit the stored drift report as JSON",
+    )  # fmt: skip
+    p_status.add_argument(
+        "--short", action="store_true",
+        help="compact indicator for a shell prompt (prints nothing when clean)",
+    )  # fmt: skip
+    p_status.set_defaults(func=_cmd_status)
 
     p_apply = sub.add_parser("apply", help="converge confirmed changes, one at a time")
     p_apply.add_argument("--id", default=None, help="apply only the entry with this id")

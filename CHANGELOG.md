@@ -97,5 +97,9 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   markdown pane (a versioned schema, per-section items, and an `exit_code` mirroring
   the process exit), so a drift notification or an MCP surface reads structured data
   instead of scraping markdown.
+- `plane status` shows the last drift report without recomputing: a pure, instant read
+  of `DRIFT.json` (no machine scan, no writes), with `--short` for a shell-prompt
+  indicator (prints nothing when clean) and `--json` to emit the stored report. Exit
+  code mirrors drift (2 when alerts exist), so it composes into prompts and scripts.
 
 [Unreleased]: https://github.com/albertorsesc/tarmac/commits/main
