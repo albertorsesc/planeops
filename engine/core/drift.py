@@ -7,6 +7,7 @@ alert exists.
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -39,6 +40,15 @@ class DriftReport:
     @property
     def alert_count(self) -> int:
         return len(self.alerts)
+
+
+def _atomic_write(path: Path, text: str) -> None:
+    # Write to a temp sibling then rename, so a concurrent reader (e.g. a shell
+    # prompt running `plane status`) sees either the old file or the new one,
+    # never a half-written one.
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text)
+    os.replace(tmp, path)
 
 
 def _item(entry: Entry, message: str) -> DriftItem:
@@ -174,6 +184,6 @@ def run_drift(
     if write:  # a pure-read caller (e.g. the MCP drift tool) passes write=False
         out_dir = observed_dir / host
         out_dir.mkdir(parents=True, exist_ok=True)
-        (out_dir / "DRIFT.md").write_text(render_drift(result))  # human pane
-        (out_dir / "DRIFT.json").write_text(render_drift_json(result))  # machine pane
+        _atomic_write(out_dir / "DRIFT.md", render_drift(result))  # human pane
+        _atomic_write(out_dir / "DRIFT.json", render_drift_json(result))  # machine
     return result
