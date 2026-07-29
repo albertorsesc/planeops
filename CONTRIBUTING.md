@@ -15,8 +15,8 @@ uv sync
 
 ## The quality gate
 
-Every change must pass all four checks. CI runs the same ones on Python 3.12 and
-3.13.
+Every change must pass all four checks. `make check` runs them (and `make test`
+auto-fixes formatting first); CI runs the same ones on Python 3.12 and 3.13.
 
 ```bash
 uv run ruff check engine tests        # lint
