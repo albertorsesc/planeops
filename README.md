@@ -42,6 +42,11 @@ observe  ->  drift  ->  apply
   Exits non-zero when alerts exist. `--json` prints the report to stdout.
 - `plane status` prints the last report without rescanning: instant and read-only.
   `--short` gives a shell-prompt indicator (the alert count, empty when clean).
+- `plane mcp` gives a cross-client view of MCP servers from the last snapshot: each
+  server and the clients it is wired into, flagging servers wired into only one client
+  (reuse candidates), the same tool under different names across clients (naming
+  drift), and servers observed but not in the registry (ungoverned). Read-only;
+  `--json` emits it structured.
 - `plane apply` plans changes, renders each as a diff, and asks before every
   mutation. Nothing changes the machine without an explicit confirmation.
 - `plane import <kind> <path>` proposes registry entries and writes nothing:
@@ -89,6 +94,9 @@ uv run plane drift
 uv run plane status
 uv run plane status --short          # e.g. "drift:3", prints nothing when clean
 
+# cross-client view of MCP servers: which clients each is wired into, plus flags
+uv run plane mcp
+
 # scaffold entries from what is already on the machine, one type at a time
 uv run plane import observed observed/<host>/snapshot.json --adapter mcp
 
@@ -135,9 +143,9 @@ The observe/drift/apply loop runs on macOS and Linux, with adapters for services
 (`launchd`, `systemd`), packages (`brew`, `npm`, `uv`), node runtimes (`nvm`), local
 models (`ollama`), config files (delegated to `chezmoi`), MCP-server wiring
 (read-only), and a `sops`+`age` secrets store (presence-tracked without ever
-decrypting a value). Structured `DRIFT.json`, `plane status`, entry `needs`
-dependencies, the `observed` importer, and the optional MCP server are all in place.
-See `CHANGELOG.md` for the full history.
+decrypting a value). Structured `DRIFT.json`, `plane status`, the cross-client
+`plane mcp` view, entry `needs` dependencies, the `observed` importer, and the
+optional MCP server are all in place. See `CHANGELOG.md` for the full history.
 
 Not yet: a tagged release / installable package, and a holistic clean-account
 reproduction rehearsal as the end-to-end acceptance test.

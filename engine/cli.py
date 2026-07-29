@@ -1,6 +1,6 @@
-"""`plane` CLI. Verbs: observe, drift, apply, import, status.
+"""`plane` CLI. Verbs: observe, drift, apply, import, status, mcp.
 
-observe, drift, and status are read-only. apply renders a diff and requires
+observe, drift, status, and mcp are read-only. apply renders a diff and requires
 confirmation before each mutation; the engine owns that gate, not the adapters.
 """
 
@@ -110,6 +110,21 @@ def _cmd_status(args: argparse.Namespace) -> int:
     return 2 if data["alert_count"] else 0
 
 
+def _cmd_mcp(args: argparse.Namespace) -> int:
+    from engine.core.mcp_view import read_mcp_view, render_mcp_view
+
+    repo = find_repo_root(Path(args.repo).resolve())
+    view = read_mcp_view(repo)  # last snapshot + registry, no recompute
+    if view is None:
+        print("no snapshot yet; run `plane observe`", file=sys.stderr)
+        return 0
+    if args.as_json:
+        print(json.dumps(view, indent=2))
+    else:
+        print(render_mcp_view(view), end="")
+    return 0
+
+
 def _cmd_import(args: argparse.Namespace) -> int:
     from engine.importers import discover_importers, render_proposal
 
@@ -176,6 +191,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="compact indicator for a shell prompt (prints nothing when clean)",
     )  # fmt: skip
     p_status.set_defaults(func=_cmd_status)
+
+    p_mcp = sub.add_parser(
+        "mcp",
+        help="cross-client view of MCP servers from the last snapshot (read-only)",
+    )
+    p_mcp.add_argument(
+        "--json", dest="as_json", action="store_true",
+        help="emit the MCP view as JSON",
+    )  # fmt: skip
+    p_mcp.set_defaults(func=_cmd_mcp)
 
     p_apply = sub.add_parser("apply", help="converge confirmed changes, one at a time")
     p_apply.add_argument("--id", default=None, help="apply only the entry with this id")
