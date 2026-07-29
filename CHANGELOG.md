@@ -8,6 +8,14 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `plane mcp`: a read-only cross-client view of MCP servers from the last snapshot.
+  Lists each server and the clients it is wired into, and flags servers wired into
+  only one client (reuse candidates), the same tool under different names across
+  clients (naming drift), and servers observed but absent from the registry
+  (ungoverned). `--json` emits the structured view. Pure read with the same
+  no-recompute posture as `plane status`; reads what `plane observe` already wrote,
+  never scans the machine. This is the observability half of MCP management; wiring
+  servers across clients (converge) stays deferred behind `plane apply`.
 - Optional read-only MCP server (`plane-mcp`, install with the `mcp` extra) exposing
   two tools, `tarmac_observe` (inventory the machine) and `tarmac_drift` (structured
   drift, the same shape as `plane drift --json`). Both are annotated read-only; there

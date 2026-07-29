@@ -89,3 +89,47 @@ def test_status_short_is_silent_when_no_report(monkeypatch, capsys):
     assert main(["status", "--short"]) == 0
     cap = capsys.readouterr()
     assert cap.out == "" and cap.err == ""
+
+
+def _mcp_view():
+    return {
+        "host": "h",
+        "ts": "2026-07-29T00:00:00",
+        "servers": [
+            {
+                "name": "context7",
+                "id": "mcp/context7",
+                "clients": ["claude-code"],
+                "governed": True,
+            },
+            {
+                "name": "tolaria",
+                "id": "mcp/tolaria",
+                "clients": ["cursor"],
+                "governed": False,
+            },
+        ],
+        "single_client": ["context7", "tolaria"],
+        "ungoverned": ["tolaria"],
+        "name_drift": [],
+    }
+
+
+def test_mcp_prints_the_human_view(monkeypatch, capsys):
+    monkeypatch.setattr("engine.core.mcp_view.read_mcp_view", lambda repo: _mcp_view())
+    assert main(["mcp"]) == 0
+    out = capsys.readouterr().out
+    assert "context7" in out and "tolaria" in out
+    assert not out.lstrip().startswith("{")  # human view, not JSON
+
+
+def test_mcp_json_emits_the_structured_view(monkeypatch, capsys):
+    monkeypatch.setattr("engine.core.mcp_view.read_mcp_view", lambda repo: _mcp_view())
+    assert main(["mcp", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["ungoverned"] == ["tolaria"]
+
+
+def test_mcp_without_a_snapshot_is_not_an_error(monkeypatch, capsys):
+    monkeypatch.setattr("engine.core.mcp_view.read_mcp_view", lambda repo: None)
+    assert main(["mcp"]) == 0  # unseeded is not a failure
+    assert "no snapshot" in capsys.readouterr().err
