@@ -1,7 +1,8 @@
-"""`plane` CLI. Verbs: observe, drift, apply, import, status, mcp.
+"""`plane` CLI. Verbs: init, observe, drift, apply, import, status, mcp.
 
-observe, drift, status, and mcp are read-only. apply renders a diff and requires
-confirmation before each mutation; the engine owns that gate, not the adapters.
+observe, drift, status, and mcp are read-only; init scaffolds an instance + the home
+config pointer. apply renders a diff and requires confirmation before each mutation;
+the engine owns that gate, not the adapters.
 """
 
 from __future__ import annotations
@@ -118,6 +119,18 @@ def _cmd_mcp(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_init(args: argparse.Namespace) -> int:
+    from engine.core.init import init_instance
+    from engine.core.locate import config_home
+
+    path = Path(args.path) if args.path else Path.cwd()
+    for action in init_instance(path, config_home(), force=args.force):
+        print(action)
+    print(f"\ninstance ready at {path.expanduser().resolve()}")
+    print("next: add entries to registry/ (or `plane import observed`), then observe")
+    return 0
+
+
 def _cmd_import(args: argparse.Namespace) -> int:
     from engine.importers import discover_importers, render_proposal
 
@@ -198,6 +211,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit the MCP view as JSON",
     )  # fmt: skip
     p_mcp.set_defaults(func=_cmd_mcp)
+
+    p_init = sub.add_parser(
+        "init", help="scaffold an instance and register it in ~/.config/planeops"
+    )
+    p_init.add_argument(
+        "path", nargs="?", default=None, help="instance dir (default: cwd)"
+    )
+    p_init.add_argument(
+        "--force", action="store_true", help="repoint config.toml if it points away"
+    )
+    p_init.set_defaults(func=_cmd_init)
 
     p_apply = sub.add_parser("apply", help="converge confirmed changes, one at a time")
     p_apply.add_argument("--id", default=None, help="apply only the entry with this id")

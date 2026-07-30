@@ -97,6 +97,9 @@ under the instance.
 ## Usage
 
 ```bash
+# one-time: scaffold an instance and register it in ~/.config/planeops
+uv run plane init ~/planeops-instance
+
 # scan the machine and write observed/<host>/snapshot.json
 uv run plane observe
 
