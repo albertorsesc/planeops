@@ -1,12 +1,12 @@
 """The MCP server: exposes planeops's read verbs as tools over stdio.
 
-Two tools, thin wrappers over engine.mcp_server.tools (which call run_observe /
-run_drift): `planeops_observe` rescans the machine and records a snapshot (a writer,
-so annotated not-read-only, not-idempotent), and `planeops_drift` reads the last
-snapshot and reports drift (a pure read: writes nothing, read-only + idempotent).
-Neither converges the managed machine. There are deliberately NO mutation tools:
-apply stays behind the CLI's per-change confirmation gate, so an assistant can read
-state but never converge it unattended.
+Four tools, thin wrappers over engine.mcp_server.tools: `planeops_observe` rescans
+the machine and records a snapshot (a writer, so annotated not-read-only,
+not-idempotent); `planeops_drift`, `planeops_status`, and `planeops_mcp` are pure
+reads (read-only + idempotent) that report drift, the last recorded drift without
+rescanning, and the cross-client MCP view. None converges the managed machine. There
+are deliberately NO mutation tools: apply stays behind the CLI's per-change
+confirmation gate, so an assistant can read state but never converge it unattended.
 
 Run with `plane-mcp` (needs the `mcp` extra) or `python -m engine.mcp_server.server`.
 """
@@ -21,7 +21,12 @@ from mcp.types import ToolAnnotations
 
 from engine import __version__
 from engine.core.locate import find_repo_root
-from engine.mcp_server.tools import drift_state, observe_state
+from engine.mcp_server.tools import (
+    drift_state,
+    mcp_view_state,
+    observe_state,
+    status_state,
+)
 
 # drift is a pure read (writes nothing); observe re-scans the machine and records a
 # fresh snapshot, so it is honestly a writer, not idempotent. Neither converges the
@@ -66,6 +71,29 @@ def build_server() -> MCPServer:
     )
     def planeops_drift(repo: str = ".") -> dict[str, Any]:
         return drift_state(find_repo_root(Path(repo).resolve()))
+
+    @mcp.tool(
+        annotations=_PURE_READ,
+        description=(
+            "The last drift report without rescanning (the cheap 'is there drift "
+            "right now?' read): alert count and triage from the recorded DRIFT.json. "
+            "A pure read; returns a structured error if nothing has been recorded yet."
+        ),
+    )
+    def planeops_status(repo: str = ".") -> dict[str, Any]:
+        return status_state(find_repo_root(Path(repo).resolve()))
+
+    @mcp.tool(
+        annotations=_PURE_READ,
+        description=(
+            "Cross-client view of MCP servers from the last snapshot: every server "
+            "and which clients it is wired into, flagging single-client (reuse "
+            "candidates), the same tool under different names, and ungoverned servers "
+            "(observed but not declared). A pure read; error if no snapshot yet."
+        ),
+    )
+    def planeops_mcp(repo: str = ".") -> dict[str, Any]:
+        return mcp_view_state(find_repo_root(Path(repo).resolve()))
 
     return mcp
 

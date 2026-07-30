@@ -7,7 +7,12 @@ same structure `plane drift --json` emits).
 from datetime import datetime
 
 from engine.adapters.manual import ADAPTER as MANUAL
-from engine.mcp_server.tools import drift_state, observe_state
+from engine.mcp_server.tools import (
+    drift_state,
+    mcp_view_state,
+    observe_state,
+    status_state,
+)
 
 REGISTRY = (
     "entries:\n"
@@ -88,3 +93,31 @@ def test_drift_state_returns_structured_error_on_a_bad_registry(
     )
     out = drift_state(tmp_path, now=now, platform=plat, implemented=IMPLEMENTED)
     assert set(out) == {"error"}
+
+
+def test_status_state_returns_the_last_report(tmp_path, fake_platform):
+    d = tmp_path / "observed" / "testhost"
+    d.mkdir(parents=True)
+    (d / "DRIFT.json").write_text('{"alert_count": 2, "ts": "t"}')
+    out = status_state(tmp_path, platform=fake_platform(tmp_path))
+    assert out["alert_count"] == 2  # read straight from DRIFT.json, no rescan
+
+
+def test_status_state_errors_when_no_report(tmp_path, fake_platform):
+    assert "error" in status_state(tmp_path, platform=fake_platform(tmp_path))
+
+
+def test_mcp_view_state_returns_the_cross_client_view(tmp_path, fake_platform):
+    (tmp_path / "registry").mkdir()
+    d = tmp_path / "observed" / "testhost"
+    d.mkdir(parents=True)
+    (d / "snapshot.json").write_text(
+        '{"host": "testhost", "observed": ['
+        '{"adapter": "mcp", "native_id": "c7", "facts": {"sources": ["claude-code"]}}]}'
+    )
+    out = mcp_view_state(tmp_path, platform=fake_platform(tmp_path))
+    assert [s["name"] for s in out["servers"]] == ["c7"]
+
+
+def test_mcp_view_state_errors_when_no_snapshot(tmp_path, fake_platform):
+    assert "error" in mcp_view_state(tmp_path, platform=fake_platform(tmp_path))

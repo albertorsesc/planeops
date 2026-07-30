@@ -16,6 +16,10 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- MCP server: two pure-read tools, `planeops_status` (the last drift report without
+  rescanning) and `planeops_mcp` (the cross-client MCP view), alongside the existing
+  `planeops_observe`/`planeops_drift`. Both annotated read-only + idempotent; the
+  server still exposes no mutation tool.
 - `plane reconcile`: `observe` then `drift` in one pass (exit 2 on alerts), the single
   command a scheduler runs for the ambient loop, so drift stays current without a
   hand-written shell wrapper gluing the two verbs together.
