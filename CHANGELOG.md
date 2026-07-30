@@ -8,6 +8,18 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plane apply` and `plane schedule` report the truth. A typo'd `--id` is a loud
+  error instead of a false "machine matches desired state"; the no-changes message
+  is now neutral and surfaces any standing drift alerts (services and config can't
+  be planned from nothing, so "planned nothing" never meant "no drift"); a
+  successful apply recomputes DRIFT.md/DRIFT.json so a shell prompt reflects the
+  converge immediately instead of at the next scheduled reconcile; and
+  `plane schedule` ends with its own observe, so the hinted `plane apply` sees the
+  just-written job on first use.
+- The MCP server resolves the instance the same way the CLI does
+  ($PLANEOPS_INSTANCE, then the `~/.config/planeops` pointer, then the marker
+  walk). It previously resolved from the client's working directory only, which for
+  a stdio MCP client is arbitrary, so it answered from the wrong instance.
 - `plane drift` now catches a dead reconcile heartbeat. The `launchd`/`systemd`
   adapters set the general `drifted` fact when a service whose own definition means it
   to run (a load-at-login or interval launchd agent, an installable systemd unit) is

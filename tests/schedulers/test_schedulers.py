@@ -87,6 +87,15 @@ class _FakePlat:
         return "h"
 
 
+def _stub_observe(monkeypatch):
+    # schedule refreshes the snapshot after writing the job; stub the scan so the
+    # test never runs real adapters against the live machine.
+    monkeypatch.setattr(
+        "engine.core.observe.run_observe",
+        lambda repo: {"observed": [], "uncovered": [], "host": "h"},
+    )
+
+
 def test_cli_schedule_writes_files_and_declares_the_entry(tmp_path, monkeypatch):
     # current_platform().home() is faked to a tmp dir, so the real ~/Library or
     # ~/.config is never written. The host's backend (launchd on mac / systemd on
@@ -94,6 +103,7 @@ def test_cli_schedule_writes_files_and_declares_the_entry(tmp_path, monkeypatch)
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setattr("engine.platform.current_platform", lambda: _FakePlat(home))
+    _stub_observe(monkeypatch)
     inst = tmp_path / "inst"
     (inst / "registry").mkdir(parents=True)
     (inst / ".planeops").write_text("")
@@ -110,6 +120,7 @@ def test_cli_schedule_off_declares_a_retired_entry(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setattr("engine.platform.current_platform", lambda: _FakePlat(home))
+    _stub_observe(monkeypatch)
     inst = tmp_path / "inst"
     (inst / "registry").mkdir(parents=True)
     (inst / ".planeops").write_text("")

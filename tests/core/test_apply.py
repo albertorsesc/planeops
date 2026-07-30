@@ -221,3 +221,13 @@ def test_apply_writes_an_audit_record(tmp_path, fake_platform):
         "fake/b": False,
     }
     assert all("ts" in line and "actor" in line for line in lines)
+
+
+def test_only_id_with_no_match_raises(tmp_path, fake_platform):
+    # A typo'd --id used to fall through to "no changes" with exit 0; it must be
+    # a loud error so the user knows the id, not the machine, is the problem.
+    _seed(tmp_path)
+    with pytest.raises(LookupError, match="fake/typo"):
+        _run(
+            tmp_path, fake_platform, {"fake": FakeMutating({})}, [], only_id="fake/typo"
+        )
