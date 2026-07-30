@@ -125,3 +125,22 @@ def test_render_lists_servers_their_clients_and_the_flags():
     assert "context7" in out and "claude-code" in out
     assert "tolaria" in out and "cursor" in out
     assert "ungoverned" in out.lower()
+
+
+def test_read_mcp_view_none_on_valid_json_that_is_not_an_object(
+    tmp_path, fake_platform
+):
+    # A snapshot.json that is valid JSON but not an object reads as "no view", not a
+    # crash on `snapshot.get(...)`.
+    d = tmp_path / "observed" / "testhost"
+    d.mkdir(parents=True)
+    (d / "snapshot.json").write_text("null")
+    assert read_mcp_view(tmp_path, platform=fake_platform(tmp_path)) is None
+
+
+def test_wrapper_only_names_do_not_falsely_merge_into_one_drift_group():
+    # "mcp" and "mcp-server" both strip to empty; the fallback keeps them distinct so
+    # they don't collapse into a bogus name-drift group. (The real drift pair still
+    # merges, covered above.)
+    snap = _snapshot({"mcp": ["a"], "mcp-server": ["b"], "real-tool": ["c"]})
+    assert build_mcp_view(snap, set())["name_drift"] == []

@@ -90,3 +90,16 @@ def test_needs_defaults_empty_and_parses_a_list():
 def test_needs_must_be_a_list_of_nonempty_strings(bad):
     with pytest.raises(SchemaError):
         entry_from_dict(_raw(needs=bad))
+
+
+def test_non_scalar_enum_value_is_a_clean_schema_error():
+    # A YAML list where a scalar enum is expected (e.g. `lifecycle: [active]` from a
+    # stray `-`) must be a SchemaError, not a raw TypeError from the enum lookup.
+    with pytest.raises(SchemaError):
+        entry_from_dict(_raw(lifecycle=["active"]))
+
+
+def test_non_string_scope_is_a_clean_schema_error():
+    # `scope: 123` must not reach `.startswith` and raise AttributeError.
+    with pytest.raises(SchemaError):
+        entry_from_dict(_raw(scope=123))

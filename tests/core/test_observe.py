@@ -128,3 +128,35 @@ def test_one_failing_adapter_degrades_not_crashes(tmp_path, fake_platform):
     assert keys == {"manual/inv", "manual/key"}
     assert snap["failed"] == [{"adapter": "boom", "error": "kaboom"}]
     assert snap["schema_version"] == 1
+
+
+def test_observe_survives_a_torn_prior_snapshot(tmp_path, fake_platform):
+    # A snapshot corrupted mid-write must not crash the next observe: the prior reads
+    # as empty and observe re-establishes it. (Regression: unguarded _load_prior.)
+    _seed(tmp_path)
+    snap_dir = tmp_path / "observed" / "testhost"
+    snap_dir.mkdir(parents=True)
+    (snap_dir / "snapshot.json").write_text("{half-written")  # torn
+    now = datetime(2026, 7, 29, 12, 0, 0)
+    snap = run_observe(
+        tmp_path,
+        attest=True,
+        now=now,
+        platform=fake_platform(tmp_path),
+        adapters=ADAPTERS,
+    )
+    assert snap["host"] == "testhost"  # did not raise
+
+
+def test_observe_writes_the_snapshot_atomically(tmp_path, fake_platform):
+    # No temp sibling is left behind: the write is temp+rename, not in-place.
+    _seed(tmp_path)
+    now = datetime(2026, 7, 29, 12, 0, 0)
+    run_observe(
+        tmp_path,
+        attest=True,
+        now=now,
+        platform=fake_platform(tmp_path),
+        adapters=ADAPTERS,
+    )
+    assert not (tmp_path / "observed" / "testhost" / "snapshot.json.tmp").exists()

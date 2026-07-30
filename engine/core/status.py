@@ -8,28 +8,18 @@ recomputes and writes the panes; `plane status` only reads the last one.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 from engine.core.contracts import Platform
+from engine.core.statefile import read_host_json
 
 
 def read_status(
     repo_root: Path, *, platform: Platform | None = None
 ) -> dict[str, Any] | None:
     """The last drift report for this host, parsed from `DRIFT.json`, or None if no
-    report has been written yet. Reads only; never scans the machine or writes."""
-    from engine.platform import current_platform
-
-    platform = platform or current_platform()
-    path = repo_root / "observed" / platform.hostname() / "DRIFT.json"
-    if not path.is_file():
-        return None
-    try:
-        data: dict[str, Any] = json.loads(path.read_text())
-    except (OSError, json.JSONDecodeError):
-        # An unreadable or half-written file reads as "no report", so a shell
-        # prompt calling `plane status --short` never sees a traceback.
-        return None
-    return data
+    report has been written yet. Reads only; never scans the machine or writes. An
+    unreadable, half-written, or non-object file reads as "no report", so a shell
+    prompt calling `plane status --short` never sees a traceback."""
+    return read_host_json(repo_root, "DRIFT.json", platform=platform)

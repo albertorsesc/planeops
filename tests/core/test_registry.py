@@ -53,3 +53,11 @@ def test_duplicate_id_rejected(tmp_path):
 def test_missing_dir_is_empty_registry(tmp_path):
     reg = load_registry(tmp_path / "nope")
     assert reg.entries == () and reg.unmanaged == ()
+
+
+def test_malformed_glob_is_a_clean_schema_error(tmp_path):
+    # A plain string under `globs:` (not a `{glob: ...}` mapping) must raise a
+    # SchemaError like a bad entry does, not a raw TypeError on `raw["glob"]`.
+    _write(tmp_path, "unmanaged.yaml", "globs:\n  - just-a-string\n")
+    with pytest.raises(SchemaError):
+        load_registry(tmp_path)

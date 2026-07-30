@@ -53,3 +53,14 @@ def test_read_status_round_trips_a_real_drift_report(tmp_path, fake_platform):
     assert out == drift_report_dict(rep)
     assert out["alert_count"] == 1  # keys `_cmd_status` depends on
     assert {"report", "uncovered"} <= set(out["summary"])
+
+
+def test_read_status_returns_none_on_valid_json_that_is_not_an_object(
+    tmp_path, fake_platform
+):
+    # A DRIFT.json that is valid JSON but a list/scalar (hand-edited, foreign schema)
+    # reads as "no report", never an AttributeError on the consumer side.
+    d = tmp_path / "observed" / "testhost"
+    d.mkdir(parents=True)
+    (d / "DRIFT.json").write_text("[]")
+    assert read_status(tmp_path, platform=fake_platform(tmp_path)) is None
