@@ -8,10 +8,11 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Renamed the project and distribution from `tarmac` to `planeops`. The PyPI name
-  `tarmac` was taken by an unrelated deployment tool, blocking a clean install; the
-  MCP server's tools are now `planeops_observe`/`planeops_drift`. The CLI command is
-  unchanged: it is still `plane` (and `plane-mcp`).
+- **BREAKING:** renamed the project and distribution from `tarmac` to `planeops`. The
+  PyPI name `tarmac` was taken by an unrelated deployment tool, blocking a clean
+  install; the MCP server's tools are now `planeops_observe`/`planeops_drift`. The CLI
+  command is unchanged: it is still `plane` (and `plane-mcp`). Pre-launch, so no
+  installed users are affected.
 
 ### Added
 
