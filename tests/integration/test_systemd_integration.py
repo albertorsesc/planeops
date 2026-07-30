@@ -112,3 +112,59 @@ def test_enable_then_disable_via_real_systemctl(unit_file):
     seen = {o.native_id: o for o in adapter.observe(ctx)}
     assert seen[UNIT].facts["enabled"] is False  # real systemctl disabled it
     assert seen[UNIT].facts["active"] is False  # real systemctl stopped it
+
+
+TIMER = f"planeops-integration-timer-{os.getpid()}-{uuid.uuid4().hex[:8]}.timer"
+TIMER_SVC = TIMER.replace(".timer", ".service")
+
+
+def _cleanup_timer() -> None:
+    subprocess.run(
+        ["systemctl", "--user", "disable", "--now", TIMER], capture_output=True
+    )
+    (_USER_DIR / TIMER).unlink(missing_ok=True)
+    (_USER_DIR / TIMER_SVC).unlink(missing_ok=True)
+    subprocess.run(["systemctl", "--user", "daemon-reload"], capture_output=True)
+
+
+@pytest.fixture
+def timer_files():
+    _USER_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        # a timer needs the service it triggers to exist
+        (_USER_DIR / TIMER_SVC).write_text(
+            "[Unit]\nDescription=planeops test svc\n"
+            "[Service]\nType=oneshot\nExecStart=/bin/true\n"
+        )
+        (_USER_DIR / TIMER).write_text(
+            "[Unit]\nDescription=planeops test timer\n"
+            "[Timer]\nOnActiveSec=1h\n"
+            "[Install]\nWantedBy=timers.target\n"  # enable-able
+        )
+        subprocess.run(["systemctl", "--user", "daemon-reload"], capture_output=True)
+        yield
+    finally:
+        _cleanup_timer()
+
+
+def test_observe_and_govern_a_real_timer(timer_files):
+    # The Linux parity to a scheduled launchd plist: the adapter observes and converges
+    # a real `.timer` via systemctl, so `plane schedule`'s reconcile timer is governed.
+    ctx = Ctx(platform=_Platform(Path.home()), host="h", now=datetime(2026, 7, 28))
+    adapter = SystemdAdapter()
+
+    seen = {o.native_id: o for o in adapter.observe(ctx)}
+    assert TIMER in seen  # .timer units are observed, not just .service
+    assert seen[TIMER].facts["enabled"] is False
+    assert seen[TIMER].facts["active"] is False
+
+    active = entry_from_dict(
+        {"id": f"systemd/{TIMER}", "adapter": "systemd", "domain": "service",
+         "lifecycle": "active", "intent": "i"}
+    )  # fmt: skip
+    [enable] = adapter.plan(active, seen[TIMER], ctx)
+    assert adapter.execute(enable, ctx).ok
+
+    seen = {o.native_id: o for o in adapter.observe(ctx)}
+    assert seen[TIMER].facts["enabled"] is True  # real systemctl enabled the timer
+    assert seen[TIMER].facts["active"] is True  # real systemctl started the timer

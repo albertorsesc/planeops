@@ -9,7 +9,10 @@ engine owns confirmation, so execute runs only per confirmed Change.
 Two axes, unlike launchd's single "loaded": systemd separates ENABLED (starts on
 login, `is-enabled`) from ACTIVE (running now, `is-active`); each is read from the
 status WORD, one unit per call, because the exit code alone conflates `static` and
-`masked` with enabled/disabled. User unit files live in `~/.config/systemd/user/`.
+`masked` with enabled/disabled. A unit is a unit: `.service` and `.timer` are
+observed and converged identically (is-enabled/is-active, enable/disable apply to
+both), so a scheduled `.timer` is governed with no per-type branching. User unit
+files live in `~/.config/systemd/user/`.
 OS access goes through the injected `run` seam plus `ctx.platform.home()`, so the
 adapter is testable against fixtures and, where no `systemd --user` session exists
 (e.g. macOS), observes nothing rather than crashing.
@@ -27,6 +30,10 @@ from engine.core.schema import ABSENT_LIFECYCLES, Entry, Lifecycle
 class SystemdAdapter:
     name = "systemd"
     domains: tuple[str, ...] = ("service",)
+    # Unit types this adapter governs, as data, not a branch. is-enabled/is-active and
+    # enable/disable are type-agnostic, so a `.timer` observes and converges exactly
+    # like a `.service`; add a type here and the whole adapter picks it up.
+    UNIT_TYPES: tuple[str, ...] = ("service", "timer")
 
     def __init__(self, run: Runner | None = None, units_dir: Path | None = None):
         self._run = run or default_run
@@ -47,10 +54,11 @@ class SystemdAdapter:
             return []
 
         out: list[Observed] = []
-        for unit_path in sorted(units_dir.glob("*.service")):
+        paths = sorted(p for t in self.UNIT_TYPES for p in units_dir.glob(f"*.{t}"))
+        for unit_path in paths:
+            if unit_path.stem.endswith("@"):
+                continue  # a template (foo@.service / foo@.timer), not a runnable unit
             unit = unit_path.name
-            if unit.endswith("@.service"):
-                continue  # a template, not a runnable unit; instances are foo@X.service
             enabled = self._state(unit, "is-enabled") in ("enabled", "enabled-runtime")
             active = self._state(unit, "is-active") == "active"
             out.append(
