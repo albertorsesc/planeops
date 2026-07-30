@@ -57,8 +57,23 @@ Hold these; a change that breaks one needs a very good reason:
 - **Provider-neutral.** No feature binds to a single vendor. Adapters shell out to
   local tools through the injected seam, with no network calls of their own.
 
-## Commits and PRs
+## Commits, versioning, and PRs
 
-Keep commits focused with a clear subject line. Open a PR against `main`; the
-template lists what to confirm. Update `CHANGELOG.md` under `Unreleased` for
-user-facing changes.
+Commits follow [Conventional Commits](https://www.conventionalcommits.org): a typed,
+imperative subject under ~70 characters.
+
+- Types: `feat`, `fix`, `docs`, `refactor`, `test`, `perf`, `chore`.
+- A change that breaks the **registry schema, the CLI, the config format, or an
+  adapter contract** is breaking: mark it `feat!:`/`fix!:` and add a `BREAKING CHANGE:`
+  footer explaining the break and the migration.
+- Add a body only when the reason isn't obvious from the diff; don't narrate tests.
+
+Versioning is [SemVer](https://semver.org) with a [Keep a Changelog](https://keepachangelog.com)
+`CHANGELOG.md`. Record user-facing changes under `Unreleased` in the right section
+(`Added`/`Changed`/`Fixed`/`Deprecated`/`Removed`/`Security`), and prefix any breaking
+entry with **BREAKING:**. Pre-1.0 (while `0.x`): a breaking change bumps the **minor**
+(`0.MINOR.0`); features and fixes bump the **patch** (`0.x.PATCH`). After 1.0, standard
+SemVer (breaking → major).
+
+Open a PR against `main`; the template lists what to confirm, and the body should
+state the change type and any breaking impact (and the version bump it implies).

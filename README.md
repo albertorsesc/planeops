@@ -34,6 +34,9 @@ observe  ->  drift  ->  apply
  (read)     (report)   (converge, per-change confirm)
 ```
 
+- `plane init [path]` scaffolds an instance (registry + a starter `instance.yaml`)
+  and registers it in `~/.config/planeops/config.toml`, so the installed `plane` finds
+  it from any directory. One-time setup.
 - `plane observe` scans the machine and writes a snapshot. Read-only, safe to run
   on a schedule.
 - `plane drift` diffs the registry (desired) against the snapshot (observed) and
@@ -110,6 +113,9 @@ uv run plane observe
 # report where desired and observed disagree (writes DRIFT.md + DRIFT.json)
 uv run plane drift
 
+# observe + drift in one pass (what a scheduler runs to keep drift current)
+uv run plane reconcile
+
 # show the last report without rescanning; --short drives a shell prompt
 uv run plane status
 uv run plane status --short          # e.g. "drift:3", prints nothing when clean
@@ -163,9 +169,11 @@ The observe/drift/apply loop runs on macOS and Linux, with adapters for services
 (`launchd`, `systemd`), packages (`brew`, `npm`, `uv`), node runtimes (`nvm`), local
 models (`ollama`), config files (delegated to `chezmoi`), MCP-server wiring
 (read-only), and a `sops`+`age` secrets store (presence-tracked without ever
-decrypting a value). Structured `DRIFT.json`, `plane status`, the cross-client
-`plane mcp` view, entry `needs` dependencies, the `observed` importer, and the
-optional MCP server are all in place. See `CHANGELOG.md` for the full history.
+decrypting a value). One-command onboarding (`plane init` + instance resolution via
+`~/.config/planeops`, `plane import observed --write` to seed the registry from the
+machine), the `plane reconcile` ambient loop, structured `DRIFT.json`, `plane status`,
+the cross-client `plane mcp` view, entry `needs` dependencies, and the optional MCP
+server are all in place. See `CHANGELOG.md` for the full history.
 
 Not yet: a tagged release / installable package, and a holistic clean-account
 reproduction rehearsal as the end-to-end acceptance test.
