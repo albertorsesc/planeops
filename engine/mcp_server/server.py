@@ -20,7 +20,7 @@ from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
 
 from engine import __version__
-from engine.cli import find_repo_root
+from engine.core.locate import find_repo_root
 from engine.mcp_server.tools import drift_state, observe_state
 
 # drift is a pure read (writes nothing); observe re-scans the machine and records a

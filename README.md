@@ -84,6 +84,16 @@ The distribution is named `planeops`; it installs the `plane` command (and
 `make drift`, and `make status` (with `REPO=<your-instance>`) wrap the common
 commands so you don't retype `uv run plane --repo ...`.
 
+### Finding your instance
+
+`plane` locates the instance root (where `registry/` and `observed/` live) by
+precedence: `--repo <path>`, else `$PLANEOPS_INSTANCE`, else
+`~/.config/planeops/config.toml` (`instance = "/path/to/instance"`, honoring
+`$XDG_CONFIG_HOME`), else the current directory walking up to a `.planeops` marker.
+Drop a `.planeops` file at your instance root and point `config.toml` at it once, and
+`plane` works from any directory. That home file holds only the pointer; state stays
+under the instance.
+
 ## Usage
 
 ```bash
