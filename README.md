@@ -42,6 +42,9 @@ observe  ->  drift  ->  apply
   Exits non-zero when alerts exist. `--json` prints the report to stdout.
 - `plane status` prints the last report without rescanning: instant and read-only.
   `--short` gives a shell-prompt indicator (the alert count, empty when clean).
+- `plane reconcile` runs `observe` then `drift` in one pass (exit 2 on alerts). This
+  is the one command a scheduler (a launchd agent or systemd timer) runs to keep drift
+  current, so a `status --short` prompt stays fresh without you rescanning by hand.
 - `plane mcp` gives a cross-client view of MCP servers from the last snapshot: each
   server and the clients it is wired into, flagging servers wired into only one client
   (reuse candidates), the same tool under different names across clients (naming

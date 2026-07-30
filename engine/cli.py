@@ -1,8 +1,9 @@
-"""`plane` CLI. Verbs: init, observe, drift, apply, import, status, mcp.
+"""`plane` CLI. Verbs: init, observe, drift, reconcile, apply, import, status, mcp.
 
-observe, drift, status, and mcp are read-only; init scaffolds an instance + the home
-config pointer. apply renders a diff and requires confirmation before each mutation;
-the engine owns that gate, not the adapters.
+observe, drift, status, and mcp are read-only; reconcile is observe+drift in one pass
+(for a scheduler); init scaffolds an instance + the home config pointer. apply renders
+a diff and requires confirmation before each mutation; the engine owns that gate, not
+the adapters.
 """
 
 from __future__ import annotations
@@ -102,6 +103,33 @@ def _cmd_status(args: argparse.Namespace) -> int:
             f"{summary['uncovered']} uncovered (as of {data['ts']})"
         )
     return 2 if data["alert_count"] else 0
+
+
+def _cmd_reconcile(args: argparse.Namespace) -> int:
+    from engine.core.drift import run_drift
+    from engine.core.observe import run_observe
+    from engine.core.schema import SchemaError
+
+    repo = resolve_instance_root(args.repo)
+    try:
+        snap = run_observe(repo)  # scan + write the snapshot
+    except SchemaError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print(
+        f"observed {len(snap['observed'])} fact(s) "
+        f"-> observed/{snap['host']}/snapshot.json"
+    )
+    try:
+        report = run_drift(repo)  # diff the fresh snapshot, write DRIFT.md + DRIFT.json
+    except (FileNotFoundError, SchemaError) as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print(
+        f"{report.alert_count} alert(s), {len(report.report)} report, "
+        f"{len(report.uncovered)} uncovered -> observed/{report.host}/DRIFT.md"
+    )
+    return 2 if report.alert_count else 0
 
 
 def _cmd_mcp(args: argparse.Namespace) -> int:
@@ -222,6 +250,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="compact indicator for a shell prompt (prints nothing when clean)",
     )  # fmt: skip
     p_status.set_defaults(func=_cmd_status)
+
+    p_reconcile = sub.add_parser(
+        "reconcile", help="observe then drift in one pass (for a scheduler)"
+    )
+    p_reconcile.set_defaults(func=_cmd_reconcile)
 
     p_mcp = sub.add_parser(
         "mcp",

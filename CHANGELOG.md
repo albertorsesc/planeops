@@ -15,6 +15,9 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `plane reconcile`: `observe` then `drift` in one pass (exit 2 on alerts), the single
+  command a scheduler runs for the ambient loop, so drift stays current without a
+  hand-written shell wrapper gluing the two verbs together.
 - `plane import <kind> --write` lands the proposal into `registry/imported.yaml`
   (merged + de-duped by id, into a file separate from hand-curated ones), so
   onboarding is `plane observe && plane import observed --write` (seed the registry
