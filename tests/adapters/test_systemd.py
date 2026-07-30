@@ -87,11 +87,47 @@ def test_observe_reports_enabled_and_active(tmp_path):
     assert out["on.service"].facts == {
         "enabled": True,
         "active": True,
+        "drifted": False,
         "unit_path": str(d / "on.service"),
     }
     assert out["off.service"].facts["enabled"] is False
     assert out["off.service"].facts["active"] is False
     assert out["on.service"].key == "systemd/on.service"
+
+
+# ---- observe: dead-heartbeat drift (a unit meant to run but isn't) ----
+
+
+def test_observe_flags_drift_when_an_installable_unit_is_disabled(tmp_path):
+    # is-enabled reports 'disabled' (has [Install], currently off): the unit is meant to
+    # be enabled and isn't, so it drifted. The dead-heartbeat signal for a scheduled
+    # .timer that got disabled.
+    d = _units(tmp_path, "sched.timer")
+    out = SystemdAdapter(run=Fake(), units_dir=d).observe(_ctx())[0]  # not enabled
+    assert out.facts["drifted"] is True
+
+
+def test_observe_flags_drift_when_enabled_but_not_active(tmp_path):
+    # enabled yet stopped (crashed / never started): still drift, mirrors plan's enable.
+    d = _units(tmp_path, "svc.service")
+    out = SystemdAdapter(run=Fake(enabled={"svc.service"}), units_dir=d).observe(_ctx())
+    assert out[0].facts["drifted"] is True
+
+
+def test_observe_no_drift_for_a_static_unit(tmp_path):
+    # `static` (no [Install]) is not "disabled": a timer-driven oneshot .service stays
+    # silent even while inactive between runs.
+    d = _units(tmp_path, "oneshot.service")
+    fake = Fake(static={"oneshot.service"})
+    [obs] = SystemdAdapter(run=fake, units_dir=d).observe(_ctx())
+    assert obs.facts["drifted"] is False
+
+
+def test_observe_no_drift_when_enabled_and_active(tmp_path):
+    d = _units(tmp_path, "sched.timer")
+    fake = Fake(enabled={"sched.timer"}, active={"sched.timer"})
+    [obs] = SystemdAdapter(run=fake, units_dir=d).observe(_ctx())
+    assert obs.facts["drifted"] is False
 
 
 def test_observe_degrades_without_a_user_session(tmp_path):
