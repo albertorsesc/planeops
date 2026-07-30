@@ -14,9 +14,11 @@ from typing import Any
 
 from engine.core.contracts import Adapter, Platform
 from engine.core.drift import run_drift
+from engine.core.mcp_view import read_mcp_view
 from engine.core.observe import run_observe
 from engine.core.report import drift_report_dict
 from engine.core.schema import SchemaError
+from engine.core.status import read_status
 
 
 def observe_state(
@@ -64,3 +66,24 @@ def drift_state(
     except (FileNotFoundError, SchemaError) as exc:
         return {"error": str(exc)}
     return drift_report_dict(report)
+
+
+def status_state(
+    repo_root: Path, *, platform: Platform | None = None
+) -> dict[str, Any]:
+    """The last drift report from `DRIFT.json`, no rescan (identical to `plane
+    status --json`). The cheap "is there drift right now?" read. `{"error": ...}` when
+    no report has been written yet; never scans the machine or writes."""
+    data = read_status(repo_root, platform=platform)
+    return data if data is not None else {"error": "no drift report yet; run drift"}
+
+
+def mcp_view_state(
+    repo_root: Path, *, platform: Platform | None = None
+) -> dict[str, Any]:
+    """The cross-client MCP view from the last snapshot (identical to `plane mcp
+    --json`): every MCP server and which clients it is wired into, flagging single-
+    client, name-drift, and ungoverned servers. `{"error": ...}` when no snapshot
+    exists yet; a pure read, never scans or writes."""
+    view = read_mcp_view(repo_root, platform=platform)
+    return view if view is not None else {"error": "no snapshot yet; run observe"}

@@ -71,8 +71,10 @@ retired or is absent, so a model or package a tool relies on can't be pruned out
 from under it.
 
 Assistants can read the plane over an optional MCP server (`plane-mcp`, install the
-`mcp` extra): the read-only tools `planeops_observe` and `planeops_drift` answer "what is
-on this machine?" and "what has drifted?" without ever changing it.
+`mcp` extra): `planeops_observe` inventories the machine, and the pure-read
+`planeops_drift`, `planeops_status`, and `planeops_mcp` answer "what has drifted?",
+"is there drift right now?" (no rescan), and "how are my MCP servers wired?", without
+ever converging anything. Mutation stays behind the CLI's confirmation gate.
 
 ## Install
 
