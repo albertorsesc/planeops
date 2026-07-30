@@ -31,7 +31,9 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   from any directory. The reference `instance.yaml` now ships as package data
   (`engine/instance.example.yaml`), so an installed user gets the full documented
   template, not just a stub. Idempotent; keeps existing files, repoints only with
-  `--force`.
+  `--force`. `--seed` then observes the machine and seeds the registry in the same
+  command (`--no-seed` scaffolds only; interactive runs offer it, default yes), so
+  `plane init <path> --seed` lands a governed registry to prune in one step.
 - Instance resolution: `plane` locates the instance by precedence, `--repo` >
   `$PLANEOPS_INSTANCE` > `~/.config/planeops/config.toml` (honoring `$XDG_CONFIG_HOME`)
   > the current directory walking up to a `.planeops` marker.
