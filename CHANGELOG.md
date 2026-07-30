@@ -15,6 +15,13 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `plane init [path]`: the one-command on-ramp. Scaffolds an instance (a `.planeops`
+  marker, `registry/`, a starter `instance.yaml`) and writes `~/.config/planeops/
+  config.toml` pointing at it, so the installed `plane` finds it from any directory.
+  Idempotent; keeps existing files and only repoints the config with `--force`.
+- Instance resolution: `plane` locates the instance by precedence, `--repo` >
+  `$PLANEOPS_INSTANCE` > `~/.config/planeops/config.toml` (honoring `$XDG_CONFIG_HOME`)
+  > the current directory walking up to a `.planeops` marker.
 - `plane mcp`: a read-only cross-client view of MCP servers from the last snapshot.
   Lists each server and the clients it is wired into, and flags servers wired into
   only one client (reuse candidates), the same tool under different names across
