@@ -36,7 +36,8 @@ observe  ->  drift  ->  apply
 
 - `plane init [path]` scaffolds an instance (registry + a starter `instance.yaml`)
   and registers it in `~/.config/planeops/config.toml`, so the installed `plane` finds
-  it from any directory. One-time setup.
+  it from any directory. `--seed` then observes the machine and seeds the registry, so
+  one command lands a governed registry to prune (`--no-seed` scaffolds only).
 - `plane observe` scans the machine and writes a snapshot. Read-only, safe to run
   on a schedule.
 - `plane drift` diffs the registry (desired) against the snapshot (observed) and
@@ -104,8 +105,8 @@ under the instance.
 ## Usage
 
 ```bash
-# one-time: scaffold an instance and register it in ~/.config/planeops
-uv run plane init ~/planeops-instance
+# one-time: scaffold an instance, register it, and seed the registry from the machine
+uv run plane init ~/planeops-instance --seed
 
 # scan the machine and write observed/<host>/snapshot.json
 uv run plane observe
