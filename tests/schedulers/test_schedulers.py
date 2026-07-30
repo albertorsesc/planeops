@@ -31,6 +31,9 @@ def test_launchd_runs_reconcile_on_interval_and_login(tmp_path):
     [entry] = job.entries
     assert entry["id"] == "launchd/ai.planeops.reconcile"
     assert entry["lifecycle"] == "active" and entry["adapter"] == "launchd"
+    # a dead reconcile heartbeat should escalate: the adapter sets facts.drifted when
+    # the agent is unloaded, and tolerance:alert routes that to an alert (not a report).
+    assert entry["tolerance"] == "alert"
 
 
 def test_launchd_off_retires_and_drops_run_at_load(tmp_path):
@@ -55,6 +58,7 @@ def test_systemd_pairs_timer_and_service_and_unmanages_the_service(tmp_path):
     svc = next(c for p, c in job.files.items() if p.name.endswith(".service"))
     assert "ExecStart=/x/plane reconcile" in svc and "Environment=PATH=/p" in svc
     assert job.entries[0]["id"] == "systemd/planeops-reconcile.timer"
+    assert job.entries[0]["tolerance"] == "alert"  # dead-heartbeat escalates
     # the timer-driven oneshot is bundled but not governed on its own
     assert job.globs == [{"glob": "systemd/planeops-reconcile.service"}]
 

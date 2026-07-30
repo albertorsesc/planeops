@@ -41,7 +41,9 @@ def _ctx(platform):
     return Ctx(platform=platform, host="testhost", now=datetime(2026, 7, 22))
 
 
-def _write_plist(root, label, *, keepalive=True, run_at_load=False):
+def _write_plist(
+    root, label, *, keepalive=True, run_at_load=False, start_interval=None
+):
     d = root / "Library" / "LaunchAgents"
     d.mkdir(parents=True, exist_ok=True)
     payload = {"Label": label, "ProgramArguments": ["/bin/echo", "hi"]}
@@ -49,8 +51,17 @@ def _write_plist(root, label, *, keepalive=True, run_at_load=False):
         payload["KeepAlive"] = True
     if run_at_load:
         payload["RunAtLoad"] = True
+    if start_interval is not None:
+        payload["StartInterval"] = start_interval
     with (d / f"{label}.plist").open("wb") as fh:
         plistlib.dump(payload, fh)
+
+
+def _observe_facts(root, fake_platform):
+    return {
+        o.native_id: o.facts
+        for o in LaunchdAdapter(run=_list_run).observe(_ctx(fake_platform(root)))
+    }
 
 
 def _entry(entry_id, lifecycle):
@@ -113,6 +124,47 @@ def test_unreadable_plist_degrades_to_filename(tmp_path, fake_platform):
     (d / "ai.example.broken.plist").write_text("not a plist")
     out = LaunchdAdapter(run=_list_run).observe(_ctx(fake_platform(tmp_path)))
     assert out[0].native_id == "ai.example.broken"
+
+
+# ---- observe: dead-heartbeat drift (a persistent agent that is not loaded) ----
+
+
+def test_observe_flags_drift_when_a_load_at_login_agent_is_unloaded(
+    tmp_path, fake_platform
+):
+    # RunAtLoad says "load me at login", but the agent is absent from `launchctl list`:
+    # it drifted from its own definition. This is the dead-heartbeat signal a scheduled
+    # reconcile agent needs, since its whole job is to keep drift fresh.
+    _write_plist(tmp_path, "ai.example.dead", keepalive=False, run_at_load=True)
+    assert _observe_facts(tmp_path, fake_platform)["ai.example.dead"]["drifted"] is True
+
+
+def test_observe_flags_drift_when_an_interval_agent_is_unloaded(
+    tmp_path, fake_platform
+):
+    # No RunAtLoad, but a StartInterval agent must be loaded to fire; unloaded it never
+    # runs again, so a `--no-login` schedule is covered too.
+    _write_plist(tmp_path, "ai.example.interval", keepalive=False, start_interval=3600)
+    got = _observe_facts(tmp_path, fake_platform)["ai.example.interval"]
+    assert got["drifted"] is True
+
+
+def test_observe_no_drift_for_an_on_demand_agent_that_is_unloaded(
+    tmp_path, fake_platform
+):
+    # Neither RunAtLoad/KeepAlive nor a schedule: an on-demand agent being unloaded is
+    # normal, not drift.
+    _write_plist(tmp_path, "ai.example.ondemand", keepalive=False)
+    got = _observe_facts(tmp_path, fake_platform)["ai.example.ondemand"]
+    assert got["drifted"] is False
+
+
+def test_observe_no_drift_when_a_persistent_agent_is_loaded(tmp_path, fake_platform):
+    _write_plist(
+        tmp_path, "ai.example.running", run_at_load=True
+    )  # loaded per LAUNCHCTL
+    got = _observe_facts(tmp_path, fake_platform)["ai.example.running"]
+    assert got["drifted"] is False
 
 
 # ---- plan ----------------------------------------------------------------

@@ -47,11 +47,20 @@ def read_plist(path: Path) -> dict[str, Any]:
         with path.open("rb") as fh:
             data = plistlib.load(fh)
     except (OSError, plistlib.InvalidFileException, ValueError):
-        return {"label": path.stem, "keepalive": False, "run_at_load": False}
+        return {
+            "label": path.stem,
+            "keepalive": False,
+            "run_at_load": False,
+            "scheduled": False,
+        }
     return {
         "label": data.get("Label", path.stem),
         "keepalive": bool(data.get("KeepAlive")),
         "run_at_load": bool(data.get("RunAtLoad")),
+        # A plist with an interval/calendar trigger must be loaded to ever fire.
+        "scheduled": bool(
+            data.get("StartInterval") or data.get("StartCalendarInterval")
+        ),
     }
 
 
@@ -80,6 +89,12 @@ class LaunchdAdapter:
             label = meta["label"]
             is_loaded = label in loaded
             pid = loaded.get(label)
+            # A plist whose own definition means it to stay up (load at login, keep
+            # alive, or fire on a schedule) but that is not loaded has drifted from that
+            # intent: the dead-heartbeat signal. An on-demand agent (none of those) is
+            # fine unloaded. Triage routes `drifted` by the entry's tolerance, so a
+            # reconcile schedule marks it `alert` while a plain service reports it.
+            wants_loaded = meta["run_at_load"] or meta["keepalive"] or meta["scheduled"]
             out.append(
                 Observed(
                     adapter=self.name,
@@ -90,6 +105,7 @@ class LaunchdAdapter:
                         "pid": pid,
                         "keepalive": meta["keepalive"],
                         "run_at_load": meta["run_at_load"],
+                        "drifted": bool(wants_loaded and not is_loaded),
                         "plist_path": str(plist_path),
                     },
                 )

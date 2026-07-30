@@ -6,6 +6,16 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `plane drift` now catches a dead reconcile heartbeat. The `launchd`/`systemd`
+  adapters set the general `drifted` fact when a service whose own definition means it
+  to run (a load-at-login or interval launchd agent, an installable systemd unit) is
+  present on disk but not loaded/enabled, and `plane schedule` marks its entry
+  `tolerance: alert`. Before, an agent that silently unloaded left drift green while the
+  shell prompt kept showing stale state, the exact failure the ambient loop exists to
+  prevent; `plane apply` already treated it as a change, so drift and apply now agree.
+
 ### Changed
 
 - **BREAKING:** renamed the project and distribution from `tarmac` to `planeops`. The

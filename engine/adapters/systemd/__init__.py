@@ -59,8 +59,15 @@ class SystemdAdapter:
             if unit_path.stem.endswith("@"):
                 continue  # a template (foo@.service / foo@.timer), not a runnable unit
             unit = unit_path.name
-            enabled = self._state(unit, "is-enabled") in ("enabled", "enabled-runtime")
+            enabled_word = self._state(unit, "is-enabled")
+            enabled = enabled_word in ("enabled", "enabled-runtime")
             active = self._state(unit, "is-active") == "active"
+            # A unit whose own definition means it to run but doesn't has drifted:
+            # installable yet `disabled`, or enabled yet not active. A `static` unit (no
+            # [Install]) reads neither, so a timer-driven oneshot stays silent between
+            # runs. Triage routes `drifted` by tolerance, so a reconcile timer marks it
+            # `alert` (dead heartbeat) while a plain unit reports it.
+            drifted = enabled_word == "disabled" or (enabled and not active)
             out.append(
                 Observed(
                     adapter=self.name,
@@ -68,6 +75,7 @@ class SystemdAdapter:
                     facts={
                         "enabled": enabled,
                         "active": active,
+                        "drifted": drifted,
                         "unit_path": str(unit_path),
                     },
                 )

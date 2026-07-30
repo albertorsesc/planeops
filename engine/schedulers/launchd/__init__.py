@@ -49,6 +49,10 @@ class LaunchdScheduler:
             "adapter": "launchd",
             "domain": "service",
             "lifecycle": "retired" if off else "active",
+            # A dead reconcile heartbeat rots every other signal, so escalate: the
+            # adapter sets facts.drifted when the agent is unloaded, and `alert` routes
+            # that to an alert rather than a quiet report.
+            "tolerance": "alert",
             "intent": "planeops ambient reconcile, managed by `plane schedule`",
         }
         verb = "unload" if off else "load"
