@@ -1,9 +1,11 @@
-"""`plane` CLI. Verbs: init, observe, drift, reconcile, apply, import, status, mcp.
+"""`plane` CLI. Verbs: init, observe, drift, reconcile, schedule, apply, import,
+status, mcp.
 
 observe, drift, status, and mcp are read-only; reconcile is observe+drift in one pass
-(for a scheduler); init scaffolds an instance + the home config pointer. apply renders
-a diff and requires confirmation before each mutation; the engine owns that gate, not
-the adapters.
+(for a scheduler); schedule writes the OS reconcile-timer files + a registry entry (then
+apply loads it); init scaffolds an instance + the home config pointer. apply renders a
+diff and requires confirmation before each mutation; the engine owns that gate, not the
+adapters.
 """
 
 from __future__ import annotations
@@ -103,6 +105,64 @@ def _cmd_status(args: argparse.Namespace) -> int:
             f"{summary['uncovered']} uncovered (as of {data['ts']})"
         )
     return 2 if data["alert_count"] else 0
+
+
+def _parse_every(value: str) -> int:
+    """`6h`/`30m`/`90s` -> seconds. Rejects anything else."""
+    units = {"h": 3600, "m": 60, "s": 1}
+    unit, number = value[-1:], value[:-1]
+    if unit not in units or not number.isdigit() or int(number) <= 0:
+        raise ValueError
+    return int(number) * units[unit]
+
+
+def _cmd_schedule(args: argparse.Namespace) -> int:
+    import os
+    import shutil
+
+    import yaml
+
+    from engine.core.statefile import atomic_write
+    from engine.platform import current_platform
+    from engine.schedulers import current_scheduler
+
+    try:
+        interval = _parse_every(args.every)
+    except ValueError:
+        print(f"--every must be like 6h/30m/90s (got {args.every!r})", file=sys.stderr)
+        return 1
+
+    home = current_platform().home()
+    plane = shutil.which("plane") or str(home / ".local" / "bin" / "plane")
+    try:
+        scheduler = current_scheduler()
+    except NotImplementedError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
+    job = scheduler.build(
+        home,
+        plane=plane,
+        path_env=os.environ.get("PATH", ""),
+        interval=interval,
+        login=not args.no_login,
+        off=args.off,
+    )
+    for path, content in job.files.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        atomic_write(path, content)
+        print(f"wrote {path}")
+
+    repo = resolve_instance_root(args.repo)
+    schedule_yaml = repo / "registry" / "schedule.yaml"
+    schedule_yaml.parent.mkdir(parents=True, exist_ok=True)
+    doc: dict[str, object] = {"entries": job.entries}
+    if job.globs:
+        doc["globs"] = job.globs
+    atomic_write(schedule_yaml, yaml.safe_dump(doc, sort_keys=False))
+    print(f"declared {schedule_yaml}")
+    print(job.hint)
+    return 0
 
 
 def _cmd_reconcile(args: argparse.Namespace) -> int:
@@ -291,6 +351,21 @@ def build_parser() -> argparse.ArgumentParser:
         "reconcile", help="observe then drift in one pass (for a scheduler)"
     )
     p_reconcile.set_defaults(func=_cmd_reconcile)
+
+    p_schedule = sub.add_parser(
+        "schedule",
+        help="set up the ambient reconcile timer (then `plane apply` loads it)",
+    )
+    p_schedule.add_argument(
+        "--every", default="6h", help="run interval: 6h / 30m / 90s (default 6h)"
+    )
+    p_schedule.add_argument(
+        "--no-login", action="store_true", help="don't also run at login/boot"
+    )
+    p_schedule.add_argument(
+        "--off", action="store_true", help="retire the schedule (apply then unloads it)"
+    )
+    p_schedule.set_defaults(func=_cmd_schedule)
 
     p_mcp = sub.add_parser(
         "mcp",

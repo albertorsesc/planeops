@@ -16,6 +16,14 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `plane schedule`: set up the ambient reconcile as an OS-native timer (launchd on
+  macOS, systemd on Linux) running `plane reconcile` at login and on an interval
+  (`--every 6h` / `30m` / `90s`, `--no-login`, `--off`). It writes the timer files
+  (with the current PATH baked in so scheduled adapters find their tools) and declares
+  a `launchd`/`systemd` registry entry; `plane apply` loads it through the confirm gate
+  and `plane drift` then governs the schedule itself. Scheduler backends live under
+  `engine/schedulers/<os>/` and are self-discovered per platform, no OS branch, the
+  same package-scan pattern as adapters and platforms.
 - The `systemd` adapter now observes and converges `.timer` units, not just
   `.service` (a unit is a unit: `UNIT_TYPES` is data, not a branch, so is-enabled/
   is-active and enable/disable apply uniformly). This is the Linux parity to a
