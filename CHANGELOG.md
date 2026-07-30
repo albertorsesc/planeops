@@ -15,6 +15,12 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `plane import <kind> --write` lands the proposal into `registry/imported.yaml`
+  (merged + de-duped by id, into a file separate from hand-curated ones), so
+  onboarding is `plane observe && plane import observed --write` (seed the registry
+  from the machine, then prune) instead of hand-copying YAML. Prints and confirms
+  first; `--yes` skips the prompt for scripts. Never writes without a readable stdin
+  or `--yes`.
 - `plane init [path]`: the one-command on-ramp. Scaffolds an instance (a `.planeops`
   marker, `registry/`, and the commented reference `instance.yaml`) and writes
   `~/.config/planeops/config.toml` pointing at it, so the installed `plane` finds it

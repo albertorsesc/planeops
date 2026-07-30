@@ -132,7 +132,7 @@ def _cmd_init(args: argparse.Namespace) -> int:
 
 
 def _cmd_import(args: argparse.Namespace) -> int:
-    from engine.importers import discover_importers, render_proposal
+    from engine.importers import discover_importers, render_proposal, write_proposal
 
     path = Path(args.path)
     if not path.is_file():
@@ -154,7 +154,28 @@ def _cmd_import(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
     print(importer.note(path, len(entries)))
-    print(render_proposal(entries), end="")
+
+    if not args.write:  # default: propose to stdout, write nothing
+        print(render_proposal(entries), end="")
+        return 0
+
+    # --write: land the proposal into registry/imported.yaml (a prune-not-author seed).
+    if not entries:
+        print("nothing new to import; the registry already covers the observed items")
+        return 0
+    target = repo / "registry" / "imported.yaml"
+    if not args.yes:  # show the proposal and confirm before mutating the registry
+        print(render_proposal(entries), end="")
+        try:
+            answer = input(f"write {len(entries)} entries to {target}? (y/N) ")
+        except (EOFError, OSError):
+            answer = ""  # no readable stdin: never write without an explicit --yes
+        if answer.strip().lower()[:1] != "y":
+            print("not written (use --yes to write non-interactively)", file=sys.stderr)
+            return 0
+    written, total = write_proposal(entries, repo)
+    print(f"wrote {len(entries)} new entries to {written} ({total} total)")
+    print("prune registry/imported.yaml to taste, then `plane drift`")
     return 0
 
 
@@ -242,6 +263,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--adapter",
         default=None,
         help="propose only entries for this adapter (onboard one type at a time)",
+    )
+    p_import.add_argument(
+        "--write",
+        action="store_true",
+        help="land the proposal into registry/imported.yaml (de-duped) to prune",
+    )
+    p_import.add_argument(
+        "--yes", action="store_true", help="with --write, skip the confirmation prompt"
     )
     p_import.set_defaults(func=_cmd_import)
 

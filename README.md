@@ -49,11 +49,12 @@ observe  ->  drift  ->  apply
   `--json` emits it structured.
 - `plane apply` plans changes, renders each as a diff, and asks before every
   mutation. Nothing changes the machine without an explicit confirmation.
-- `plane import <kind> <path>` proposes registry entries and writes nothing:
+- `plane import <kind> <path>` proposes registry entries:
   `stackfile` from a hand-written manifest, `envfile` from a `.env` (key names only,
   values discarded), and `observed` from the machine's own snapshot, so onboarding
-  is prune-a-list rather than author-from-blank. `--adapter <type>` scopes a proposal
-  to one kind.
+  is prune-a-list rather than author-from-blank. It prints by default; `--write` lands
+  the proposal in `registry/imported.yaml` (de-duped, confirmed) for you to prune.
+  `--adapter <type>` scopes a proposal to one kind.
 
 Adapters teach the engine about one kind of asset each (a service manager, a model
 runner, a package manager). They are packages under `engine/adapters/`, discovered
@@ -113,8 +114,8 @@ uv run plane status --short          # e.g. "drift:3", prints nothing when clean
 # cross-client view of MCP servers: which clients each is wired into, plus flags
 uv run plane mcp
 
-# scaffold entries from what is already on the machine, one type at a time
-uv run plane import observed observed/<host>/snapshot.json --adapter mcp
+# seed the registry from what's already on the machine, then prune imported.yaml
+uv run plane import observed observed/<host>/snapshot.json --write
 
 # converge confirmed changes, one at a time
 uv run plane apply --id launchd/ai.example.gateway

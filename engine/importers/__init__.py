@@ -36,6 +36,32 @@ def render_proposal(entries: list[dict[str, Any]]) -> str:
     return yaml.safe_dump({"entries": entries}, sort_keys=False, allow_unicode=True)
 
 
+def write_proposal(
+    entries: list[dict[str, Any]],
+    repo_root: Path,
+    *,
+    filename: str = "imported.yaml",
+) -> tuple[Path, int]:
+    """Land `entries` in `<repo_root>/registry/<filename>`, merging with any already
+    there (de-duping by id), and return (path, total entries in the file). Entries are
+    expected pre-deduped against the declared registry; this only guards against
+    duplicates within the target file so a re-run is idempotent. The file is separate
+    from hand-curated registry files, so a user prunes it without losing their edits."""
+    from engine.core.statefile import atomic_write
+
+    target = repo_root / "registry" / filename
+    existing: list[dict[str, Any]] = []
+    if target.is_file():
+        doc = yaml.safe_load(target.read_text()) or {}
+        if isinstance(doc, dict) and isinstance(doc.get("entries"), list):
+            existing = [e for e in doc["entries"] if isinstance(e, dict)]
+    seen = {e.get("id") for e in existing}
+    merged = existing + [e for e in entries if e.get("id") not in seen]
+    target.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write(target, render_proposal(merged))
+    return target, len(merged)
+
+
 def discover_importers() -> dict[str, Importer]:
     """Every `engine.importers.<mod>` exposing a module-level `IMPORTER`, keyed by
     its `kind`. Mirrors adapter discovery."""
