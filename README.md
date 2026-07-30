@@ -49,6 +49,11 @@ observe  ->  drift  ->  apply
 - `plane reconcile` runs `observe` then `drift` in one pass (exit 2 on alerts). This
   is the one command a scheduler (a launchd agent or systemd timer) runs to keep drift
   current, so a `status --short` prompt stays fresh without you rescanning by hand.
+- `plane schedule` sets that up: it writes an OS-native timer (launchd on macOS,
+  systemd on Linux) that runs `plane reconcile` at login and on an interval
+  (`--every 6h`, `--no-login`, `--off`), and declares it as a registry entry, so
+  `plane apply` loads it through the confirm gate and `plane drift` then governs the
+  schedule itself. The per-OS backends are discovered, not branched.
 - `plane mcp` gives a cross-client view of MCP servers from the last snapshot: each
   server and the clients it is wired into, flagging servers wired into only one client
   (reuse candidates), the same tool under different names across clients (naming
@@ -118,6 +123,9 @@ uv run plane drift
 
 # observe + drift in one pass (what a scheduler runs to keep drift current)
 uv run plane reconcile
+
+# set up the ambient reconcile timer (login + every 6h); `plane apply` then loads it
+uv run plane schedule --every 6h
 
 # show the last report without rescanning; --short drives a shell prompt
 uv run plane status
