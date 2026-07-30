@@ -13,20 +13,13 @@ from pathlib import Path
 from typing import cast
 
 from engine import __version__
-
-
-def find_repo_root(start: Path) -> Path:
-    """Walk up from `start` to the directory holding SPEC.md or registry/."""
-    for candidate in (start, *start.parents):
-        if (candidate / "SPEC.md").is_file() or (candidate / "registry").is_dir():
-            return candidate
-    return start
+from engine.core.locate import resolve_instance_root
 
 
 def _cmd_observe(args: argparse.Namespace) -> int:
     from engine.core.observe import run_observe
 
-    repo = find_repo_root(Path(args.repo).resolve())
+    repo = resolve_instance_root(args.repo)
     snap = run_observe(repo, attest=args.attest)
     print(
         f"observed {len(snap['observed'])} fact(s), "
@@ -39,7 +32,7 @@ def _cmd_observe(args: argparse.Namespace) -> int:
 def _cmd_drift(args: argparse.Namespace) -> int:
     from engine.core.drift import run_drift
 
-    repo = find_repo_root(Path(args.repo).resolve())
+    repo = resolve_instance_root(args.repo)
     try:
         report = run_drift(repo)
     except FileNotFoundError as exc:
@@ -60,7 +53,7 @@ def _cmd_drift(args: argparse.Namespace) -> int:
 def _cmd_apply(args: argparse.Namespace) -> int:
     from engine.core.apply import run_apply
 
-    repo = find_repo_root(Path(args.repo).resolve())
+    repo = resolve_instance_root(args.repo)
     try:
         applied = run_apply(repo, only_id=args.id, only_phase=args.phase)
     except FileNotFoundError as exc:
@@ -90,7 +83,7 @@ def _cmd_apply(args: argparse.Namespace) -> int:
 def _cmd_status(args: argparse.Namespace) -> int:
     from engine.core.status import read_status
 
-    repo = find_repo_root(Path(args.repo).resolve())
+    repo = resolve_instance_root(args.repo)
     data = read_status(repo)  # last DRIFT.json, no recompute
     if data is None:
         if not args.short:  # a prompt wants silence, not an error, when unseeded
@@ -113,7 +106,7 @@ def _cmd_status(args: argparse.Namespace) -> int:
 def _cmd_mcp(args: argparse.Namespace) -> int:
     from engine.core.mcp_view import read_mcp_view, render_mcp_view
 
-    repo = find_repo_root(Path(args.repo).resolve())
+    repo = resolve_instance_root(args.repo)
     view = read_mcp_view(repo)  # last snapshot + registry, no recompute
     if view is None:
         print("no snapshot yet; run `plane observe`", file=sys.stderr)
@@ -138,7 +131,7 @@ def _cmd_import(args: argparse.Namespace) -> int:
         print(f"unknown import kind {args.kind!r}", file=sys.stderr)
         return 1
 
-    repo = find_repo_root(Path(args.repo).resolve())
+    repo = resolve_instance_root(args.repo)
     entries = importer.propose(path.read_text(), repo)
     if args.adapter:  # onboard one type at a time (e.g. --adapter mcp)
         entries = [e for e in entries if e.get("adapter") == args.adapter]
@@ -157,7 +150,11 @@ def build_parser() -> argparse.ArgumentParser:
         prog="plane", description="personal AI control plane"
     )
     parser.add_argument("--version", action="version", version=f"plane {__version__}")
-    parser.add_argument("--repo", default=".", help="instance repo root (default: cwd)")
+    parser.add_argument(
+        "--repo",
+        default=None,
+        help="instance root; else $PLANEOPS_INSTANCE, ~/.config/planeops, or cwd",
+    )
     sub = parser.add_subparsers(dest="verb", required=True)
 
     p_observe = sub.add_parser(

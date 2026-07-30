@@ -135,7 +135,7 @@ def test_cli_adapter_filter_onboards_one_type_at_a_time(tmp_path, capsys):
             }
         )
     )
-    (tmp_path / "SPEC.md").write_text("")  # anchor find_repo_root
+    (tmp_path / ".planeops").write_text("")  # marks tmp_path as the instance root
     code = main(
         [
             "--repo",
