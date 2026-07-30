@@ -118,6 +118,19 @@ def test_observe_skips_template_units(tmp_path):
     assert out == {"app.service"}
 
 
+def test_observe_reports_timer_units_like_services(tmp_path):
+    # A .timer is a unit too: observed exactly like a .service (no per-type branch),
+    # so a scheduled reconcile timer is drift-tracked. Its template is skipped too.
+    d = _units(tmp_path, "app.service", "sched.timer", "backup@.timer")
+    fake = Fake(enabled={"sched.timer"}, active={"sched.timer"})
+    out = {
+        o.native_id: o for o in SystemdAdapter(run=fake, units_dir=d).observe(_ctx())
+    }
+    assert set(out) == {"app.service", "sched.timer"}  # backup@.timer template skipped
+    assert out["sched.timer"].facts["enabled"] is True
+    assert out["sched.timer"].facts["active"] is True
+
+
 # ---- plan ----------------------------------------------------------------
 
 
@@ -129,6 +142,17 @@ def test_plan_enables_an_active_entry_that_is_off():
     [ch] = ADAPTER.plan(_entry("x.service"), _obs("x.service", False, False))
     assert ch.kind == "configure"
     assert ch.action == {"op": "enable", "unit": "x.service", "unit_path": "/x"}
+
+
+def test_plan_enables_a_scheduled_timer_that_is_off():
+    # end-to-end: a .timer is planned/converged like any unit (enable --now the timer).
+    [ch] = ADAPTER.plan(
+        _entry("planeops-reconcile.timer"),
+        _obs("planeops-reconcile.timer", False, False),
+    )
+    assert (
+        ch.action["op"] == "enable" and ch.action["unit"] == "planeops-reconcile.timer"
+    )
 
 
 def test_plan_enables_when_active_but_not_enabled():

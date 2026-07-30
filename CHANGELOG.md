@@ -16,6 +16,11 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- The `systemd` adapter now observes and converges `.timer` units, not just
+  `.service` (a unit is a unit: `UNIT_TYPES` is data, not a branch, so is-enabled/
+  is-active and enable/disable apply uniformly). This is the Linux parity to a
+  scheduled launchd plist, letting a scheduled job (a reconcile timer) be
+  drift-governed; the prerequisite for `plane schedule` on Linux.
 - MCP server: two pure-read tools, `planeops_status` (the last drift report without
   rescanning) and `planeops_mcp` (the cross-client MCP view), alongside the existing
   `planeops_observe`/`planeops_drift`. Both annotated read-only + idempotent; the
