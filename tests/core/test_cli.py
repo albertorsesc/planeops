@@ -133,3 +133,31 @@ def test_mcp_without_a_snapshot_is_not_an_error(monkeypatch, capsys):
     monkeypatch.setattr("engine.core.mcp_view.read_mcp_view", lambda repo: None)
     assert main(["mcp"]) == 0  # unseeded is not a failure
     assert "no snapshot" in capsys.readouterr().err
+
+
+def test_reconcile_observes_then_drifts_and_returns_drift_exit_code(
+    monkeypatch, capsys
+):
+    calls = []
+    monkeypatch.setattr(
+        "engine.core.observe.run_observe",
+        lambda repo, **k: calls.append("observe") or {"observed": [1, 2], "host": "h"},
+    )
+    monkeypatch.setattr(
+        "engine.core.drift.run_drift",
+        lambda repo: calls.append("drift") or _report(alerts=3),
+    )
+    code = main(["reconcile"])
+    assert calls == ["observe", "drift"]  # observe first, then drift on the fresh snap
+    out = capsys.readouterr().out
+    assert "observed 2" in out and "3 alert(s)" in out
+    assert code == 2  # alerts -> non-zero, same as `drift`
+
+
+def test_reconcile_clean_exits_zero(monkeypatch, capsys):
+    monkeypatch.setattr(
+        "engine.core.observe.run_observe",
+        lambda repo, **k: {"observed": [], "host": "h"},
+    )
+    monkeypatch.setattr("engine.core.drift.run_drift", lambda repo: _report(alerts=0))
+    assert main(["reconcile"]) == 0
