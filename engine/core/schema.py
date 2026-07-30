@@ -87,7 +87,9 @@ class Entry:
 def _enum[E: StrEnum](cls: type[E], value: Any, field_name: str, entry_id: str) -> E:
     try:
         return cls(value)
-    except ValueError:
+    except (ValueError, TypeError):
+        # ValueError: not a member. TypeError: an unhashable value (a YAML list/map
+        # where a scalar was expected) -> a clean SchemaError, never a raw traceback.
         allowed = ", ".join(m.value for m in cls)
         raise SchemaError(
             f"entry {entry_id!r}: {field_name}={value!r} is not one of: {allowed}"
@@ -108,7 +110,9 @@ def entry_from_dict(raw: dict[str, Any]) -> Entry:
     assert entry_id is not None  # guaranteed by the required-field check above
 
     scope = raw.get("scope", "machine")
-    if scope not in ("machine", "user") and not scope.startswith("project:"):
+    if not isinstance(scope, str) or (
+        scope not in ("machine", "user") and not scope.startswith("project:")
+    ):
         raise SchemaError(
             f"entry {entry_id!r}: scope={scope!r} must be "
             "'machine', 'user', or 'project:<abs-path>'"

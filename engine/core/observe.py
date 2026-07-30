@@ -15,6 +15,7 @@ from engine import __version__
 from engine.core.contracts import Adapter, Ctx, Observed, Platform
 from engine.core.discovery import discover_adapters
 from engine.core.registry import Registry, load_registry
+from engine.core.statefile import atomic_write, read_json_file
 from engine.platform import current_platform
 from engine.secrets.store import build_handle
 
@@ -26,13 +27,16 @@ def snapshot_path(observed_dir: Path, host: str) -> Path:
 
 
 def _load_prior(path: Path) -> dict[str, Observed]:
-    if not path.is_file():
+    # Torn-read safe: a snapshot killed mid-write (or otherwise corrupt) reads as
+    # "no prior", so the next observe re-establishes it instead of crashing.
+    raw = read_json_file(path)
+    if raw is None:
         return {}
-    raw = json.loads(path.read_text())
     prior: dict[str, Observed] = {}
-    for item in raw.get("observed", []):
-        obs = Observed.from_dict(item)
-        prior[obs.key] = obs
+    for item in raw.get("observed", []) or []:
+        if isinstance(item, dict):
+            obs = Observed.from_dict(item)
+            prior[obs.key] = obs
     return prior
 
 
@@ -105,5 +109,5 @@ def run_observe(
     }
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(snapshot, indent=2, sort_keys=False) + "\n")
+    atomic_write(out_path, json.dumps(snapshot, indent=2, sort_keys=False) + "\n")
     return snapshot

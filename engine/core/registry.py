@@ -56,6 +56,10 @@ def load_registry(registry_dir: Path) -> Registry:
                 entries.append(entry)
 
             for raw in doc.get("globs", []) or []:
+                if not isinstance(raw, dict) or "glob" not in raw:
+                    raise SchemaError(
+                        f"{path.name}: each glob must be a mapping with a 'glob' key"
+                    )
                 unmanaged.append(
                     UnmanagedGlob(glob=raw["glob"], reason=raw.get("reason", ""))
                 )

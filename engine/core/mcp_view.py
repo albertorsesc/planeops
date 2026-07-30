@@ -12,11 +12,11 @@ Three call-outs the merged picture makes visible and no per-client config does:
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 from engine.core.contracts import Platform
+from engine.core.statefile import read_host_json
 
 
 def _normalize(name: str) -> str:
@@ -26,12 +26,15 @@ def _normalize(name: str) -> str:
     token, the common wrapping noise. Deliberately conservative: it strips no
     meaningful words, so distinct tools stay distinct."""
     s = "".join(c for c in name.lower() if c.isalnum())
-    if s.startswith("mcp"):
-        s = s[3:]
+    stripped = s
+    if stripped.startswith("mcp"):
+        stripped = stripped[3:]
     for suffix in ("server", "mcp"):
-        if s.endswith(suffix):
-            s = s[: -len(suffix)]
-    return s
+        if stripped.endswith(suffix):
+            stripped = stripped[: -len(suffix)]
+    # If stripping consumed the whole name (e.g. "mcp", "mcp-server"), fall back to
+    # the unstripped key so unrelated wrapper-only names don't all collapse to "".
+    return stripped or s
 
 
 def build_mcp_view(snapshot: dict[str, Any], declared_ids: set[str]) -> dict[str, Any]:
@@ -84,17 +87,12 @@ def read_mcp_view(
     """The MCP view for this host from the last snapshot, or None if none exists.
     Reads `observed/<host>/snapshot.json` and the registry (to mark governed vs
     ungoverned); never scans the machine or writes. Torn-read safe, like
-    `read_status`: a half-written snapshot reads as "no view", never a traceback."""
+    `read_status`: an absent, half-written, or non-object snapshot reads as "no
+    view", never a traceback."""
     from engine.core.registry import load_registry
-    from engine.platform import current_platform
 
-    platform = platform or current_platform()
-    path = repo_root / "observed" / platform.hostname() / "snapshot.json"
-    if not path.is_file():
-        return None
-    try:
-        snapshot: dict[str, Any] = json.loads(path.read_text())
-    except (OSError, json.JSONDecodeError):
+    snapshot = read_host_json(repo_root, "snapshot.json", platform=platform)
+    if snapshot is None:
         return None
     declared_ids = {e.id for e in load_registry(repo_root / "registry").entries}
     return build_mcp_view(snapshot, declared_ids)

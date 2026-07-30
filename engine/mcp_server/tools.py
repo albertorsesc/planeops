@@ -16,6 +16,7 @@ from engine.core.contracts import Adapter, Platform
 from engine.core.drift import run_drift
 from engine.core.observe import run_observe
 from engine.core.report import drift_report_dict
+from engine.core.schema import SchemaError
 
 
 def observe_state(
@@ -52,13 +53,14 @@ def drift_state(
     """Diff the last snapshot against desired state and return the result as
     structured data (identical to `plane drift --json`). A pure read: it writes no
     files (`write=False`), so an assistant can call it freely without churning the
-    repo. If no snapshot exists yet, a structured error tells the caller to observe
-    first (never raises across the tool boundary). For a fresh answer, call
-    observe_state first, then this."""
+    repo. The two expected operator conditions, no snapshot yet (observe first) and
+    an invalid registry, come back as a structured `{"error": ...}` rather than
+    raising across the tool boundary. For a fresh answer, call observe_state first,
+    then this."""
     try:
         report = run_drift(
             repo_root, now=now, platform=platform, implemented=implemented, write=False
         )
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, SchemaError) as exc:
         return {"error": str(exc)}
     return drift_report_dict(report)

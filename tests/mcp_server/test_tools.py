@@ -69,3 +69,22 @@ def test_drift_state_without_snapshot_returns_structured_error(tmp_path, fake_pl
     )
     assert set(out) == {"error"}
     assert "snapshot" in out["error"]  # tells the caller to observe first
+
+
+def test_drift_state_returns_structured_error_on_a_bad_registry(
+    tmp_path, fake_platform
+):
+    # A malformed registry must come back as {"error": ...}, honoring "never raises
+    # across the tool boundary" (a SchemaError, not a traceback, reaches the assistant).
+    _seed(tmp_path)
+    plat = fake_platform(tmp_path)
+    now = datetime(2026, 7, 29, 12, 0, 0)
+    observe_state(
+        tmp_path, now=now, platform=plat, adapters=ADAPTERS
+    )  # writes snapshot
+    (tmp_path / "registry" / "machine.yaml").write_text(
+        "entries:\n  - {id: manual/x, adapter: manual, domain: host, "
+        "lifecycle: zombie, intent: i}\n"  # invalid lifecycle
+    )
+    out = drift_state(tmp_path, now=now, platform=plat, implemented=IMPLEMENTED)
+    assert set(out) == {"error"}
