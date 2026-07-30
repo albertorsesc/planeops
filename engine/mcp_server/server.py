@@ -20,7 +20,7 @@ from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
 
 from engine import __version__
-from engine.core.locate import find_repo_root
+from engine.core.locate import resolve_instance_root
 from engine.mcp_server.tools import (
     drift_state,
     mcp_view_state,
@@ -46,6 +46,14 @@ _INSTRUCTIONS = (
 )
 
 
+def _root(repo: str | None) -> Path:
+    """Resolve the instance the same way the CLI does: an explicit `repo` wins, else
+    $PLANEOPS_INSTANCE, the ~/.config/planeops pointer, then the cwd marker walk.
+    An MCP client's cwd is arbitrary (often / or $HOME), so resolving from cwd alone
+    answered from the wrong instance and wrote state outside it."""
+    return resolve_instance_root(repo)
+
+
 def build_server() -> MCPServer:
     mcp = MCPServer("planeops", version=__version__, instructions=_INSTRUCTIONS)
 
@@ -57,8 +65,8 @@ def build_server() -> MCPServer:
             "uncovered adapters. Writes snapshot.json (does not change the machine)."
         ),
     )
-    def planeops_observe(repo: str = ".") -> dict[str, Any]:
-        return observe_state(find_repo_root(Path(repo).resolve()))
+    def planeops_observe(repo: str | None = None) -> dict[str, Any]:
+        return observe_state(_root(repo))
 
     @mcp.tool(
         annotations=_PURE_READ,
@@ -69,8 +77,8 @@ def build_server() -> MCPServer:
             "planeops_observe first for a current answer."
         ),
     )
-    def planeops_drift(repo: str = ".") -> dict[str, Any]:
-        return drift_state(find_repo_root(Path(repo).resolve()))
+    def planeops_drift(repo: str | None = None) -> dict[str, Any]:
+        return drift_state(_root(repo))
 
     @mcp.tool(
         annotations=_PURE_READ,
@@ -80,8 +88,8 @@ def build_server() -> MCPServer:
             "A pure read; returns a structured error if nothing has been recorded yet."
         ),
     )
-    def planeops_status(repo: str = ".") -> dict[str, Any]:
-        return status_state(find_repo_root(Path(repo).resolve()))
+    def planeops_status(repo: str | None = None) -> dict[str, Any]:
+        return status_state(_root(repo))
 
     @mcp.tool(
         annotations=_PURE_READ,
@@ -92,8 +100,8 @@ def build_server() -> MCPServer:
             "(observed but not declared). A pure read; error if no snapshot yet."
         ),
     )
-    def planeops_mcp(repo: str = ".") -> dict[str, Any]:
-        return mcp_view_state(find_repo_root(Path(repo).resolve()))
+    def planeops_mcp(repo: str | None = None) -> dict[str, Any]:
+        return mcp_view_state(_root(repo))
 
     return mcp
 

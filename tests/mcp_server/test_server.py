@@ -49,3 +49,34 @@ def test_drift_tool_call_returns_structured_content(tmp_path):
     )
     assert res.is_error is False
     assert "error" in res.structured_content
+
+
+def test_default_repo_resolves_like_the_cli(tmp_path, monkeypatch):
+    # An MCP client launches the server from an arbitrary cwd (often "/" or $HOME).
+    # With no repo argument, the instance must resolve by the same precedence the
+    # CLI uses ($PLANEOPS_INSTANCE here), not by walking up from the client's cwd:
+    # before the fix this read the wrong directory and answered "no drift report".
+    import json as _json
+
+    inst = tmp_path / "inst"
+    (inst / "observed" / "h").mkdir(parents=True)
+    (inst / ".planeops").write_text("")
+    (inst / "observed" / "h" / "DRIFT.json").write_text(
+        _json.dumps({"alert_count": 3, "ts": "t", "summary": {}, "sections": {}})
+    )
+    monkeypatch.setenv("PLANEOPS_INSTANCE", str(inst))
+
+    class _Plat:
+        name = "fake"
+
+        def hostname(self):
+            return "h"
+
+        def home(self):
+            return tmp_path
+
+    monkeypatch.setattr("engine.platform.current_platform", lambda: _Plat())
+    monkeypatch.chdir(tmp_path)  # a cwd that is NOT the instance
+
+    res = asyncio.run(build_server().call_tool("planeops_status", {}))
+    assert res.structured_content.get("alert_count") == 3  # env-resolved instance
