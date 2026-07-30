@@ -17,8 +17,8 @@ def _tools_by_name(server):
 
 
 def test_exposes_exactly_the_two_read_verbs():
-    # Locks the surface: a future mutation tool (e.g. tarmac_apply) would fail here.
-    assert set(_tools_by_name(build_server())) == {"tarmac_observe", "tarmac_drift"}
+    # Locks the surface: a future mutation tool (e.g. planeops_apply) would fail here.
+    assert set(_tools_by_name(build_server())) == {"planeops_observe", "planeops_drift"}
 
 
 def test_no_tool_is_destructive_and_drift_is_a_pure_read():
@@ -29,15 +29,17 @@ def test_no_tool_is_destructive_and_drift_is_a_pure_read():
     for name, tool in tools.items():
         assert tool.annotations is not None, name
         assert tool.annotations.destructive_hint in (None, False), name
-    assert tools["tarmac_drift"].annotations.read_only_hint is True
-    assert tools["tarmac_drift"].annotations.idempotent_hint is True
-    assert tools["tarmac_observe"].annotations.read_only_hint is False
+    assert tools["planeops_drift"].annotations.read_only_hint is True
+    assert tools["planeops_drift"].annotations.idempotent_hint is True
+    assert tools["planeops_observe"].annotations.read_only_hint is False
 
 
 def test_drift_tool_call_returns_structured_content(tmp_path):
     # A real call over the MCP boundary. A repo with no snapshot gives the structured
     # "observe first" error: proves the tool is wired, returns structured_content,
     # and never raises across the boundary.
-    res = asyncio.run(build_server().call_tool("tarmac_drift", {"repo": str(tmp_path)}))
+    res = asyncio.run(
+        build_server().call_tool("planeops_drift", {"repo": str(tmp_path)})
+    )
     assert res.is_error is False
     assert "error" in res.structured_content

@@ -111,7 +111,7 @@ def test_plan_clean_or_absent_proposes_nothing():
 
 def test_execute_apply_forces_and_resolves_the_absolute_target(fake_platform):
     # `chezmoi apply` resolves its arg against the CWD, so the home-relative managed
-    # path must be made absolute; --force because tarmac already confirmed the change.
+    # path must be made absolute; --force because planeops already confirmed the change.
     rec = RecordingRun(code=0)
     change = Change(
         "chezmoi/.zshrc", "configure", "d", {"op": "apply", "path": ".zshrc"}

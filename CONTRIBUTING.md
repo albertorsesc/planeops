@@ -8,8 +8,8 @@ in a separate private instance and never belongs here.
 Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone https://github.com/albertorsesc/tarmac
-cd tarmac
+git clone https://github.com/albertorsesc/planeops
+cd planeops
 uv sync
 ```
 

@@ -1,14 +1,14 @@
-# tarmac
+# planeops
 
 Reproduce, observe, and govern a personal AI setup as three planes.
 
-[![CI](https://github.com/albertorsesc/tarmac/actions/workflows/ci.yml/badge.svg)](https://github.com/albertorsesc/tarmac/actions/workflows/ci.yml)
+[![CI](https://github.com/albertorsesc/planeops/actions/workflows/ci.yml/badge.svg)](https://github.com/albertorsesc/planeops/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
 
 A single machine accretes AI tools over time: coding harnesses, local models, MCP
 servers, background services, API keys. Nobody writes down what is installed, how
-it is wired, or why. `tarmac` makes that setup explicit and reproducible.
+it is wired, or why. `planeops` makes that setup explicit and reproducible.
 You declare what should exist in a registry, and the `plane` CLI observes what
 actually exists, reports where the two disagree, and converges the difference one
 confirmed change at a time.
@@ -63,7 +63,7 @@ retired or is absent, so a model or package a tool relies on can't be pruned out
 from under it.
 
 Assistants can read the plane over an optional MCP server (`plane-mcp`, install the
-`mcp` extra): the read-only tools `tarmac_observe` and `tarmac_drift` answer "what is
+`mcp` extra): the read-only tools `planeops_observe` and `planeops_drift` answer "what is
 on this machine?" and "what has drifted?" without ever changing it.
 
 ## Install
@@ -71,11 +71,14 @@ on this machine?" and "what has drifted?" without ever changing it.
 Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone https://github.com/albertorsesc/tarmac
-cd tarmac
+git clone https://github.com/albertorsesc/planeops
+cd planeops
 uv sync                 # core engine + the `plane` CLI
 uv sync --extra mcp     # optional: also install the `plane-mcp` assistant server
 ```
+
+The distribution is named `planeops`; it installs the `plane` command (and
+`plane-mcp` with the `mcp` extra).
 
 `make test` runs the full gate (lint, format, type-check, tests); `make observe`,
 `make drift`, and `make status` (with `REPO=<your-instance>`) wrap the common
@@ -110,7 +113,7 @@ assuming any particular tool. Copy it and describe your own machine.
 ## Governing your own scheduled script
 
 A personal maintenance routine (a weekly updater, a backup job) is just a service,
-so tarmac governs it without ever containing it:
+so planeops governs it without ever containing it:
 
 1. Keep the script in your own instance, in a stable location that is **not** cloud-
    synced (a synced directory means anything that writes there silently changes code

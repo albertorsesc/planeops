@@ -1,6 +1,6 @@
 # Per-machine adapter settings for this instance.
 #
-# Three kinds of config live in a tarmac instance, kept apart on purpose:
+# Three kinds of config live in a planeops instance, kept apart on purpose:
 #   registry/*.yaml        what should exist (desired state; one file or many)
 #   registry/*.sops.yaml   encrypted secret values (a sops store)
 #   instance.yaml (this)   how this machine's adapters read: where they look

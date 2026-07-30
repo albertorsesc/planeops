@@ -41,7 +41,7 @@ pytestmark = pytest.mark.skipif(
     not _user_systemd_ok(), reason="requires a working systemd --user session"
 )
 
-UNIT = f"tarmac-integration-test-{os.getpid()}-{uuid.uuid4().hex[:8]}.service"
+UNIT = f"planeops-integration-test-{os.getpid()}-{uuid.uuid4().hex[:8]}.service"
 _USER_DIR = Path.home() / ".config" / "systemd" / "user"
 
 
@@ -72,7 +72,7 @@ def unit_file():
     try:
         # Inside the try so cleanup runs even if setup (write/daemon-reload) fails.
         (_USER_DIR / UNIT).write_text(
-            "[Unit]\nDescription=tarmac test\n"
+            "[Unit]\nDescription=planeops test\n"
             "[Service]\nExecStart=/bin/sleep 3600\n"
             "[Install]\nWantedBy=default.target\n"  # enable-able (not a `static` unit)
         )
