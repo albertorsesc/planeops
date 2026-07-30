@@ -107,7 +107,7 @@ Usage    = {last: datetime | None, count: int | None}
 ## 6. Manifest import mapping
 
 The section-to-adapter mapping is configuration, not code: rules live under
-`instance.yaml`'s `importer.rules` at the instance root (`instance.example.yaml`
+`instance.yaml`'s `importer.rules` at the instance root (`engine/instance.example.yaml`
 ships as a template) and the importer names no specific tool. A section matching no
 rule imports as `manual`. The table below is an illustrative mapping; the `Skills`
 row in particular is tool-specific and belongs in an instance's own config.

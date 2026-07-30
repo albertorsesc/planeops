@@ -10,19 +10,14 @@ only repointed with `force`.
 from __future__ import annotations
 
 import json
+from importlib.resources import files
 from pathlib import Path
 
-_INSTANCE_YAML = """\
-# planeops instance config: how this machine's adapters read. Everything below is
-# optional; see the engine's instance.example.yaml for the full set of options.
 
-# mcp:
-#   sources:
-#     - {label: claude-code, path: ~/.claude.json, format: json, key: mcpServers}
-
-# secrets:
-#   store: registry/secrets.sops.yaml
-"""
+def _starter_instance_yaml() -> str:
+    """The commented reference instance.yaml, shipped as package data so an installed
+    `plane` scaffolds the same fully-documented starter a repo checkout would."""
+    return (files("engine") / "instance.example.yaml").read_text()
 
 
 def init_instance(
@@ -47,7 +42,7 @@ def init_instance(
 
     instance_yaml = inst / "instance.yaml"
     if not instance_yaml.exists():
-        instance_yaml.write_text(_INSTANCE_YAML)
+        instance_yaml.write_text(_starter_instance_yaml())
         actions.append(f"wrote {instance_yaml}")
 
     config_dir = config_dir.expanduser()

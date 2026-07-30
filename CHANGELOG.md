@@ -16,9 +16,12 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - `plane init [path]`: the one-command on-ramp. Scaffolds an instance (a `.planeops`
-  marker, `registry/`, a starter `instance.yaml`) and writes `~/.config/planeops/
-  config.toml` pointing at it, so the installed `plane` finds it from any directory.
-  Idempotent; keeps existing files and only repoints the config with `--force`.
+  marker, `registry/`, and the commented reference `instance.yaml`) and writes
+  `~/.config/planeops/config.toml` pointing at it, so the installed `plane` finds it
+  from any directory. The reference `instance.yaml` now ships as package data
+  (`engine/instance.example.yaml`), so an installed user gets the full documented
+  template, not just a stub. Idempotent; keeps existing files, repoints only with
+  `--force`.
 - Instance resolution: `plane` locates the instance by precedence, `--repo` >
   `$PLANEOPS_INSTANCE` > `~/.config/planeops/config.toml` (honoring `$XDG_CONFIG_HOME`)
   > the current directory walking up to a `.planeops` marker.

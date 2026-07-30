@@ -15,7 +15,9 @@ def test_init_scaffolds_the_instance_and_registers_it(tmp_path):
     actions = init_instance(inst, cfg)
     assert (inst / ".planeops").exists()  # discovery marker
     assert (inst / "registry").is_dir()
-    assert (inst / "instance.yaml").is_file()
+    # the scaffolded instance.yaml is the shipped commented reference, not a stub
+    body = (inst / "instance.yaml").read_text()
+    assert "how this machine's adapters read" in body and "mcp:" in body
     data = tomllib.loads((cfg / "config.toml").read_text())
     assert Path(data["instance"]) == inst.resolve()  # absolute, resolved pointer
     assert actions  # reports what it did
