@@ -161,3 +161,96 @@ def test_reconcile_clean_exits_zero(monkeypatch, capsys):
     )
     monkeypatch.setattr("engine.core.drift.run_drift", lambda repo: _report(alerts=0))
     assert main(["reconcile"]) == 0
+
+
+# ---- apply tells the truth (audit wave 1-B) ----
+
+
+def test_apply_unknown_id_is_an_error(monkeypatch, capsys, tmp_path):
+    def _raise(repo, *, only_id=None, only_phase=None):
+        raise LookupError("no registry entry with id 'launchd/typo'")
+
+    monkeypatch.setattr("engine.core.apply.run_apply", _raise)
+    code = main(["--repo", str(tmp_path), "apply", "--id", "launchd/typo"])
+    assert code == 1
+    assert "launchd/typo" in capsys.readouterr().err
+
+
+def test_apply_no_changes_reports_remaining_drift(monkeypatch, capsys, tmp_path):
+    # "no changes to apply; machine matches desired state" lied whenever drift had
+    # alerts that no adapter could plan away (service file absent, uncovered,
+    # owner: human). The message must be neutral and surface the standing alerts.
+    monkeypatch.setattr(
+        "engine.core.apply.run_apply", lambda repo, *, only_id=None, only_phase=None: []
+    )
+    monkeypatch.setattr("engine.core.status.read_status", lambda repo: _status(2))
+    code = main(["--repo", str(tmp_path), "apply"])
+    out = capsys.readouterr().out
+    assert "machine matches desired state" not in out
+    assert "no changes planned" in out
+    assert "2 alert(s)" in out
+    assert code == 0
+
+
+def test_apply_refreshes_drift_after_execute(monkeypatch, capsys, tmp_path):
+    # After a converge, DRIFT.json used to stay stale (only observe re-ran), so the
+    # shell prompt kept the pre-apply alert count for up to a scheduler interval.
+    from engine.core.apply import Applied
+    from engine.core.contracts import Change, Result
+
+    calls = []
+    done = Applied(
+        Change("x/y", "configure", "d", {}), True, Result(ok=True, detail="ok")
+    )
+    monkeypatch.setattr(
+        "engine.core.apply.run_apply",
+        lambda repo, *, only_id=None, only_phase=None: [done],
+    )
+    monkeypatch.setattr(
+        "engine.core.observe.run_observe",
+        lambda repo: (
+            calls.append("observe") or {"observed": [], "uncovered": [], "host": "h"}
+        ),
+    )
+    monkeypatch.setattr(
+        "engine.core.drift.run_drift", lambda repo: calls.append("drift") or _report()
+    )
+    code = main(["--repo", str(tmp_path), "apply"])
+    assert calls == ["observe", "drift"]  # panes recomputed, prompt is fresh
+    assert code == 0
+
+
+# ---- schedule observes, so the hinted `plane apply` works first-use ----
+
+
+class _SchedPlat:
+    name = "fake"
+
+    def __init__(self, home):
+        self._home = home
+
+    def home(self):
+        return self._home
+
+    def hostname(self):
+        return "h"
+
+
+def test_schedule_observes_after_writing(monkeypatch, tmp_path):
+    # `plane apply` plans from the snapshot; without a refresh the just-written
+    # timer file is invisible and apply says "no changes planned" on first use.
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr("engine.platform.current_platform", lambda: _SchedPlat(home))
+    inst = tmp_path / "inst"
+    (inst / "registry").mkdir(parents=True)
+    (inst / ".planeops").write_text("")
+    seen = []
+    monkeypatch.setattr(
+        "engine.core.observe.run_observe",
+        lambda repo: (
+            seen.append(repo) or {"observed": [], "uncovered": [], "host": "h"}
+        ),
+    )
+    assert main(["--repo", str(inst), "schedule", "--every", "6h"]) == 0
+    assert seen == [inst.resolve()]

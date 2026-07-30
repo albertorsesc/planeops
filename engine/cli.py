@@ -60,12 +60,25 @@ def _cmd_apply(args: argparse.Namespace) -> int:
     repo = resolve_instance_root(args.repo)
     try:
         applied = run_apply(repo, only_id=args.id, only_phase=args.phase)
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, LookupError) as exc:
         print(str(exc), file=sys.stderr)
         return 1
 
     if not applied:
-        print("no changes to apply; machine matches desired state")
+        from engine.core.status import read_status
+
+        # "planned nothing" is NOT "no drift": a service file not yet on disk, an
+        # uncovered adapter, or an owner: human entry all plan [] while drift
+        # alerts. Say so instead of claiming the machine matches desired state.
+        print("no changes planned from the last snapshot")
+        data = read_status(repo)
+        alerts = data.get("alert_count", 0) if data else 0
+        if alerts:
+            print(
+                f"note: drift still reports {alerts} alert(s); a gap may need a "
+                "hand first (a service file not on disk, an uncovered adapter, an "
+                "owner: human entry), or a fresh `plane observe`"
+            )
         return 0
 
     executed = [a for a in applied if a.executed]
@@ -78,9 +91,18 @@ def _cmd_apply(args: argparse.Namespace) -> int:
         )
     print(f"{len(executed)} applied ({len(failed)} failed), {len(skipped)} skipped")
     if executed:
+        from engine.core.drift import run_drift
         from engine.core.observe import run_observe
 
-        run_observe(repo)  # re-observe so `plane drift` reflects this apply (SPEC §5)
+        # Re-observe AND recompute the drift panes, so `plane status` (and a shell
+        # prompt reading DRIFT.json) reflects this apply now, not at the next
+        # scheduled reconcile.
+        run_observe(repo)
+        report = run_drift(repo)
+        print(
+            f"{report.alert_count} alert(s), {len(report.report)} report, "
+            f"{len(report.uncovered)} uncovered -> observed/{report.host}/DRIFT.md"
+        )
     return 1 if failed else 0
 
 
@@ -161,6 +183,18 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
         doc["globs"] = job.globs
     atomic_write(schedule_yaml, yaml.safe_dump(doc, sort_keys=False))
     print(f"declared {schedule_yaml}")
+
+    # `plane apply` plans from the snapshot; without this refresh the just-written
+    # job file is invisible and the hinted next step reports "no changes planned".
+    from engine.core.observe import run_observe
+    from engine.core.schema import SchemaError
+
+    try:
+        snap = run_observe(repo)
+    except SchemaError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    print(f"observed {len(snap['observed'])} fact(s); the new job is in the snapshot")
     print(job.hint)
     return 0
 

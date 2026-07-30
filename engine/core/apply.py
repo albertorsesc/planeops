@@ -124,6 +124,12 @@ def run_apply(
     to_converge = all_entries
     if only_id is not None:
         to_converge = [e for e in to_converge if e.id == only_id]
+        if not to_converge:
+            # A typo'd --id must be loud: falling through to "no changes" reads
+            # as "the machine is fine" when the id was simply wrong.
+            raise LookupError(
+                f"no registry entry with id {only_id!r} for host {host!r}"
+            )
     if only_phase is not None:
         to_converge = [e for e in to_converge if e.phase == only_phase]
 
