@@ -10,7 +10,7 @@ is a candidate to reuse in the others.
 
 This adapter names no specific tool. The sources are configuration: a list of
 `{label, path, format, key}` under the `mcp.sources` key of `instance.yaml` at the
-instance root (see `instance.example.yaml`). The engine reads that list; it never
+instance root (see `engine/instance.example.yaml`). The engine reads that list; it never
 hardcodes where any particular tool keeps its config. Observe-only: wiring a server
 into a tool means writing that tool's config, deferred past v1. Env values are never
 recorded, they can hold secrets.

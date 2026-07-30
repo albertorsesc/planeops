@@ -2,7 +2,7 @@
 
 The section-to-adapter mapping is configuration, not code. Rules live under the
 `importer.rules` key of `instance.yaml` at the instance root (see
-`instance.example.yaml`) and are loaded per import, so the importer names no
+`engine/instance.example.yaml`) and are loaded per import, so the importer names no
 specific tool. A section that no rule matches imports as `manual`, for a human to
 sort out. Nothing is written; the CLI prints the proposal for review, and every row
 is marked for verification.
