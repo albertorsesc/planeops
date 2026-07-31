@@ -67,6 +67,8 @@ def read_plist(path: Path) -> dict[str, Any]:
 class LaunchdAdapter:
     name = "launchd"
     domains: tuple[str, ...] = ("service",)
+    # Converge order: services load LAST, against complete config and secrets.
+    default_phase = 6
     # Service ops are quick; a bounded ceiling keeps a hung launchctl from
     # wedging the whole apply run (unlike unbounded package installs).
     EXECUTE_TIMEOUT: float | None = 300

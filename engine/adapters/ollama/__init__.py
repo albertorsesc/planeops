@@ -33,6 +33,9 @@ def parse_ollama_list(text: str) -> dict[str, dict[str, str]]:
 class OllamaAdapter:
     name = "ollama"
     domains: tuple[str, ...] = ("model",)
+    # Converge order: models after packages/config (the runtime must exist),
+    # before services that may depend on them.
+    default_phase = 4
     # Pulling a large model is tens of gigabytes; no ceiling on a confirmed
     # pull/remove, the human owns the wait.
     EXECUTE_TIMEOUT: float | None = None

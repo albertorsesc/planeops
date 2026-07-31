@@ -30,6 +30,8 @@ from engine.core.schema import ABSENT_LIFECYCLES, Entry, Lifecycle
 class SystemdAdapter:
     name = "systemd"
     domains: tuple[str, ...] = ("service",)
+    # Converge order: services load LAST, against complete config and secrets.
+    default_phase = 6
     # Unit types this adapter governs, as data, not a branch. is-enabled/is-active and
     # enable/disable are type-agnostic, so a `.timer` observes and converges exactly
     # like a `.service`; add a type here and the whole adapter picks it up.

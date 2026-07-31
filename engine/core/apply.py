@@ -43,32 +43,31 @@ class Applied:
     result: Result | None
 
 
-def _write_journal(
-    observed_dir: Path, host: str, now: datetime, applied: list[Applied]
-) -> None:
-    """Append an immutable record of this apply run beside the snapshot: what was
-    proposed, what executed, and the outcome. `actor` is reserved for a future
-    operator/agent identity."""
+def _append_journal(observed_dir: Path, host: str, now: datetime, a: Applied) -> None:
+    """Append one immutable record beside the snapshot, the moment its change is
+    decided. Per-record (not batched at the end of the run) so a crash mid-apply
+    still leaves every already-executed mutation on the record, which is when
+    the journal matters most. `actor` is reserved for a future operator/agent
+    identity."""
     journal = observed_dir / host / "applied.jsonl"
     journal.parent.mkdir(parents=True, exist_ok=True)
     with journal.open("a") as fh:
-        for a in applied:
-            fh.write(
-                json.dumps(
-                    {
-                        "ts": now.isoformat(),
-                        "host": host,
-                        "actor": None,
-                        "entry_id": a.change.entry_id,
-                        "kind": a.change.kind,
-                        "diff": a.change.diff,
-                        "executed": a.executed,
-                        "ok": a.result.ok if a.result else None,
-                        "detail": a.result.detail if a.result else None,
-                    }
-                )
-                + "\n"
+        fh.write(
+            json.dumps(
+                {
+                    "ts": now.isoformat(),
+                    "host": host,
+                    "actor": None,
+                    "entry_id": a.change.entry_id,
+                    "kind": a.change.kind,
+                    "diff": a.change.diff,
+                    "executed": a.executed,
+                    "ok": a.result.ok if a.result else None,
+                    "detail": a.result.detail if a.result else None,
+                }
             )
+            + "\n"
+        )
 
 
 def prompt_confirm(change: Change) -> str:
@@ -160,6 +159,10 @@ def run_apply(
     auto_domains: set[str] = set()
     applied: list[Applied] = []
 
+    def _record(a: Applied) -> None:
+        applied.append(a)
+        _append_journal(observed_dir, host, now, a)
+
     for entry in to_converge:
         adapter = adapters.get(entry.adapter)
         if adapter is None or not can_apply(adapter):
@@ -170,7 +173,7 @@ def run_apply(
         try:
             changes = adapter.plan(entry, obs, ctx)
         except Exception as exc:  # a broken adapter must not abort the whole run
-            applied.append(
+            _record(
                 Applied(
                     Change(entry.id, "patch", f"plan failed: {exc}", {}),
                     False,
@@ -197,10 +200,8 @@ def run_apply(
                     result = adapter.execute(change, exec_ctx)
                 except Exception as exc:  # contain a crashing execute
                     result = Result(ok=False, detail=f"execute raised: {exc}")
-                applied.append(Applied(change, True, result))
+                _record(Applied(change, True, result))
             else:
-                applied.append(Applied(change, False, None))
+                _record(Applied(change, False, None))
 
-    if applied:
-        _write_journal(observed_dir, host, now, applied)
     return applied

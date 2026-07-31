@@ -8,6 +8,14 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The apply journal is crash-safe: each record is appended the moment its change
+  is decided, not batched at the end of the run, so a crash mid-apply still
+  leaves every already-executed mutation on the record (previously such a crash
+  left zero journal entries, exactly when the audit trail mattered most). And the
+  documented converge order is now encoded: every mutating adapter declares its
+  `default_phase` (packages 2, config 3, models 4, secrets 5, services 6), so
+  unphased entries converge packages-first and load services last against
+  complete config, instead of everything landing in one unordered bucket.
 - Subprocess timeouts now match the operation instead of one global 30s ceiling.
   Confirmed converge operations that legitimately run long (`brew`/`npm`/`uv`
   installs, `ollama pull`) are unbounded, the human just confirmed the change and

@@ -31,6 +31,8 @@ def parse_uv_tools(text: str) -> dict[str, str]:
 class PkgUvAdapter:
     name = "pkg-uv"
     domains: tuple[str, ...] = ("package",)
+    # Converge order: packages land early so later phases find their tools.
+    default_phase = 2
     # A confirmed tool install resolves and downloads; no ceiling, the human
     # owns the wait.
     EXECUTE_TIMEOUT: float | None = None

@@ -231,3 +231,56 @@ def test_only_id_with_no_match_raises(tmp_path, fake_platform):
         _run(
             tmp_path, fake_platform, {"fake": FakeMutating({})}, [], only_id="fake/typo"
         )
+
+
+def test_journal_record_lands_before_the_next_change_runs(tmp_path, fake_platform):
+    # Crash-safety: each record is appended as its change is decided, so a run
+    # that dies mid-loop leaves the already-executed mutations on the record.
+    # A confirm that raises on the second change simulates the mid-run death.
+    _seed(tmp_path)
+    fake = FakeMutating({"fake/a": [CA], "fake/b": [CB]})
+    answers = iter(["y"])
+
+    def confirm_then_crash(change):
+        try:
+            return next(answers)
+        except StopIteration:
+            raise RuntimeError("killed mid-run") from None
+
+    with pytest.raises(RuntimeError, match="killed mid-run"):
+        run_apply(
+            tmp_path,
+            platform=fake_platform(tmp_path),
+            adapters={"fake": fake},
+            confirm=confirm_then_crash,
+            now=datetime(2026, 7, 22),
+        )
+    journal = tmp_path / "observed" / "testhost" / "applied.jsonl"
+    lines = [json.loads(line) for line in journal.read_text().splitlines()]
+    assert [(line["entry_id"], line["executed"], line["ok"]) for line in lines] == [
+        ("fake/a", True, True)
+    ]
+
+
+def test_every_mutating_adapter_declares_its_converge_phase():
+    # The documented order: packages(2) -> harness config(3) -> models(4) ->
+    # secrets(5) -> services(6, load last against complete config). Encoded as
+    # adapter data, so unphased entries converge in that order automatically.
+    from engine.core.contracts import can_apply
+    from engine.core.discovery import discover_adapters
+
+    phases = {
+        name: adapter.default_phase
+        for name, adapter in discover_adapters().items()
+        if can_apply(adapter)
+    }
+    assert phases == {
+        "pkg-brew": 2,
+        "pkg-npm": 2,
+        "pkg-uv": 2,
+        "chezmoi": 3,
+        "ollama": 4,
+        "secrets": 5,
+        "launchd": 6,
+        "systemd": 6,
+    }

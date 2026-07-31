@@ -39,6 +39,8 @@ def parse_npm_globals(text: str) -> dict[str, str]:
 class PkgNpmAdapter:
     name = "pkg-npm"
     domains: tuple[str, ...] = ("package",)
+    # Converge order: packages land early so later phases find their tools.
+    default_phase = 2
     # A confirmed global install may fetch on a cold cache for minutes; no
     # ceiling, the human owns the wait.
     EXECUTE_TIMEOUT: float | None = None
