@@ -82,14 +82,24 @@ def test_materialize_from_a_real_store_redacts_everywhere(tmp_path, monkeypatch)
             "intent": "i",
         }
     )
+
+    class _Plat:
+        name = "fake"
+
+        def hostname(self):
+            return "h"
+
+        def home(self):
+            return tmp_path
+
     entries = (secret, consumer)
-    ctx = Ctx(platform=None, host="h", now=datetime(2026, 7, 28),
+    ctx = Ctx(platform=_Plat(), host="h", now=datetime(2026, 7, 28),
               entries=entries, repo_root=tmp_path)  # fmt: skip
     [change] = SecretsAdapter().plan(secret, None, ctx)
     assert VALUE not in change.diff
 
     handle = materialization_handle(SopsBackend(store))
-    exec_ctx = Ctx(platform=None, host="h", now=datetime(2026, 7, 28),
+    exec_ctx = Ctx(platform=_Plat(), host="h", now=datetime(2026, 7, 28),
                    entries=entries, repo_root=tmp_path, secrets=handle)  # fmt: skip
     res = SecretsAdapter().execute(change, exec_ctx)
 

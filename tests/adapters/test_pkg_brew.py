@@ -29,8 +29,23 @@ class RecordingRun:
         return RunResult(self.code, "", self.err)
 
 
+class _Plat:
+    """Minimal Platform stub: `plan`/`execute` receive a real ctx, matching the
+    contract (the engine never passes platform=None)."""
+
+    name = "fake"
+
+    def hostname(self):
+        return "testhost"
+
+    def home(self):
+        from pathlib import Path
+
+        return Path("/home/fake")
+
+
 def _ctx():
-    return Ctx(platform=None, host="testhost", now=datetime(2026, 7, 27))
+    return Ctx(platform=_Plat(), host="testhost", now=datetime(2026, 7, 27))
 
 
 def _entry(entry_id, lifecycle):
@@ -80,7 +95,7 @@ def test_pkg_brew_is_a_mutating_adapter():
 
 
 def test_plan_active_but_absent_proposes_install():
-    changes = ADAPTER.plan(_entry("pkg-brew/ripgrep", "active"), None)
+    changes = ADAPTER.plan(_entry("pkg-brew/ripgrep", "active"), None, _ctx())
     assert len(changes) == 1
     assert changes[0].kind == "install"
     assert changes[0].action == {"op": "install", "formula": "ripgrep"}
@@ -88,7 +103,7 @@ def test_plan_active_but_absent_proposes_install():
 
 def test_plan_retired_but_present_proposes_uninstall():
     changes = ADAPTER.plan(
-        _entry("pkg-brew/ripgrep", "retired"), _obs("ripgrep", "14.1.0")
+        _entry("pkg-brew/ripgrep", "retired"), _obs("ripgrep", "14.1.0"), _ctx()
     )
     assert len(changes) == 1
     assert changes[0].kind == "remove"
@@ -96,8 +111,11 @@ def test_plan_retired_but_present_proposes_uninstall():
 
 
 def test_plan_conformant_states_propose_nothing():
-    assert ADAPTER.plan(_entry("pkg-brew/ripgrep", "active"), _obs("ripgrep")) == []
-    assert ADAPTER.plan(_entry("pkg-brew/ripgrep", "retired"), None) == []
+    ctx = _ctx()
+    assert (
+        ADAPTER.plan(_entry("pkg-brew/ripgrep", "active"), _obs("ripgrep"), ctx) == []
+    )
+    assert ADAPTER.plan(_entry("pkg-brew/ripgrep", "retired"), None, ctx) == []
 
 
 # ---- execute -------------------------------------------------------------

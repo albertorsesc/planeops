@@ -8,6 +8,11 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The adapter contract is honestly typed: `plan(entry, obs, ctx)` requires its
+  ctx (the engine always provides one; the optional-`None` form only invited
+  None-guards for a case production never produces), and the platform None-guards
+  in the chezmoi and secrets adapters are gone. Tests exercise the same contract
+  production runs.
 - Operator errors are handled once, uniformly. A bad registry edit (the most
   common newcomer mistake) now exits 1 with the schema message from every verb
   instead of tracebacking from `observe`/`drift`/`apply`; the handling lives at

@@ -26,7 +26,21 @@ class RecordingRun:
 
 
 def _ctx():
-    return Ctx(platform=None, host="testhost", now=datetime(2026, 7, 27))
+    return Ctx(platform=_Plat(), host="testhost", now=datetime(2026, 7, 27))
+
+
+class _Plat:
+    """Minimal Platform stub: plan/execute receive a real ctx, per the contract."""
+
+    name = "fake"
+
+    def hostname(self):
+        return "testhost"
+
+    def home(self):
+        from pathlib import Path
+
+        return Path("/home/fake")
 
 
 def _entry(entry_id, lifecycle):
@@ -65,20 +79,21 @@ def test_pkg_uv_is_a_mutating_adapter():
 
 
 def test_plan_active_but_absent_proposes_install():
-    changes = ADAPTER.plan(_entry("pkg-uv/httpie", "active"), None)
+    changes = ADAPTER.plan(_entry("pkg-uv/httpie", "active"), None, _ctx())
     assert changes[0].kind == "install"
     assert changes[0].action == {"op": "install", "tool": "httpie"}
 
 
 def test_plan_retired_but_present_proposes_uninstall():
-    changes = ADAPTER.plan(_entry("pkg-uv/httpie", "retired"), _obs("httpie"))
+    changes = ADAPTER.plan(_entry("pkg-uv/httpie", "retired"), _obs("httpie"), _ctx())
     assert changes[0].kind == "remove"
     assert changes[0].action == {"op": "uninstall", "tool": "httpie"}
 
 
 def test_plan_conformant_states_propose_nothing():
-    assert ADAPTER.plan(_entry("pkg-uv/httpie", "active"), _obs("httpie")) == []
-    assert ADAPTER.plan(_entry("pkg-uv/httpie", "retired"), None) == []
+    ctx = _ctx()
+    assert ADAPTER.plan(_entry("pkg-uv/httpie", "active"), _obs("httpie"), ctx) == []
+    assert ADAPTER.plan(_entry("pkg-uv/httpie", "retired"), None, ctx) == []
 
 
 def test_execute_install_calls_uv():

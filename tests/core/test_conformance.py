@@ -136,8 +136,14 @@ def test_observe_returns_wellformed_observed(tmp_path, fake_platform):
     assert checked >= 1  # the manual entry guarantees at least one real Observed
 
 
-def test_plan_is_pure_and_wellformed(tmp_path):
+def test_plan_is_pure_and_wellformed(tmp_path, fake_platform):
     adapters = _hermetic_adapters(tmp_path)
+    ctx = Ctx(
+        platform=fake_platform(tmp_path),
+        host="testhost",
+        now=datetime(2026, 7, 27),
+        repo_root=tmp_path,
+    )
     for name, (domain, native) in _SAMPLE.items():
         adapter = adapters[name]
         entry = entry_from_dict(
@@ -149,8 +155,8 @@ def test_plan_is_pure_and_wellformed(tmp_path):
                 "intent": "conformance",
             }
         )
-        first = adapter.plan(entry, None)
-        second = adapter.plan(entry, None)
+        first = adapter.plan(entry, None, ctx)
+        second = adapter.plan(entry, None, ctx)
         assert first == second, f"{name}: plan is not deterministic"
         assert isinstance(first, list)
         for change in first:

@@ -60,8 +60,22 @@ def _units(tmp_path, *names):
     return d
 
 
+class _Plat:
+    """Minimal Platform stub: plan/execute receive a real ctx, per the contract."""
+
+    name = "fake"
+
+    def hostname(self):
+        return "h"
+
+    def home(self):
+        from pathlib import Path
+
+        return Path("/home/fake")
+
+
 def _ctx():
-    return Ctx(platform=None, host="h", now=datetime(2026, 7, 28))
+    return Ctx(platform=_Plat(), host="h", now=datetime(2026, 7, 28))
 
 
 def _entry(unit, lifecycle="active"):
@@ -179,7 +193,7 @@ def test_systemd_is_mutating():
 
 
 def test_plan_enables_an_active_entry_that_is_off():
-    [ch] = ADAPTER.plan(_entry("x.service"), _obs("x.service", False, False))
+    [ch] = ADAPTER.plan(_entry("x.service"), _obs("x.service", False, False), _ctx())
     assert ch.kind == "configure"
     assert ch.action == {"op": "enable", "unit": "x.service", "unit_path": "/x"}
 
@@ -189,6 +203,7 @@ def test_plan_enables_a_scheduled_timer_that_is_off():
     [ch] = ADAPTER.plan(
         _entry("planeops-reconcile.timer"),
         _obs("planeops-reconcile.timer", False, False),
+        _ctx(),
     )
     assert (
         ch.action["op"] == "enable" and ch.action["unit"] == "planeops-reconcile.timer"
@@ -198,17 +213,21 @@ def test_plan_enables_a_scheduled_timer_that_is_off():
 def test_plan_enables_when_active_but_not_enabled():
     # both axes must hold; enabled-but-inactive or active-but-disabled still converge
     [ch] = ADAPTER.plan(
-        _entry("x.service"), _obs("x.service", enabled=True, active=False)
+        _entry("x.service"), _obs("x.service", enabled=True, active=False), _ctx()
     )
     assert ch.action["op"] == "enable"
 
 
 def test_plan_noop_when_enabled_and_active():
-    assert ADAPTER.plan(_entry("x.service"), _obs("x.service", True, True)) == []
+    assert (
+        ADAPTER.plan(_entry("x.service"), _obs("x.service", True, True), _ctx()) == []
+    )
 
 
 def test_plan_disables_a_retired_entry_that_is_on():
-    [ch] = ADAPTER.plan(_entry("x.service", "retired"), _obs("x.service", True, True))
+    [ch] = ADAPTER.plan(
+        _entry("x.service", "retired"), _obs("x.service", True, True), _ctx()
+    )
     assert ch.kind == "remove"
     assert ch.action == {
         "op": "disable",
@@ -219,19 +238,23 @@ def test_plan_disables_a_retired_entry_that_is_on():
 
 
 def test_plan_purge_deletes_the_unit_file():
-    [ch] = ADAPTER.plan(_entry("x.service", "purge"), _obs("x.service", True, False))
+    [ch] = ADAPTER.plan(
+        _entry("x.service", "purge"), _obs("x.service", True, False), _ctx()
+    )
     assert ch.action["delete_unit"] is True
 
 
 def test_plan_retired_and_off_is_silent():
     assert (
-        ADAPTER.plan(_entry("x.service", "retired"), _obs("x.service", False, False))
+        ADAPTER.plan(
+            _entry("x.service", "retired"), _obs("x.service", False, False), _ctx()
+        )
         == []
     )
 
 
 def test_plan_none_obs_is_empty():
-    assert ADAPTER.plan(_entry("x.service"), None) == []
+    assert ADAPTER.plan(_entry("x.service"), None, _ctx()) == []
 
 
 # ---- execute -------------------------------------------------------------

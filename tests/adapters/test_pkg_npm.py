@@ -31,7 +31,21 @@ class RecordingRun:
 
 
 def _ctx():
-    return Ctx(platform=None, host="testhost", now=datetime(2026, 7, 27))
+    return Ctx(platform=_Plat(), host="testhost", now=datetime(2026, 7, 27))
+
+
+class _Plat:
+    """Minimal Platform stub: plan/execute receive a real ctx, per the contract."""
+
+    name = "fake"
+
+    def hostname(self):
+        return "testhost"
+
+    def home(self):
+        from pathlib import Path
+
+        return Path("/home/fake")
 
 
 def _entry(entry_id, lifecycle):
@@ -86,22 +100,26 @@ def test_pkg_npm_is_a_mutating_adapter():
 
 
 def test_plan_active_but_absent_proposes_install():
-    changes = ADAPTER.plan(_entry("pkg-npm/typescript", "active"), None)
+    changes = ADAPTER.plan(_entry("pkg-npm/typescript", "active"), None, _ctx())
     assert changes[0].kind == "install"
     assert changes[0].action == {"op": "install", "package": "typescript"}
 
 
 def test_plan_retired_but_present_proposes_uninstall():
-    changes = ADAPTER.plan(_entry("pkg-npm/typescript", "retired"), _obs("typescript"))
+    changes = ADAPTER.plan(
+        _entry("pkg-npm/typescript", "retired"), _obs("typescript"), _ctx()
+    )
     assert changes[0].kind == "remove"
     assert changes[0].action == {"op": "uninstall", "package": "typescript"}
 
 
 def test_plan_conformant_states_propose_nothing():
+    ctx = _ctx()
     assert (
-        ADAPTER.plan(_entry("pkg-npm/typescript", "active"), _obs("typescript")) == []
+        ADAPTER.plan(_entry("pkg-npm/typescript", "active"), _obs("typescript"), ctx)
+        == []
     )
-    assert ADAPTER.plan(_entry("pkg-npm/typescript", "retired"), None) == []
+    assert ADAPTER.plan(_entry("pkg-npm/typescript", "retired"), None, ctx) == []
 
 
 def test_execute_install_calls_npm():

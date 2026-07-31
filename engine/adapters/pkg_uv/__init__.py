@@ -49,9 +49,7 @@ class PkgUvAdapter:
             for name, version in parse_uv_tools(res.out).items()
         ]
 
-    def plan(
-        self, entry: Entry, obs: Observed | None, ctx: Ctx | None = None
-    ) -> list[Change]:
+    def plan(self, entry: Entry, obs: Observed | None, ctx: Ctx) -> list[Change]:
         tool = entry.native_id
         if entry.lifecycle in ABSENT_LIFECYCLES:
             if obs is None:
