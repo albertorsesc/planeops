@@ -41,19 +41,22 @@ observe  ->  drift  ->  apply
 - `plane observe` scans the machine and writes a snapshot. Read-only, safe to run
   on a schedule.
 - `plane drift` diffs the registry (desired) against the snapshot (observed) and
-  writes `DRIFT.md` (the human pane) and `DRIFT.json` (the machine pane): alerts,
-  report, auto-folded version drift, uncovered entries, and a re-auth checklist.
-  Exits non-zero when alerts exist. `--json` prints the report to stdout.
+  writes `DRIFT.md` (the human pane) and `DRIFT.json` (the machine pane): alerts
+  (including ungoverned always-on services and failed adapter scans), report,
+  auto-folded version drift, uncovered entries, ungoverned observations, and a
+  re-auth checklist. Exits non-zero when alerts exist. `--json` prints the
+  report to stdout.
 - `plane status` prints the last report without rescanning: instant and read-only.
   `--short` gives a shell-prompt indicator (the alert count, empty when clean).
 - `plane reconcile` runs `observe` then `drift` in one pass (exit 2 on alerts). This
   is the one command a scheduler (a launchd agent or systemd timer) runs to keep drift
   current, so a `status --short` prompt stays fresh without you rescanning by hand.
-- `plane schedule` sets that up: it writes an OS-native timer (launchd on macOS,
-  systemd on Linux) that runs `plane reconcile` at login and on an interval
-  (`--every 6h`, `--no-login`, `--off`), and declares it as a registry entry, so
-  `plane apply` loads it through the confirm gate and `plane drift` then governs the
-  schedule itself. The per-OS backends are discovered, not branched.
+- `plane schedule` sets that up: it previews and (after confirmation, `--yes`
+  for scripts) writes an OS-native timer (launchd on macOS, systemd on Linux)
+  that runs `plane reconcile` at login and on an interval (`--every 6h`,
+  `--no-login`, `--off`), and declares it as a registry entry, so `plane apply`
+  loads it through the confirm gate and `plane drift` then governs the schedule
+  itself. The per-OS backends are discovered, not branched.
 - `plane mcp` gives a cross-client view of MCP servers from the last snapshot: each
   server and the clients it is wired into, flagging servers wired into only one client
   (reuse candidates), the same tool under different names across clients (naming
@@ -61,7 +64,7 @@ observe  ->  drift  ->  apply
   `--json` emits it structured.
 - `plane apply` plans changes, renders each as a diff, and asks before every
   mutation. Nothing changes the machine without an explicit confirmation.
-- `plane import <kind> <path>` proposes registry entries:
+- `plane import <kind> [path]` proposes registry entries:
   `stackfile` from a hand-written manifest, `envfile` from a `.env` (key names only,
   values discarded), and `observed` from the machine's own snapshot, so onboarding
   is prune-a-list rather than author-from-blank. It prints by default; `--write` lands
@@ -135,10 +138,11 @@ uv run plane status --short          # e.g. "drift:3", prints nothing when clean
 uv run plane mcp
 
 # seed the registry from what's already on the machine, then prune imported.yaml
-uv run plane import observed observed/<host>/snapshot.json --write
+# (the path defaults to this host's own snapshot)
+uv run plane import observed --write
 
 # converge confirmed changes, one at a time
-uv run plane apply --id launchd/ai.example.gateway
+uv run plane apply --id launchd/com.example.agent-gateway
 ```
 
 `registry/example.yaml` shows the entry shape and every drift section without
@@ -179,8 +183,9 @@ The engine ships the adapter and this pattern; your actual script stays yours.
 The observe/drift/apply loop runs on macOS and Linux, with adapters for services
 (`launchd`, `systemd`), packages (`brew`, `npm`, `uv`), node runtimes (`nvm`), local
 models (`ollama`), config files (delegated to `chezmoi`), MCP-server wiring
-(read-only), and a `sops`+`age` secrets store (presence-tracked without ever
-decrypting a value). One-command onboarding (`plane init` + instance resolution via
+(read-only), and a `sops`+`age` secrets store (presence is tracked without
+decrypting; a value is decrypted only inside a confirmed materialization and
+lands only in its declared target file). One-command onboarding (`plane init` + instance resolution via
 `~/.config/planeops`, `plane import observed --write` to seed the registry from the
 machine), the `plane reconcile` ambient loop, structured `DRIFT.json`, `plane status`,
 the cross-client `plane mcp` view, entry `needs` dependencies, and the optional MCP

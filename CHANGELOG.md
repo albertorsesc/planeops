@@ -30,7 +30,9 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   snapshot reads as one clean "no readable snapshot; run `plane observe` first"
   from `drift`/`apply` (shared torn-safe loader, same as the read verbs), and
   snapshot items missing their identifying keys are skipped instead of poisoning
-  the run. `--json` is now a machine contract: `status --json` and `mcp --json`
+  the run. `--json` is now a machine contract on every verb, `drift --json`
+  included (a JSON error object on stdout, drift still exiting 1):
+  `status --json` and `mcp --json`
   emit a JSON error object on stdout when unseeded instead of nothing. `plane
   status` degrades on a hand-edited or older-schema report instead of crashing.
   Malformed `secrets` refs on an entry fail at registry load with the entry

@@ -366,3 +366,16 @@ def test_import_other_kinds_still_require_a_path(capsys, tmp_path):
     (tmp_path / ".planeops").write_text("")
     assert main(["--repo", str(tmp_path), "import", "envfile"]) == 1
     assert "path" in capsys.readouterr().err
+
+
+def test_drift_json_unseeded_emits_a_json_error_object(monkeypatch, capsys, tmp_path):
+    # The --json contract holds for every verb: stdout parses as JSON even when
+    # the snapshot is missing; the exit code still says operator error.
+    def _raise(repo):
+        raise FileNotFoundError("no readable snapshot at x; run `plane observe` first")
+
+    monkeypatch.setattr("engine.core.drift.run_drift", _raise)
+    code = main(["--repo", str(tmp_path), "drift", "--json"])
+    data = json.loads(capsys.readouterr().out)
+    assert "error" in data and "plane observe" in data["error"]
+    assert code == 1

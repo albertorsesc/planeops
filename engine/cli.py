@@ -42,9 +42,18 @@ def _cmd_observe(args: argparse.Namespace) -> int:
 
 def _cmd_drift(args: argparse.Namespace) -> int:
     from engine.core.drift import run_drift
+    from engine.core.schema import SchemaError
 
     repo = resolve_instance_root(args.repo)
-    report = run_drift(repo)
+    try:
+        report = run_drift(repo)
+    except (FileNotFoundError, SchemaError) as exc:
+        if args.as_json:
+            # --json is a machine contract: stdout parses as JSON even on an
+            # operator error; the exit code still carries the verdict.
+            print(json.dumps({"error": str(exc)}))
+            return 1
+        raise  # text mode: the central handler prints it
     if args.as_json:
         from engine.core.report import render_drift_json
 
