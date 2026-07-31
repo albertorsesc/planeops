@@ -156,7 +156,7 @@ def test_drift_report_dict_has_documented_shape():
     }  # fmt: skip
     assert d["host"] == "h" and d["ts"] == "2026-07-28T00:00:00"
     assert set(d["sections"]) == {
-        "alerts", "report", "auto_folded", "uncovered", "reauth",
+        "alerts", "report", "auto_folded", "uncovered", "ungoverned", "reauth",
     }  # fmt: skip
     assert set(d["sections"]["alerts"][0]) == {"entry_id", "lifecycle", "message"}
     assert d["sections"]["alerts"][0]["entry_id"] == "manual/x"
@@ -270,3 +270,49 @@ def test_needs_cycle_and_self_reference_terminate_without_alert():
     b = _entry(id="mcp/b", adapter="mcp", needs=["mcp/a"])
     obs = {"mcp/a": _obs("mcp/a"), "mcp/b": _obs("mcp/b")}
     assert not triage([a, b], obs, {"mcp"}).alerts
+
+
+# ---- ungoverned observations ----
+
+
+def test_ungoverned_observation_lands_in_its_section():
+    # Observed on the machine, absent from the registry: surfaced, not silent.
+    rep = triage([], {"manual/x": _obs("manual/x")}, IMPL)
+    assert not rep.alerts
+    assert [i.entry_id for i in rep.ungoverned] == ["manual/x"]
+
+
+def test_ungoverned_always_on_service_alerts():
+    # A self-installed always-on agent (keepalive/login/interval) runs code
+    # without ever being declared; the adapter marks it always_on, drift alerts.
+    rep = triage([], {"launchd/evil": _obs("launchd/evil", always_on=True)}, IMPL)
+    assert len(rep.alerts) == 1
+    assert "ungoverned" in rep.alerts[0].message
+    assert not rep.ungoverned  # escalated, not double-listed
+
+
+def test_declared_observation_is_not_ungoverned():
+    e = _entry()
+    rep = triage([e], {"manual/x": _obs("manual/x")}, IMPL)
+    assert not rep.ungoverned
+
+
+# ---- failed adapter scans (state unknown, not "absent") ----
+
+
+def test_failed_adapter_scan_alerts_state_unknown_not_absent():
+    # An adapter that crashed during observe produced no observations; its entries
+    # must not misreport as "expected present, not observed" (a false story).
+    e = _entry()
+    rep = triage([e], {}, IMPL, failed={"manual": "boom"})
+    assert len(rep.alerts) == 1
+    assert "scan failed" in rep.alerts[0].message
+    assert "not observed" not in rep.alerts[0].message
+
+
+def test_json_pane_includes_ungoverned_and_bumps_schema():
+    rep = triage([], {"manual/x": _obs("manual/x")}, IMPL)
+    d = drift_report_dict(rep)
+    assert d["schema_version"] == 2  # new section = new shape, consumers can pin
+    assert [i["entry_id"] for i in d["sections"]["ungoverned"]] == ["manual/x"]
+    assert d["summary"]["ungoverned"] == 1

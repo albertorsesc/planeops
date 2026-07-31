@@ -254,3 +254,21 @@ def test_schedule_observes_after_writing(monkeypatch, tmp_path):
     )
     assert main(["--repo", str(inst), "schedule", "--every", "6h"]) == 0
     assert seen == [inst.resolve()]
+
+
+# ---- failed adapter scans are visible at the CLI (audit wave 1-C) ----
+
+
+def test_observe_warns_about_failed_adapter_scans(monkeypatch, capsys, tmp_path):
+    monkeypatch.setattr(
+        "engine.core.observe.run_observe",
+        lambda repo, attest=False: {
+            "observed": [],
+            "uncovered": [],
+            "host": "h",
+            "failed": [{"adapter": "pkg-brew", "error": "boom"}],
+        },
+    )
+    assert main(["--repo", str(tmp_path), "observe"]) == 0
+    err = capsys.readouterr().err
+    assert "pkg-brew" in err and "failed" in err

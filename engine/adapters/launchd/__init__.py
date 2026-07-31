@@ -106,6 +106,10 @@ class LaunchdAdapter:
                         "keepalive": meta["keepalive"],
                         "run_at_load": meta["run_at_load"],
                         "drifted": bool(wants_loaded and not is_loaded),
+                        # General fact for drift's ungoverned pass: this agent
+                        # will run code (login/keepalive/interval) even if it is
+                        # not loaded right now, so undeclared it must alert.
+                        "always_on": bool(wants_loaded),
                         "plist_path": str(plist_path),
                     },
                 )

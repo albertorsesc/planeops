@@ -19,12 +19,13 @@ _SECTIONS = [
     ("report", "Report", "drift worth a look"),
     ("auto_folded", "Auto-folded", "in-major version drift, folded"),
     ("uncovered", "Uncovered", "entries awaiting their adapter"),
+    ("ungoverned", "Ungoverned", "observed on the machine, not in the registry"),
     ("reauth", "Re-auth pending", "interactive credentials to restore"),
 ]
 
 # Bump when the JSON pane's shape changes, so a consumer can pin (mirrors the
 # snapshot's schema_version).
-DRIFT_SCHEMA_VERSION = 1
+DRIFT_SCHEMA_VERSION = 2
 
 
 def _render_items(items: list[DriftItem]) -> str:

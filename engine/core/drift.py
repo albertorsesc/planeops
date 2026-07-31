@@ -35,6 +35,7 @@ class DriftReport:
     report: list[DriftItem] = field(default_factory=list)
     auto_folded: list[DriftItem] = field(default_factory=list)
     uncovered: list[DriftItem] = field(default_factory=list)
+    ungoverned: list[DriftItem] = field(default_factory=list)
     reauth: list[DriftItem] = field(default_factory=list)
 
     @property
@@ -72,7 +73,9 @@ def triage(
     entries: Iterable[Entry],
     observed_by_key: dict[str, Observed],
     implemented: set[str],
+    failed: dict[str, str] | None = None,
 ) -> DriftReport:
+    failed = failed or {}
     report = DriftReport(host="", ts="")
     entries = list(entries)  # walked twice: per-entry triage, then dependency checks
     for entry in entries:
@@ -86,6 +89,18 @@ def triage(
         if entry.adapter not in implemented:
             report.uncovered.append(
                 _item(entry, f"awaiting the {entry.adapter!r} adapter")
+            )
+            continue
+
+        if entry.adapter in failed:
+            # The adapter crashed during observe, so this entry's real state is
+            # unknown. "expected present, not observed" would be a false story
+            # (the machine may be fine); say what actually happened.
+            report.alerts.append(
+                _item(
+                    entry,
+                    f"adapter scan failed ({failed[entry.adapter]}); state unknown",
+                )
             )
             continue
 
@@ -129,6 +144,32 @@ def triage(
                         f"version {obs.version} (pinned {entry.pin}, same major)",
                     )
                 )
+
+    # Ungoverned pass: observed on the machine, absent from the registry. The
+    # snapshot is already post-unmanaged, so everything here is neither declared
+    # nor deliberately excluded. An item whose own facts say it is always-on (an
+    # adapter-declared general fact: a login/keepalive/interval agent, an enabled
+    # unit) will run code without ever having been declared, the one thing a
+    # control plane must never stay silent about, so it alerts; anything else is
+    # surfaced for `plane import observed` to propose or an unmanaged glob to
+    # exclude.
+    declared_ids = {e.id for e in entries}
+    for key in sorted(observed_by_key):
+        if key in declared_ids:
+            continue
+        obs = observed_by_key[key]
+        if obs.facts.get("always_on"):
+            report.alerts.append(
+                DriftItem(
+                    key,
+                    "unregistered",
+                    "ungoverned always-on service; declare it or add an unmanaged glob",
+                )
+            )
+        else:
+            report.ungoverned.append(
+                DriftItem(key, "unregistered", "observed but not in the registry")
+            )
 
     # Dependency integrity: an active/maintain entry that `needs` something being
     # retired/purged or absent is an alert, so a resource a consumer depends on
@@ -190,7 +231,12 @@ def run_drift(
     registry = load_registry(registry_dir)
     entries = registry.entries_for_host(host)
 
-    result = triage(entries, observed_by_key, implemented)
+    failed = {
+        f["adapter"]: str(f.get("error", ""))
+        for f in snapshot.get("failed", [])
+        if isinstance(f, dict) and isinstance(f.get("adapter"), str)
+    }
+    result = triage(entries, observed_by_key, implemented, failed=failed)
     result.host = host
     result.ts = now.isoformat()
 
