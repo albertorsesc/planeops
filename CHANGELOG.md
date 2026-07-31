@@ -8,6 +8,14 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A retired service now converges without `purge`. Drift treated "observed at all"
+  as present, but the launchd/systemd adapters observe every service file on disk
+  regardless of state, so a retired, booted-out service whose file remained alerted
+  forever while `plane apply` had nothing left to do. Adapters now declare semantic
+  presence (a `present` fact: loaded for launchd, enabled-or-active for systemd) and
+  drift's retired check consumes it, so retired means "not running" and `purge`
+  keeps meaning "file removed too". Package adapters are unchanged (installed is
+  present).
 - `plane drift` no longer stays silent about things it can see. A new **Ungoverned**
   section lists everything observed on the machine that is neither declared nor
   excluded by an unmanaged glob, and an ungoverned item whose own facts say it is

@@ -89,6 +89,7 @@ def test_observe_reports_enabled_and_active(tmp_path):
         "active": True,
         "drifted": False,
         "always_on": True,
+        "present": True,
         "unit_path": str(d / "on.service"),
     }
     assert out["off.service"].facts["enabled"] is False
@@ -282,3 +283,15 @@ def test_observe_marks_always_on_for_enabled_units(tmp_path):
     }
     assert out["on.service"].facts["always_on"] is True
     assert out["off.service"].facts["always_on"] is False
+
+
+def test_observe_present_means_enabled_or_active(tmp_path):
+    # Semantic presence for a unit is "will run or is running", not "file exists".
+    d = _units(tmp_path, "on.service", "running.service", "off.service")
+    fake = Fake(enabled={"on.service"}, active={"running.service"})
+    out = {
+        o.native_id: o for o in SystemdAdapter(run=fake, units_dir=d).observe(_ctx())
+    }
+    assert out["on.service"].facts["present"] is True  # enabled, not started
+    assert out["running.service"].facts["present"] is True  # active only
+    assert out["off.service"].facts["present"] is False
