@@ -31,6 +31,15 @@ class SystemdScheduler:
         login: bool,
         off: bool,
     ) -> ScheduledJob:
+        # The unit files are plain-text concatenation: a newline inside an
+        # interpolated value would land as a new directive line (e.g. an
+        # ExecStartPre= injected through $PATH). No legitimate PATH or binary
+        # path contains one; refuse loudly rather than write a poisoned unit.
+        for label, value in (("plane path", plane), ("PATH", path_env)):
+            if "\n" in value or "\r" in value:
+                raise ValueError(
+                    f"{label} contains a newline; refusing to write a unit"
+                )
         user_dir = home / ".config" / "systemd" / "user"
         service = (
             "[Unit]\nDescription=planeops ambient reconcile (observe+drift)\n\n"

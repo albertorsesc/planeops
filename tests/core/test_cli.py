@@ -326,3 +326,43 @@ def test_status_tolerates_a_hand_edited_partial_report(monkeypatch, capsys, tmp_
     code = main(["--repo", str(tmp_path), "status"])
     out = capsys.readouterr().out
     assert "0 alert(s)" in out and code == 0
+
+
+# ---- import observed defaults to the host's own snapshot ----
+
+
+def test_import_observed_defaults_to_the_host_snapshot(monkeypatch, capsys, tmp_path):
+    # The CLI computes this path everywhere else; making the user retype it was
+    # pure friction. `plane import observed` alone now reads it.
+    class _Plat:
+        name = "fake"
+
+        def hostname(self):
+            return "h"
+
+        def home(self):
+            return tmp_path
+
+    monkeypatch.setattr("engine.platform.current_platform", lambda: _Plat())
+    inst = tmp_path / "inst"
+    (inst / "registry").mkdir(parents=True)
+    (inst / ".planeops").write_text("")
+    snapdir = inst / "observed" / "h"
+    snapdir.mkdir(parents=True)
+    (snapdir / "snapshot.json").write_text(
+        json.dumps(
+            {
+                "host": "h",
+                "observed": [{"adapter": "manual", "native_id": "x", "facts": {}}],
+            }
+        )
+    )
+    assert main(["--repo", str(inst), "import", "observed"]) == 0
+    out = capsys.readouterr().out
+    assert "manual/x" in out  # proposal printed from the defaulted snapshot
+
+
+def test_import_other_kinds_still_require_a_path(capsys, tmp_path):
+    (tmp_path / ".planeops").write_text("")
+    assert main(["--repo", str(tmp_path), "import", "envfile"]) == 1
+    assert "path" in capsys.readouterr().err

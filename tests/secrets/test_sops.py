@@ -87,3 +87,22 @@ def test_get_raises_when_sops_fails(tmp_path):
     )
     with pytest.raises(RuntimeError):
         b.get("openrouter_api_key")
+
+
+def test_get_refuses_a_name_that_cannot_be_safely_quoted(tmp_path):
+    # The name is interpolated into the sops --extract expression; a quote or
+    # control character could change what gets extracted. Refuse before any
+    # shell-out.
+    called = False
+
+    def fake_run(cmd, *, timeout=30):
+        nonlocal called
+        called = True
+        return RunResult(0, "", "")
+
+    store = tmp_path / "s.yaml"
+    store.write_text('bad"name: x\nbad\nline: y\n')
+    b = SopsBackend(store, run=fake_run)
+    with pytest.raises(ValueError, match="safely"):
+        b.get('bad"name')
+    assert called is False

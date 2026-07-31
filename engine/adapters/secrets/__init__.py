@@ -71,7 +71,14 @@ class SecretsAdapter:
         for path_str, key in _targets_for(entry.native_id, ctx.entries):
             target = _resolve(path_str, home)
             if _has_key(target, key):
-                continue  # already materialized; rotation is a separate concern
+                # Already materialized: presence of the KEY, not value equality,
+                # gates re-materialization. Deliberate: comparing values would
+                # require decrypting during plan (the redaction gate forbids
+                # it), so a rotated store value does not re-land until the user
+                # removes the key from the target. Rotation-aware refresh needs
+                # its own design (a value-hash fact recorded at execute time)
+                # and is on the roadmap, not silently half-done here.
+                continue
             changes.append(
                 Change(
                     entry_id=entry.id,
@@ -164,7 +171,14 @@ def _has_key(target: Path, key: str) -> bool:
 def _allowed_bases(ctx: Ctx) -> list[Path]:
     """Directories a secret may be materialized into: the instance repo and the home
     dir by default, plus any `secrets.allow_targets` in instance.yaml. Each is
-    realpath-resolved, so containment compares resolved paths to resolved bases."""
+    realpath-resolved, so containment compares resolved paths to resolved bases.
+
+    The whole home directory as a default base is deliberately broad: consumers
+    declare targets like `~/.config/<tool>/.env`, and enumerating per-tool config
+    homes here would turn containment into a tool list the core must chase. The
+    check exists to stop redirection OUTSIDE trusted space (a symlinked ancestor
+    escaping to /tmp or another user), not to police locations within the user's
+    own home; narrow it per-instance via `secrets.allow_targets` when wanted."""
     bases: list[Path] = []
     if ctx.repo_root is not None:
         bases.append(Path(os.path.realpath(ctx.repo_root)))
@@ -203,13 +217,27 @@ def _read_lines(name: str, dir_fd: int) -> list[str]:
         return fh.read().splitlines()
 
 
+def _mkdir_private(directory: Path) -> None:
+    """Create `directory` (and any missing parents) 0700. `mkdir(parents=True)`
+    creates parents at the process umask, which would leave the 0600 secret file
+    inside a listable directory; each missing level is created private instead.
+    Existing directories keep their mode (they may be shared on purpose)."""
+    missing: list[Path] = []
+    current = directory
+    while not current.exists():
+        missing.append(current)
+        current = current.parent
+    for level in reversed(missing):
+        level.mkdir(mode=0o700, exist_ok=True)
+
+
 def _upsert_env(directory: Path, name: str, key: str, value: str) -> None:
     """Set `key=value` in `directory`/`name` and replace it atomically. `directory`
     is the caller's realpath-resolved, containment-checked parent; all file ops run
     relative to its directory fd so the verified parent can't be swapped mid-write.
     The final component and temp are opened O_NOFOLLOW (a symlinked target is
     refused); the temp is created 0600 and removed on any failure."""
-    directory.mkdir(parents=True, exist_ok=True)
+    _mkdir_private(directory)
     dir_fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
     try:
         lines = _read_lines(name, dir_fd)

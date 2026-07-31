@@ -8,6 +8,16 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Hardening follow-ups from the audit: parents created for a materialized secret
+  are 0700 (not the process umask, which undermined the 0600 file inside a
+  listable directory); the systemd scheduler refuses a newline in the plane path
+  or PATH (plain-text unit concatenation would have turned it into an injected
+  directive); a secret name that cannot be safely quoted for `sops --extract` is
+  refused before any shell-out; and `plane import observed` defaults to the
+  host's own snapshot path instead of making the user retype a path the CLI
+  already computes (other import kinds still require one). The home-directory
+  containment base and the no-rotation-refresh behavior are now documented
+  decisions in the code, not silences.
 - The adapter contract is honestly typed: `plan(entry, obs, ctx)` requires its
   ctx (the engine always provides one; the optional-`None` form only invited
   None-guards for a case production never produces), and the platform None-guards
