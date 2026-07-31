@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# The workflow only reads the repo; never grant the default write token.
+permissions:
+  contents: read
+
 jobs:
   gate:
     runs-on: ubuntu-latest
@@ -13,7 +17,7 @@ jobs:
       matrix:
         python-version: ["3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
@@ -42,8 +46,63 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SOPS_VERSION: "3.13.3"
+      SOPS_SHA256: "e5bec3346a873ae91d871550f3e698c1aad962aff462a080e40f25fde17fef6b"
+      CHEZMOI_VERSION: "2.71.1"
+      CHEZMOI_SHA256: "e1fb16c962644d57f4d451c324aa86163d00faf5d035500f41fb48943a66dfed"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      # Every third-party binary is version-pinned and checksum-verified; no
+      # curl-pipe-sh and no unverified release download reaches the runner.
+      - name: Install sops, age, chezmoi (pinned + verified)
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends age
+          curl -fsSL "https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.amd64" \
+            -o "$HOME/.local/bin/sops"
+          echo "${SOPS_SHA256}  $HOME/.local/bin/sops" | sha256sum -c -
+          chmod +x "$HOME/.local/bin/sops"
+          curl -fsSL "https://github.com/twpayne/chezmoi/releases/download/v${CHEZMOI_VERSION}/chezmoi_${CHEZMOI_VERSION}_linux_amd64.tar.gz" \
+            -o /tmp/chezmoi.tar.gz
+          echo "${CHEZMOI_SHA256}  /tmp/chezmoi.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/chezmoi.tar.gz -C /tmp chezmoi
+          install -m 0755 /tmp/chezmoi "$HOME/.local/bin/chezmoi"
+
+      # Fails loudly: a missing user bus previously slipped through (|| true) and
+      # silently skipped the systemd integration test.
+      - name: Start a systemd --user session
+        run: |
+          set -euo pipefail
+          sudo loginctl enable-linger "$USER"
+          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
+          for _ in $(seq 1 15); do
+            XDG_RUNTIME_DIR="/run/user/$(id -u)" systemctl --user list-units --no-legend >/dev/null 2>&1 && exit 0
+            sleep 1
+          done
+          echo "systemd --user session never came up" >&2
+          exit 1
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Integration tests (real sops/age/chezmoi + systemctl --user)
+        run: uv run --frozen pytest tests/integration -v
+
+  # macOS parity: the launchd integration test runs against the real launchctl
+  # (previously it only ever ran on a dev machine), plus the sops/age/chezmoi
+  # integrations with the real tools from brew.
+  integration-macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
@@ -52,29 +111,10 @@ jobs:
           python-version: "3.12"
 
       - name: Install sops, age, chezmoi
-        run: |
-          set -euo pipefail
-          mkdir -p "$HOME/.local/bin"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends age
-          curl -fsSL "https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.amd64" \
-            -o "$HOME/.local/bin/sops"
-          chmod +x "$HOME/.local/bin/sops"
-          sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
-
-      - name: Start a systemd --user session (for the systemd integration test)
-        run: |
-          set -uo pipefail
-          sudo loginctl enable-linger "$USER" || true
-          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
-          for _ in $(seq 1 15); do
-            XDG_RUNTIME_DIR="/run/user/$(id -u)" systemctl --user list-units --no-legend >/dev/null 2>&1 && break
-            sleep 1
-          done
-          XDG_RUNTIME_DIR="/run/user/$(id -u)" systemctl --user is-system-running || true
+        run: brew install sops age chezmoi
 
       - name: Sync dependencies
         run: uv sync --frozen
 
-      - name: Integration tests (real sops/age/chezmoi + systemctl --user)
+      - name: Integration tests (real launchctl + sops/age/chezmoi)
         run: uv run --frozen pytest tests/integration -v
