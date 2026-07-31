@@ -172,3 +172,18 @@ def test_cli_schedule_asks_before_writing_and_yes_skips(tmp_path, monkeypatch, c
     assert main(["--repo", str(inst), "schedule", "--every", "6h", "--yes"]) == 0
     assert (inst / "registry" / "schedule.yaml").exists()
     assert list(home.rglob("*.plist")) or list(home.rglob("*.timer"))
+
+
+def test_systemd_build_refuses_directive_injection_via_values(tmp_path):
+    # The unit file is plain-text concatenation; a newline inside PATH or the
+    # plane path would land as a new directive line. Refuse loudly.
+    with pytest.raises(ValueError, match="newline"):
+        SYSTEMD.build(
+            tmp_path, plane="/bin/plane", path_env="/usr/bin\nExecStartPre=/evil",
+            interval=60, login=True, off=False,
+        )  # fmt: skip
+    with pytest.raises(ValueError, match="newline"):
+        SYSTEMD.build(
+            tmp_path, plane="/bin/pl\nane", path_env="/usr/bin",
+            interval=60, login=True, off=False,
+        )  # fmt: skip

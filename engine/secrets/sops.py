@@ -45,6 +45,13 @@ class SopsBackend:
     def get(self, name: str) -> str:
         """Decrypt one value via `sops -d --extract`. Raises if the key is absent
         or sops fails, so a caller never silently materializes an empty secret."""
+        if any(c in name for c in '"\\') or not name.isprintable():
+            # The name lands inside the --extract expression '["<name>"]'; a
+            # quote, backslash, or control character could change what gets
+            # extracted. No legitimate secret name needs them.
+            raise ValueError(
+                f"secret name {name!r} cannot be safely quoted for extraction"
+            )
         if not self.exists(name):
             raise KeyError(f"secret {name!r} is not configured in {self._store}")
         # Decrypt can wait on an age key or a pinentry, but must not wedge an

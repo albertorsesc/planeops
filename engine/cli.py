@@ -163,14 +163,18 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
     plane = shutil.which("plane") or str(home / ".local" / "bin" / "plane")
     scheduler = current_scheduler()  # NotImplementedError -> main()'s handler
 
-    job = scheduler.build(
-        home,
-        plane=plane,
-        path_env=os.environ.get("PATH", ""),
-        interval=interval,
-        login=not args.no_login,
-        off=args.off,
-    )
+    try:
+        job = scheduler.build(
+            home,
+            plane=plane,
+            path_env=os.environ.get("PATH", ""),
+            interval=interval,
+            login=not args.no_login,
+            off=args.off,
+        )
+    except ValueError as exc:  # a backend refusing an unsafe value (not central:
+        print(str(exc), file=sys.stderr)  # ValueError is too broad to catch there)
+        return 1
 
     repo = resolve_instance_root(args.repo)
     # schedule writes machine state (job files + a registry entry): show what it
@@ -299,7 +303,19 @@ def _cmd_init(args: argparse.Namespace) -> int:
 def _cmd_import(args: argparse.Namespace) -> int:
     from engine.importers import discover_importers, render_proposal, write_proposal
 
-    path = Path(args.path)
+    repo = resolve_instance_root(args.repo)
+    if args.path is not None:
+        path = Path(args.path)
+    elif args.kind == "observed":
+        # The CLI computes this path everywhere else; retyping it was pure
+        # friction. `plane import observed` alone reads the host's own snapshot.
+        from engine.core.observe import snapshot_path
+        from engine.platform import current_platform
+
+        path = snapshot_path(repo / "observed", current_platform().hostname())
+    else:
+        print(f"import {args.kind} requires a path", file=sys.stderr)
+        return 1
     if not path.is_file():
         print(f"no such file: {path}", file=sys.stderr)
         return 1
@@ -308,8 +324,6 @@ def _cmd_import(args: argparse.Namespace) -> int:
     if importer is None:  # argparse choices normally prevents this
         print(f"unknown import kind {args.kind!r}", file=sys.stderr)
         return 1
-
-    repo = resolve_instance_root(args.repo)
     entries = importer.propose(path.read_text(), repo)
     if args.adapter:  # onboard one type at a time (e.g. --adapter mcp)
         entries = [e for e in entries if e.get("adapter") == args.adapter]
@@ -452,7 +466,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_import = sub.add_parser("import", help="propose registry entries from a manifest")
     p_import.add_argument("kind", choices=sorted(discover_importers()))
-    p_import.add_argument("path")
+    p_import.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help="manifest to read (default for 'observed': the host's own snapshot)",
+    )
     p_import.add_argument(
         "--adapter",
         default=None,

@@ -301,3 +301,16 @@ def test_allow_targets_extends_the_bases(tmp_path):
     assert (
         extra / "env"
     ).read_text() == "OPENROUTER_API_KEY=VALUE::openrouter-api-key\n"
+
+
+def test_materialization_creates_missing_parents_private(tmp_path):
+    # A secret lands under a parent that may not exist yet; that parent must be
+    # created 0700, not at the process umask, or the 0600 on the file is
+    # undermined by a listable directory.
+    from engine.adapters.secrets import _upsert_env
+
+    parent = tmp_path / "new" / "nested"
+    _upsert_env(parent, ".env", "KEY", "value")
+    assert (parent / ".env").read_text() == "KEY=value\n"
+    assert (tmp_path / "new").stat().st_mode & 0o777 == 0o700
+    assert parent.stat().st_mode & 0o777 == 0o700
