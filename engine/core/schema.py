@@ -96,6 +96,27 @@ def _enum[E: StrEnum](cls: type[E], value: Any, field_name: str, entry_id: str) 
         ) from None
 
 
+def _validate_secret_ref(ref: Any, entry_id: Any) -> None:
+    """One `secrets` item: `{ref: secret://<backend>/<name>, injected_as:
+    env:NAME | file:<path>#KEY, rotation: <dur>}`. Checked at load, so a typo'd
+    ref fails with the entry named instead of being silently skipped when the
+    secrets adapter later scans for consumers."""
+    if not isinstance(ref, dict):
+        raise SchemaError(f"entry {entry_id!r}: each secrets item must be a mapping")
+    uri = ref.get("ref")
+    if not isinstance(uri, str) or not uri.startswith("secret://"):
+        raise SchemaError(
+            f"entry {entry_id!r}: secrets ref={uri!r} must be a "
+            "'secret://<backend>/<name>' string"
+        )
+    injected = ref.get("injected_as")
+    if injected is not None and not isinstance(injected, str):
+        raise SchemaError(
+            f"entry {entry_id!r}: injected_as={injected!r} must be a string "
+            "('env:NAME' or 'file:<path>#KEY')"
+        )
+
+
 def entry_from_dict(raw: dict[str, Any]) -> Entry:
     """Build and validate one Entry from a registry mapping."""
     if not isinstance(raw, dict):
@@ -132,6 +153,12 @@ def entry_from_dict(raw: dict[str, Any]) -> Entry:
         raise SchemaError(
             f"entry {entry_id!r}: needs must be a list of entry ids (strings)"
         )
+
+    secrets = raw.get("secrets", [])
+    if not isinstance(secrets, list):
+        raise SchemaError(f"entry {entry_id!r}: secrets must be a list of mappings")
+    for ref in secrets:
+        _validate_secret_ref(ref, entry_id)
 
     return Entry(
         id=entry_id,

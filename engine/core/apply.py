@@ -18,13 +18,12 @@ from engine.core.contracts import (
     Adapter,
     Change,
     Ctx,
-    Observed,
     Platform,
     Result,
     can_apply,
 )
 from engine.core.discovery import discover_adapters
-from engine.core.observe import snapshot_path
+from engine.core.observe import load_observed, load_snapshot
 from engine.core.registry import load_registry
 from engine.core.schema import Entry, Owner
 from engine.secrets import SecretsBackend, SecretsHandle, materialization_handle
@@ -102,17 +101,9 @@ def run_apply(
     now = now or datetime.now()
 
     observed_dir = repo_root / "observed"
-    snap_path = snapshot_path(observed_dir, platform.hostname())
-    if not snap_path.is_file():
-        raise FileNotFoundError(
-            f"no snapshot at {snap_path}; run `plane observe` first"
-        )
-
-    snapshot = json.loads(snap_path.read_text())
-    host = snapshot["host"]
-    observed_by_key = {
-        o.key: o for o in (Observed.from_dict(d) for d in snapshot.get("observed", []))
-    }
+    snapshot = load_snapshot(observed_dir, platform.hostname())
+    host = snapshot.get("host") or platform.hostname()
+    observed_by_key = load_observed(snapshot)
 
     registry = load_registry(repo_root / "registry")
     # ctx sees the FULL host registry so an adapter can resolve cross-references

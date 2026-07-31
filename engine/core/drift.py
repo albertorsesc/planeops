@@ -6,7 +6,6 @@ alert exists.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -14,7 +13,7 @@ from pathlib import Path
 
 from engine.core.contracts import Observed, Platform
 from engine.core.discovery import discover_adapters
-from engine.core.observe import snapshot_path
+from engine.core.observe import load_observed, load_snapshot
 from engine.core.registry import load_registry
 from engine.core.schema import ABSENT_LIFECYCLES, Auth, Entry, Lifecycle, Tolerance
 from engine.core.statefile import atomic_write
@@ -221,17 +220,9 @@ def run_drift(
     registry_dir = repo_root / "registry"
     observed_dir = repo_root / "observed"
 
-    snap_path = snapshot_path(observed_dir, platform.hostname())
-    if not snap_path.is_file():
-        raise FileNotFoundError(
-            f"no snapshot at {snap_path}; run `plane observe` first"
-        )
-
-    snapshot = json.loads(snap_path.read_text())
-    host = snapshot["host"]
-    observed_by_key = {
-        o.key: o for o in (Observed.from_dict(d) for d in snapshot.get("observed", []))
-    }
+    snapshot = load_snapshot(observed_dir, platform.hostname())
+    host = snapshot.get("host") or platform.hostname()
+    observed_by_key = load_observed(snapshot)
 
     registry = load_registry(registry_dir)
     entries = registry.entries_for_host(host)

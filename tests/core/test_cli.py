@@ -272,3 +272,57 @@ def test_observe_warns_about_failed_adapter_scans(monkeypatch, capsys, tmp_path)
     assert main(["--repo", str(tmp_path), "observe"]) == 0
     err = capsys.readouterr().err
     assert "pkg-brew" in err and "failed" in err
+
+
+# ---- uniform verb error handling (audit wave 3-H) ----
+
+
+def _schema_boom(*a, **k):
+    from engine.core.schema import SchemaError
+
+    raise SchemaError("entry 'x': lifecycle=nope is not one of: active, ...")
+
+
+def test_observe_schema_error_is_clean_exit_1(monkeypatch, capsys, tmp_path):
+    monkeypatch.setattr("engine.core.observe.run_observe", _schema_boom)
+    assert main(["--repo", str(tmp_path), "observe"]) == 1
+    assert "lifecycle=nope" in capsys.readouterr().err  # message, not a traceback
+
+
+def test_drift_schema_error_is_clean_exit_1(monkeypatch, capsys, tmp_path):
+    monkeypatch.setattr("engine.core.drift.run_drift", _schema_boom)
+    assert main(["--repo", str(tmp_path), "drift"]) == 1
+    assert "lifecycle=nope" in capsys.readouterr().err
+
+
+def test_apply_schema_error_is_clean_exit_1(monkeypatch, capsys, tmp_path):
+    monkeypatch.setattr("engine.core.apply.run_apply", _schema_boom)
+    assert main(["--repo", str(tmp_path), "apply"]) == 1
+    assert "lifecycle=nope" in capsys.readouterr().err
+
+
+# ---- --json is a machine contract: stdout is always JSON ----
+
+
+def test_status_json_unseeded_emits_a_json_error_object(monkeypatch, capsys, tmp_path):
+    monkeypatch.setattr("engine.core.status.read_status", lambda repo: None)
+    code = main(["--repo", str(tmp_path), "status", "--json"])
+    out = capsys.readouterr().out
+    data = json.loads(out)  # stdout parses as JSON even when unseeded
+    assert "error" in data and code == 0
+
+
+def test_mcp_json_unseeded_emits_a_json_error_object(monkeypatch, capsys, tmp_path):
+    monkeypatch.setattr("engine.core.mcp_view.read_mcp_view", lambda repo: None)
+    code = main(["--repo", str(tmp_path), "mcp", "--json"])
+    data = json.loads(capsys.readouterr().out)
+    assert "error" in data and code == 0
+
+
+def test_status_tolerates_a_hand_edited_partial_report(monkeypatch, capsys, tmp_path):
+    # A user (or an older engine) may leave DRIFT.json with missing keys; the
+    # prompt path must degrade, never traceback.
+    monkeypatch.setattr("engine.core.status.read_status", lambda repo: {"ts": "t"})
+    code = main(["--repo", str(tmp_path), "status"])
+    out = capsys.readouterr().out
+    assert "0 alert(s)" in out and code == 0

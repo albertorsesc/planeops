@@ -8,6 +8,18 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Operator errors are handled once, uniformly. A bad registry edit (the most
+  common newcomer mistake) now exits 1 with the schema message from every verb
+  instead of tracebacking from `observe`/`drift`/`apply`; the handling lives at
+  the CLI dispatch point, so every future verb inherits it. A torn or corrupt
+  snapshot reads as one clean "no readable snapshot; run `plane observe` first"
+  from `drift`/`apply` (shared torn-safe loader, same as the read verbs), and
+  snapshot items missing their identifying keys are skipped instead of poisoning
+  the run. `--json` is now a machine contract: `status --json` and `mcp --json`
+  emit a JSON error object on stdout when unseeded instead of nothing. `plane
+  status` degrades on a hand-edited or older-schema report instead of crashing.
+  Malformed `secrets` refs on an entry fail at registry load with the entry
+  named, instead of being silently skipped at materialization time.
 - `plane schedule --no-login` now actually fires on Linux. The generated timer
   had only `OnUnitActiveSec`, which is relative to the service's last activation
   and so never elapses on a fresh enable (verified live: `NEXT` stayed empty

@@ -22,8 +22,44 @@ from engine.secrets.store import build_handle
 SNAPSHOT_SCHEMA_VERSION = 1  # bump when the snapshot / entry wire format changes
 
 
+class SnapshotError(FileNotFoundError):
+    """The snapshot is missing, torn, or not an object. Subclasses
+    FileNotFoundError because the remedy is identical (run `plane observe`),
+    so every existing handler catches it."""
+
+
 def snapshot_path(observed_dir: Path, host: str) -> Path:
     return observed_dir / host / "snapshot.json"
+
+
+def load_snapshot(observed_dir: Path, host: str) -> dict[str, Any]:
+    """The last snapshot for `host`, parsed torn-safely. Missing, corrupt, or
+    non-object files raise the same clean, actionable error instead of a
+    traceback deep in json."""
+    path = snapshot_path(observed_dir, host)
+    snapshot = read_json_file(path)
+    if snapshot is None:
+        raise SnapshotError(
+            f"no readable snapshot at {path}; run `plane observe` first"
+        )
+    return snapshot
+
+
+def load_observed(snapshot: dict[str, Any]) -> dict[str, Observed]:
+    """`observed` items keyed for triage. Items that are not mappings or lack
+    the identifying keys (a hand-edit, an older schema) are skipped, so junk
+    rows never poison a whole run."""
+    out: dict[str, Observed] = {}
+    for item in snapshot.get("observed", []) or []:
+        if not isinstance(item, dict):
+            continue
+        if not isinstance(item.get("adapter"), str) or not isinstance(
+            item.get("native_id"), str
+        ):
+            continue
+        obs = Observed.from_dict(item)
+        out[obs.key] = obs
+    return out
 
 
 def _load_prior(path: Path) -> dict[str, Observed]:
@@ -32,12 +68,7 @@ def _load_prior(path: Path) -> dict[str, Observed]:
     raw = read_json_file(path)
     if raw is None:
         return {}
-    prior: dict[str, Observed] = {}
-    for item in raw.get("observed", []) or []:
-        if isinstance(item, dict):
-            obs = Observed.from_dict(item)
-            prior[obs.key] = obs
-    return prior
+    return load_observed(raw)
 
 
 def _drop_unmanaged(observed: list[Observed], registry: Registry) -> list[Observed]:
