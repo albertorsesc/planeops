@@ -47,7 +47,12 @@ class SopsBackend:
         or sops fails, so a caller never silently materializes an empty secret."""
         if not self.exists(name):
             raise KeyError(f"secret {name!r} is not configured in {self._store}")
-        res = self._run(["sops", "-d", "--extract", f'["{name}"]', str(self._store)])
+        # Decrypt can wait on an age key or a pinentry, but must not wedge an
+        # apply forever: bounded, above the seam's 30s default.
+        res = self._run(
+            ["sops", "-d", "--extract", f'["{name}"]', str(self._store)],
+            timeout=60,
+        )
         if res.code != 0:
             # Cap stderr: it flows into an operator-facing error, not a value.
             raise RuntimeError(

@@ -13,6 +13,7 @@ class Fake:
 
     def __init__(self, *, session=True, enabled=(), active=(), static=(), fail=()):
         self.calls: list[list[str]] = []
+        self.timeouts: list[float | None] = []
         self.session = session
         self.enabled = set(enabled)
         self.active = set(active)
@@ -44,8 +45,9 @@ class Fake:
             "daemon-reload": lambda _u: RunResult(0),
         }
 
-    def __call__(self, cmd):
+    def __call__(self, cmd, *, timeout=30):
         self.calls.append(cmd)
+        self.timeouts.append(timeout)
         handler = self._handlers().get(cmd[2])
         return handler(cmd[-1]) if handler else RunResult(1, "", f"unexpected {cmd}")
 

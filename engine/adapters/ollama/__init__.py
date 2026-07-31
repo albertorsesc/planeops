@@ -33,6 +33,9 @@ def parse_ollama_list(text: str) -> dict[str, dict[str, str]]:
 class OllamaAdapter:
     name = "ollama"
     domains: tuple[str, ...] = ("model",)
+    # Pulling a large model is tens of gigabytes; no ceiling on a confirmed
+    # pull/remove, the human owns the wait.
+    EXECUTE_TIMEOUT: float | None = None
 
     def __init__(self, run: Runner | None = None):
         self._run = run or default_run
@@ -82,9 +85,9 @@ class OllamaAdapter:
         op = action.get("op")
         model = action.get("model", "")
         if op == "pull":
-            res = self._run(["ollama", "pull", model])
+            res = self._run(["ollama", "pull", model], timeout=self.EXECUTE_TIMEOUT)
         elif op == "remove":
-            res = self._run(["ollama", "rm", model])
+            res = self._run(["ollama", "rm", model], timeout=self.EXECUTE_TIMEOUT)
         else:
             return Result(ok=False, detail=f"unknown ollama op {op!r}")
         if res.code != 0:

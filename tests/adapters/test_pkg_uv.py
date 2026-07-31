@@ -20,7 +20,7 @@ class RecordingRun:
         self.code = code
         self.err = err
 
-    def __call__(self, cmd):
+    def __call__(self, cmd, *, timeout=30):
         self.calls.append(cmd)
         return RunResult(self.code, "", self.err)
 

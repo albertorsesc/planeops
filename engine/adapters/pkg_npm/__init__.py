@@ -39,6 +39,9 @@ def parse_npm_globals(text: str) -> dict[str, str]:
 class PkgNpmAdapter:
     name = "pkg-npm"
     domains: tuple[str, ...] = ("package",)
+    # A confirmed global install may fetch on a cold cache for minutes; no
+    # ceiling, the human owns the wait.
+    EXECUTE_TIMEOUT: float | None = None
 
     def __init__(self, run: Runner | None = None):
         self._run = run or default_run
@@ -83,9 +86,13 @@ class PkgNpmAdapter:
         op = action.get("op")
         package = action.get("package", "")
         if op == "install":
-            res = self._run(["npm", "install", "-g", package])
+            res = self._run(
+                ["npm", "install", "-g", package], timeout=self.EXECUTE_TIMEOUT
+            )
         elif op == "uninstall":
-            res = self._run(["npm", "uninstall", "-g", package])
+            res = self._run(
+                ["npm", "uninstall", "-g", package], timeout=self.EXECUTE_TIMEOUT
+            )
         else:
             return Result(ok=False, detail=f"unknown npm op {op!r}")
         if res.code != 0:

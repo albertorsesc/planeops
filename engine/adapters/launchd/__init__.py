@@ -67,6 +67,9 @@ def read_plist(path: Path) -> dict[str, Any]:
 class LaunchdAdapter:
     name = "launchd"
     domains: tuple[str, ...] = ("service",)
+    # Service ops are quick; a bounded ceiling keeps a hung launchctl from
+    # wedging the whole apply run (unlike unbounded package installs).
+    EXECUTE_TIMEOUT: float | None = 300
 
     def __init__(self, run: Runner | None = None, agents_dir: Path | None = None):
         self._run = run or default_run
@@ -175,7 +178,10 @@ class LaunchdAdapter:
         domain = f"gui/{os.getuid()}"
 
         if op == "bootout":
-            res = self._run(["launchctl", "bootout", f"{domain}/{label}"])
+            res = self._run(
+                ["launchctl", "bootout", f"{domain}/{label}"],
+                timeout=self.EXECUTE_TIMEOUT,
+            )
             if res.code != 0:
                 return Result(
                     ok=False,
@@ -193,7 +199,8 @@ class LaunchdAdapter:
 
         if op == "bootstrap":
             res = self._run(
-                ["launchctl", "bootstrap", domain, action.get("plist_path", "")]
+                ["launchctl", "bootstrap", domain, action.get("plist_path", "")],
+                timeout=self.EXECUTE_TIMEOUT,
             )
             if res.code != 0:
                 return Result(

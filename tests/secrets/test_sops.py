@@ -49,9 +49,11 @@ def test_meta_present_for_configured_secret(tmp_path):
 
 def test_get_decrypts_via_sops(tmp_path):
     calls = []
+    timeouts = []
 
-    def fake_run(cmd):
+    def fake_run(cmd, *, timeout=30):
         calls.append(cmd)
+        timeouts.append(timeout)
         return RunResult(0, "sk-secret-value\n", "")
 
     b = SopsBackend(_write_store(tmp_path), run=fake_run)
@@ -59,6 +61,9 @@ def test_get_decrypts_via_sops(tmp_path):
     assert calls == [
         ["sops", "-d", "--extract", '["openrouter_api_key"]', str(b._store)]
     ]
+    # Decrypt can wait on an age key / pinentry, but must not wedge an apply
+    # forever: bounded, and above the 30s default.
+    assert timeouts == [60]
 
 
 def test_get_refuses_an_absent_key_without_shelling_out(tmp_path):
@@ -76,6 +81,9 @@ def test_get_refuses_an_absent_key_without_shelling_out(tmp_path):
 
 
 def test_get_raises_when_sops_fails(tmp_path):
-    b = SopsBackend(_write_store(tmp_path), run=lambda cmd: RunResult(1, "", "no key"))
+    b = SopsBackend(
+        _write_store(tmp_path),
+        run=lambda cmd, *, timeout=30: RunResult(1, "", "no key"),
+    )
     with pytest.raises(RuntimeError):
         b.get("openrouter_api_key")
