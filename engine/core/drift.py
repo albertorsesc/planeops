@@ -107,7 +107,12 @@ def triage(
         obs = observed_by_key.get(entry.id)
 
         if entry.lifecycle in ABSENT_LIFECYCLES:
-            if obs is not None:
+            # An adapter may declare what "present" means for its domain via a
+            # `present` fact (a service: loaded/enabled, not file-on-disk), so a
+            # retired, booted-out service whose file remains is conformant
+            # instead of a forever-alert apply can never plan away. No fact means
+            # observed-at-all IS presence (package adapters).
+            if obs is not None and bool(obs.facts.get("present", True)):
                 report.alerts.append(
                     _item(
                         entry,

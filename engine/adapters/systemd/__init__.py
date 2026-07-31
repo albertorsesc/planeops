@@ -79,6 +79,10 @@ class SystemdAdapter:
                         # General fact for drift's ungoverned pass: an enabled
                         # unit starts at login, so undeclared it must alert.
                         "always_on": enabled,
+                        # Semantic presence for drift's retired check: a unit is
+                        # "present" when it will run or is running, not when its
+                        # file exists on disk.
+                        "present": enabled or active,
                         "unit_path": str(unit_path),
                     },
                 )

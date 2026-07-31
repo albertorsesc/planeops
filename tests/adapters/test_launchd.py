@@ -270,3 +270,13 @@ def test_observe_marks_always_on_for_persistent_agents(tmp_path, fake_platform):
     facts = _observe_facts(tmp_path, fake_platform)
     assert facts["ai.example.dead"]["always_on"] is True
     assert facts["ai.example.ondemand"]["always_on"] is False
+
+
+def test_observe_present_means_loaded(tmp_path, fake_platform):
+    # Semantic presence for a service is "loaded", not "file on disk": drift's
+    # retired check consumes this, so a booted-out agent stops alerting.
+    _write_plist(tmp_path, "ai.example.running")
+    _write_plist(tmp_path, "ai.example.unloaded", keepalive=False)
+    facts = _observe_facts(tmp_path, fake_platform)
+    assert facts["ai.example.running"]["present"] is True
+    assert facts["ai.example.unloaded"]["present"] is False

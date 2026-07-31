@@ -316,3 +316,29 @@ def test_json_pane_includes_ungoverned_and_bumps_schema():
     assert d["schema_version"] == 2  # new section = new shape, consumers can pin
     assert [i["entry_id"] for i in d["sections"]["ungoverned"]] == ["manual/x"]
     assert d["summary"]["ungoverned"] == 1
+
+
+# ---- semantic presence: retired means "not running", purge means "no file" ----
+
+
+def test_retired_entry_with_semantically_absent_obs_is_silent():
+    # A booted-out service whose file remains on disk used to alert forever while
+    # apply planned nothing (already unloaded). The adapter now says what
+    # "present" means for its domain: retired + present=False is conformant.
+    e = _entry(lifecycle="retired")
+    rep = triage([e], {"manual/x": _obs("manual/x", present=False)}, IMPL)
+    assert not rep.alerts and not rep.report
+
+
+def test_retired_entry_with_semantically_present_obs_still_alerts():
+    e = _entry(lifecycle="retired")
+    rep = triage([e], {"manual/x": _obs("manual/x", present=True)}, IMPL)
+    assert len(rep.alerts) == 1
+
+
+def test_retired_entry_without_a_present_fact_keeps_alerting():
+    # Package-style adapters (brew/ollama/npm) declare no `present` fact because
+    # observed-at-all IS presence for them; the default must stay strict.
+    e = _entry(lifecycle="retired")
+    rep = triage([e], {"manual/x": _obs("manual/x")}, IMPL)
+    assert len(rep.alerts) == 1

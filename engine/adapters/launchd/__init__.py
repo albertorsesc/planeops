@@ -110,6 +110,10 @@ class LaunchdAdapter:
                         # will run code (login/keepalive/interval) even if it is
                         # not loaded right now, so undeclared it must alert.
                         "always_on": bool(wants_loaded),
+                        # Semantic presence for drift's retired check: a service
+                        # is "present" when loaded, not when its file exists, so
+                        # retired+booted-out+file-on-disk reads as converged.
+                        "present": is_loaded,
                         "plist_path": str(plist_path),
                     },
                 )
