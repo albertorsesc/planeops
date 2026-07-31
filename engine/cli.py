@@ -44,11 +44,7 @@ def _cmd_drift(args: argparse.Namespace) -> int:
     from engine.core.drift import run_drift
 
     repo = resolve_instance_root(args.repo)
-    try:
-        report = run_drift(repo)
-    except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
+    report = run_drift(repo)
     if args.as_json:
         from engine.core.report import render_drift_json
 
@@ -65,11 +61,7 @@ def _cmd_apply(args: argparse.Namespace) -> int:
     from engine.core.apply import run_apply
 
     repo = resolve_instance_root(args.repo)
-    try:
-        applied = run_apply(repo, only_id=args.id, only_phase=args.phase)
-    except (FileNotFoundError, LookupError) as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
+    applied = run_apply(repo, only_id=args.id, only_phase=args.phase)
 
     if not applied:
         from engine.core.status import read_status
@@ -119,21 +111,27 @@ def _cmd_status(args: argparse.Namespace) -> int:
     repo = resolve_instance_root(args.repo)
     data = read_status(repo)  # last DRIFT.json, no recompute
     if data is None:
-        if not args.short:  # a prompt wants silence, not an error, when unseeded
+        if args.as_json:
+            # --json is a machine contract: stdout always parses as JSON.
+            print(json.dumps({"error": "no drift report yet; run `plane drift`"}))
+        elif not args.short:  # a prompt wants silence, not an error, when unseeded
             print("no drift report yet; run `plane drift`", file=sys.stderr)
         return 0
+    # A hand-edited or older-schema report may miss keys; the prompt path must
+    # degrade, never traceback.
+    alerts = data.get("alert_count", 0) or 0
     if args.as_json:
         print(json.dumps(data, indent=2))
     elif args.short:  # a shell-prompt token: nothing when clean
-        if data["alert_count"]:
-            print(f"drift:{data['alert_count']}")
+        if alerts:
+            print(f"drift:{alerts}")
     else:
-        summary = data["summary"]
+        summary = data.get("summary") or {}
         print(
-            f"{data['alert_count']} alert(s), {summary['report']} report, "
-            f"{summary['uncovered']} uncovered (as of {data['ts']})"
+            f"{alerts} alert(s), {summary.get('report', 0)} report, "
+            f"{summary.get('uncovered', 0)} uncovered (as of {data.get('ts', '?')})"
         )
-    return 2 if data["alert_count"] else 0
+    return 2 if alerts else 0
 
 
 def _parse_every(value: str) -> int:
@@ -163,11 +161,7 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
 
     home = current_platform().home()
     plane = shutil.which("plane") or str(home / ".local" / "bin" / "plane")
-    try:
-        scheduler = current_scheduler()
-    except NotImplementedError as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
+    scheduler = current_scheduler()  # NotImplementedError -> main()'s handler
 
     job = scheduler.build(
         home,
@@ -211,13 +205,8 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
     # `plane apply` plans from the snapshot; without this refresh the just-written
     # job file is invisible and the hinted next step reports "no changes planned".
     from engine.core.observe import run_observe
-    from engine.core.schema import SchemaError
 
-    try:
-        snap = run_observe(repo)
-    except SchemaError as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
+    snap = run_observe(repo)
     print(f"observed {len(snap['observed'])} fact(s); the new job is in the snapshot")
     print(job.hint)
     return 0
@@ -226,23 +215,14 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
 def _cmd_reconcile(args: argparse.Namespace) -> int:
     from engine.core.drift import run_drift
     from engine.core.observe import run_observe
-    from engine.core.schema import SchemaError
 
     repo = resolve_instance_root(args.repo)
-    try:
-        snap = run_observe(repo)  # scan + write the snapshot
-    except SchemaError as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
+    snap = run_observe(repo)  # scan + write the snapshot
     print(
         f"observed {len(snap['observed'])} fact(s) "
         f"-> observed/{snap['host']}/snapshot.json"
     )
-    try:
-        report = run_drift(repo)  # diff the fresh snapshot, write DRIFT.md + DRIFT.json
-    except (FileNotFoundError, SchemaError) as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
+    report = run_drift(repo)  # diff the fresh snapshot, write DRIFT.md + DRIFT.json
     print(
         f"{report.alert_count} alert(s), {len(report.report)} report, "
         f"{len(report.uncovered)} uncovered -> observed/{report.host}/DRIFT.md"
@@ -256,7 +236,10 @@ def _cmd_mcp(args: argparse.Namespace) -> int:
     repo = resolve_instance_root(args.repo)
     view = read_mcp_view(repo)  # last snapshot + registry, no recompute
     if view is None:
-        print("no snapshot yet; run `plane observe`", file=sys.stderr)
+        if args.as_json:  # --json: stdout always parses as JSON
+            print(json.dumps({"error": "no snapshot yet; run `plane observe`"}))
+        else:
+            print("no snapshot yet; run `plane observe`", file=sys.stderr)
         return 0
     if args.as_json:
         print(json.dumps(view, indent=2))
@@ -489,9 +472,19 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from engine.core.schema import SchemaError
+
     parser = build_parser()
     args = parser.parse_args(argv)
-    return cast(int, args.func(args))
+    try:
+        return cast(int, args.func(args))
+    except (SchemaError, FileNotFoundError, LookupError, NotImplementedError) as exc:
+        # One choke point for the expected operator errors (bad registry YAML,
+        # missing/torn snapshot, unknown --id, unsupported platform): every
+        # verb, current and future, gets the same clean message + exit 1
+        # instead of each handler re-implementing the catch.
+        print(str(exc), file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

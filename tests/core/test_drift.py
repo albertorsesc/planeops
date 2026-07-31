@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from engine.core.contracts import Observed
 from engine.core.drift import triage
 from engine.core.report import drift_report_dict, render_drift_json
@@ -342,3 +344,60 @@ def test_retired_entry_without_a_present_fact_keeps_alerting():
     e = _entry(lifecycle="retired")
     rep = triage([e], {"manual/x": _obs("manual/x")}, IMPL)
     assert len(rep.alerts) == 1
+
+
+def test_run_drift_on_a_corrupt_snapshot_raises_a_clean_error(tmp_path):
+    # A torn/hand-mangled snapshot must say what to do, not traceback in json.
+    from engine.core.drift import run_drift
+
+    class _Plat:
+        name = "fake"
+
+        def hostname(self):
+            return "h"
+
+        def home(self):
+            return tmp_path
+
+    (tmp_path / "registry").mkdir()
+    obs = tmp_path / "observed" / "h"
+    obs.mkdir(parents=True)
+    (obs / "snapshot.json").write_text("{ torn mid-write")
+    with pytest.raises(FileNotFoundError, match="plane observe"):
+        run_drift(tmp_path, platform=_Plat())
+
+
+def test_malformed_observed_items_are_skipped_not_fatal(tmp_path):
+    # Snapshot items missing keys (hand-edit, schema drift) are dropped; the
+    # valid remainder still triages.
+    from engine.core.drift import run_drift
+
+    class _Plat:
+        name = "fake"
+
+        def hostname(self):
+            return "h"
+
+        def home(self):
+            return tmp_path
+
+    (tmp_path / "registry").mkdir()
+    (tmp_path / "registry" / "r.yaml").write_text(
+        "entries:\n  - {id: manual/x, adapter: manual, domain: d, lifecycle: active, intent: i}\n"
+    )
+    obs = tmp_path / "observed" / "h"
+    obs.mkdir(parents=True)
+    (obs / "snapshot.json").write_text(
+        json.dumps(
+            {
+                "host": "h",
+                "observed": [
+                    {"native_id": "orphan"},  # missing adapter: skipped
+                    "not-a-dict",  # skipped
+                    {"adapter": "manual", "native_id": "x", "facts": {}},
+                ],
+            }
+        )
+    )
+    rep = run_drift(tmp_path, platform=_Plat(), write=False)
+    assert not rep.alerts  # manual/x observed; junk items didn't poison the run

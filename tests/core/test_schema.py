@@ -103,3 +103,41 @@ def test_non_string_scope_is_a_clean_schema_error():
     # `scope: 123` must not reach `.startswith` and raise AttributeError.
     with pytest.raises(SchemaError):
         entry_from_dict(_raw(scope=123))
+
+
+# ---- secrets refs are validated, not accepted as any dict ----
+
+
+def _secret_entry(secrets):
+    return {
+        "id": "svc/x",
+        "adapter": "svc",
+        "domain": "service",
+        "lifecycle": "active",
+        "intent": "i",
+        "secrets": secrets,
+    }
+
+
+def test_valid_secret_ref_passes():
+    e = entry_from_dict(
+        _secret_entry(
+            [{"ref": "secret://sops/openrouter", "injected_as": "file:~/.env#KEY"}]
+        )
+    )
+    assert e.secrets[0]["ref"] == "secret://sops/openrouter"
+
+
+def test_secret_ref_must_be_a_mapping():
+    with pytest.raises(SchemaError, match="secrets"):
+        entry_from_dict(_secret_entry(["secret://sops/x"]))
+
+
+def test_secret_ref_must_carry_a_secret_uri():
+    with pytest.raises(SchemaError, match="secret://"):
+        entry_from_dict(_secret_entry([{"ref": "sops/x"}]))
+
+
+def test_secret_injected_as_shape_is_checked():
+    with pytest.raises(SchemaError, match="injected_as"):
+        entry_from_dict(_secret_entry([{"ref": "secret://sops/x", "injected_as": 42}]))
