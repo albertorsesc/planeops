@@ -192,7 +192,12 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
     print("schedule will write:")
     for path in job.files:
         print(f"  {path}")
-    print(f"  {repo / 'registry' / 'schedule.yaml'} (the governed entry)")
+    print(f"  {repo / 'registry' / 'schedule.yaml'} declaring:")
+    entry_doc: dict[str, object] = {"entries": job.entries}
+    print(
+        "    "
+        + yaml.safe_dump(entry_doc, sort_keys=False).rstrip().replace("\n", "\n    ")
+    )
     if not args.yes:
         try:
             answer = input("proceed? (y/N) ")

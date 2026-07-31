@@ -164,8 +164,10 @@ def test_cli_schedule_asks_before_writing_and_yes_skips(tmp_path, monkeypatch, c
     (inst / ".planeops").write_text("")
 
     assert main(["--repo", str(inst), "schedule", "--every", "6h"]) == 0
-    err = capsys.readouterr().err
-    assert "not written" in err and "--yes" in err
+    captured = capsys.readouterr()
+    assert "not written" in captured.err and "--yes" in captured.err
+    # The preview shows the governed entry's content, not just file paths.
+    assert "lifecycle: active" in captured.out
     assert not list(home.rglob("*.plist")) and not list(home.rglob("*.timer"))
     assert not (inst / "registry" / "schedule.yaml").exists()
 
