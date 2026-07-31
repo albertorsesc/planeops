@@ -14,15 +14,18 @@ def _run_ok(cmd):
 
 
 class RecordingRun:
-    """Captures commands and returns a canned exit code, for execute tests."""
+    """Captures commands (and the per-call timeout) and returns a canned exit
+    code, for execute tests."""
 
     def __init__(self, code=0, err=""):
         self.calls = []
+        self.timeouts = []
         self.code = code
         self.err = err
 
-    def __call__(self, cmd):
+    def __call__(self, cmd, *, timeout=30):
         self.calls.append(cmd)
+        self.timeouts.append(timeout)
         return RunResult(self.code, "", self.err)
 
 
@@ -108,6 +111,9 @@ def test_execute_install_calls_brew():
     res = PkgBrewAdapter(run=rec).execute(change, _ctx())
     assert res.ok
     assert rec.calls == [["brew", "install", "ripgrep"]]
+    # A confirmed install may compile for many minutes: no ceiling. The human
+    # just said yes and owns the wait; a timeout here would leave torn state.
+    assert rec.timeouts == [None]
 
 
 def test_execute_uninstall_calls_brew():

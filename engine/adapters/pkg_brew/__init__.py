@@ -33,6 +33,9 @@ def parse_brew_versions(text: str) -> dict[str, str]:
 class PkgBrewAdapter:
     name = "pkg-brew"
     domains: tuple[str, ...] = ("package",)
+    # A confirmed install may download and compile for many minutes; no ceiling.
+    # The human just confirmed the change and owns the wait (Ctrl-C aborts).
+    EXECUTE_TIMEOUT: float | None = None
 
     def __init__(self, run: Runner | None = None):
         self._run = run or default_run
@@ -77,9 +80,11 @@ class PkgBrewAdapter:
         op = action.get("op")
         formula = action.get("formula", "")
         if op == "install":
-            res = self._run(["brew", "install", formula])
+            res = self._run(["brew", "install", formula], timeout=self.EXECUTE_TIMEOUT)
         elif op == "uninstall":
-            res = self._run(["brew", "uninstall", formula])
+            res = self._run(
+                ["brew", "uninstall", formula], timeout=self.EXECUTE_TIMEOUT
+            )
         else:
             return Result(ok=False, detail=f"unknown brew op {op!r}")
         if res.code != 0:

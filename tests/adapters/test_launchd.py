@@ -25,15 +25,18 @@ def _list_run(cmd):
 
 
 class RecordingRun:
-    """Captures commands and returns a canned exit code, for execute tests."""
+    """Captures commands (and the per-call timeout) and returns a canned exit
+    code, for execute tests."""
 
     def __init__(self, code=0, err=""):
         self.calls = []
+        self.timeouts = []
         self.code = code
         self.err = err
 
-    def __call__(self, cmd):
+    def __call__(self, cmd, *, timeout=30):
         self.calls.append(cmd)
+        self.timeouts.append(timeout)
         return RunResult(self.code, "", self.err)
 
 
@@ -222,6 +225,9 @@ def test_execute_bootout_calls_launchctl_and_reports_ok():
     res = LaunchdAdapter(run=rec).execute(change, _ctx(None))
     assert res.ok
     assert rec.calls == [["launchctl", "bootout", f"gui/{os.getuid()}/svc"]]
+    # Service ops are quick; a bounded ceiling keeps a hung launchctl from
+    # wedging the whole apply run (unlike unbounded package installs).
+    assert rec.timeouts == [LaunchdAdapter.EXECUTE_TIMEOUT] and rec.timeouts[0] == 300
 
 
 def test_execute_bootout_failure_is_reported():

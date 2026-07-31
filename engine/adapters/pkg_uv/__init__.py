@@ -31,6 +31,9 @@ def parse_uv_tools(text: str) -> dict[str, str]:
 class PkgUvAdapter:
     name = "pkg-uv"
     domains: tuple[str, ...] = ("package",)
+    # A confirmed tool install resolves and downloads; no ceiling, the human
+    # owns the wait.
+    EXECUTE_TIMEOUT: float | None = None
 
     def __init__(self, run: Runner | None = None):
         self._run = run or default_run
@@ -75,9 +78,13 @@ class PkgUvAdapter:
         op = action.get("op")
         tool = action.get("tool", "")
         if op == "install":
-            res = self._run(["uv", "tool", "install", tool])
+            res = self._run(
+                ["uv", "tool", "install", tool], timeout=self.EXECUTE_TIMEOUT
+            )
         elif op == "uninstall":
-            res = self._run(["uv", "tool", "uninstall", tool])
+            res = self._run(
+                ["uv", "tool", "uninstall", tool], timeout=self.EXECUTE_TIMEOUT
+            )
         else:
             return Result(ok=False, detail=f"unknown uv op {op!r}")
         if res.code != 0:

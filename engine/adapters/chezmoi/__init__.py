@@ -54,6 +54,9 @@ def parse_chezmoi_status(text: str) -> set[str]:
 class ChezmoiAdapter:
     name = "chezmoi"
     domains: tuple[str, ...] = ("config",)
+    # Applying one file is quick; bounded so a wedged chezmoi (e.g. an external
+    # diff/merge tool it spawns) can't hang the whole apply run.
+    EXECUTE_TIMEOUT: float | None = 300
 
     def __init__(self, run: Runner | None = None):
         self._run = run or default_run
@@ -101,7 +104,9 @@ class ChezmoiAdapter:
         # because planeops already confirmed this change; without it chezmoi re-prompts
         # on a TTY when the target changed since it last wrote, which fails headless.
         target = _abs_target(path, ctx)
-        res = self._run(["chezmoi", "apply", "--force", target])
+        res = self._run(
+            ["chezmoi", "apply", "--force", target], timeout=self.EXECUTE_TIMEOUT
+        )
         if res.code != 0:
             detail = res.err.strip() or str(res.code)
             return Result(ok=False, detail=f"chezmoi apply {target} failed: {detail}")

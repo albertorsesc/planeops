@@ -8,6 +8,14 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Subprocess timeouts now match the operation instead of one global 30s ceiling.
+  Confirmed converge operations that legitimately run long (`brew`/`npm`/`uv`
+  installs, `ollama pull`) are unbounded, the human just confirmed the change and
+  owns the wait; service and config operations (`launchctl`, `systemctl`,
+  `chezmoi apply`) get a 300s ceiling so a hung tool can't wedge an apply run;
+  `sops -d` gets 60s. A timeout is now distinct from a missing binary (exit 124
+  vs 127) and says the underlying command may still be running, instead of both
+  collapsing into the same failure. Observe probes keep the fast 30s default.
 - A retired service now converges without `purge`. Drift treated "observed at all"
   as present, but the launchd/systemd adapters observe every service file on disk
   regardless of state, so a retired, booted-out service whose file remained alerted

@@ -34,6 +34,9 @@ class SystemdAdapter:
     # enable/disable are type-agnostic, so a `.timer` observes and converges exactly
     # like a `.service`; add a type here and the whole adapter picks it up.
     UNIT_TYPES: tuple[str, ...] = ("service", "timer")
+    # Unit ops are quick; a bounded ceiling keeps a hung systemctl (e.g. a unit
+    # stuck deactivating under --now) from wedging the whole apply run.
+    EXECUTE_TIMEOUT: float | None = 300
 
     def __init__(self, run: Runner | None = None, units_dir: Path | None = None):
         self._run = run or default_run
@@ -146,7 +149,10 @@ class SystemdAdapter:
         if op == "enable":
             # Pick up a freshly written unit file, then enable + start in one call.
             self._run(["systemctl", "--user", "daemon-reload"])
-            res = self._run(["systemctl", "--user", "enable", "--now", unit])
+            res = self._run(
+                ["systemctl", "--user", "enable", "--now", unit],
+                timeout=self.EXECUTE_TIMEOUT,
+            )
             if res.code != 0:
                 return Result(
                     ok=False,
@@ -155,7 +161,10 @@ class SystemdAdapter:
             return Result(ok=True, detail=f"enabled + started {unit}")
 
         if op == "disable":
-            res = self._run(["systemctl", "--user", "disable", "--now", unit])
+            res = self._run(
+                ["systemctl", "--user", "disable", "--now", unit],
+                timeout=self.EXECUTE_TIMEOUT,
+            )
             if res.code != 0:
                 return Result(
                     ok=False,
