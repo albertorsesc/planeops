@@ -33,6 +33,9 @@ def parse_brew_versions(text: str) -> dict[str, str]:
 class PkgBrewAdapter:
     name = "pkg-brew"
     domains: tuple[str, ...] = ("package",)
+    # Converge order: packages land early so later phases (models, services)
+    # find their tools installed.
+    default_phase = 2
     # A confirmed install may download and compile for many minutes; no ceiling.
     # The human just confirmed the change and owns the wait (Ctrl-C aborts).
     EXECUTE_TIMEOUT: float | None = None

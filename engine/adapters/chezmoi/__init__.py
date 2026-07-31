@@ -54,6 +54,8 @@ def parse_chezmoi_status(text: str) -> set[str]:
 class ChezmoiAdapter:
     name = "chezmoi"
     domains: tuple[str, ...] = ("config",)
+    # Converge order: config lands after packages, before models and services.
+    default_phase = 3
     # Applying one file is quick; bounded so a wedged chezmoi (e.g. an external
     # diff/merge tool it spawns) can't hang the whole apply run.
     EXECUTE_TIMEOUT: float | None = 300
