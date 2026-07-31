@@ -108,7 +108,7 @@ def test_cli_schedule_writes_files_and_declares_the_entry(tmp_path, monkeypatch)
     (inst / "registry").mkdir(parents=True)
     (inst / ".planeops").write_text("")
 
-    assert main(["--repo", str(inst), "schedule", "--every", "6h"]) == 0
+    assert main(["--repo", str(inst), "schedule", "--every", "6h", "--yes"]) == 0
     doc = yaml.safe_load((inst / "registry" / "schedule.yaml").read_text())
     assert doc["entries"][0]["lifecycle"] == "active"
     assert list(home.rglob("*.plist")) or list(
@@ -125,7 +125,7 @@ def test_cli_schedule_off_declares_a_retired_entry(tmp_path, monkeypatch):
     (inst / "registry").mkdir(parents=True)
     (inst / ".planeops").write_text("")
 
-    assert main(["--repo", str(inst), "schedule", "--off"]) == 0
+    assert main(["--repo", str(inst), "schedule", "--off", "--yes"]) == 0
     doc = yaml.safe_load((inst / "registry" / "schedule.yaml").read_text())
     assert doc["entries"][0]["lifecycle"] == "retired"
 
@@ -133,3 +133,42 @@ def test_cli_schedule_off_declares_a_retired_entry(tmp_path, monkeypatch):
 def test_cli_schedule_rejects_a_bad_interval(tmp_path):
     (tmp_path / ".planeops").write_text("")
     assert main(["--repo", str(tmp_path), "schedule", "--every", "banana"]) == 1
+
+
+def test_systemd_no_login_timer_still_gets_a_first_fire(tmp_path):
+    # OnUnitActiveSec alone never fires: it is relative to the SERVICE's last
+    # activation, which never happens on a fresh enable (live-verified: NEXT
+    # stayed empty). OnActiveSec is relative to the TIMER's activation, so
+    # enabling schedules the first run; OnUnitActiveSec then keeps the cadence.
+    job = SYSTEMD.build(
+        tmp_path, plane="p", path_env="", interval=21600, login=False, off=False
+    )
+    timer = next(c for p, c in job.files.items() if p.name.endswith(".timer"))
+    assert "OnActiveSec=21600s" in timer
+    assert "OnUnitActiveSec=21600s" in timer
+    assert "OnBootSec" not in timer  # --no-login: no boot/login trigger
+    # Persistent= only affects OnCalendar timers; on monotonic ones it is a
+    # silent no-op, so shipping it would just be a false promise.
+    assert "Persistent" not in timer
+
+
+def test_cli_schedule_asks_before_writing_and_yes_skips(tmp_path, monkeypatch, capsys):
+    # schedule writes machine state; like `import --write`, it must show what it
+    # will write and confirm. No readable stdin and no --yes: write nothing.
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr("engine.platform.current_platform", lambda: _FakePlat(home))
+    _stub_observe(monkeypatch)
+    inst = tmp_path / "inst"
+    (inst / "registry").mkdir(parents=True)
+    (inst / ".planeops").write_text("")
+
+    assert main(["--repo", str(inst), "schedule", "--every", "6h"]) == 0
+    err = capsys.readouterr().err
+    assert "not written" in err and "--yes" in err
+    assert not list(home.rglob("*.plist")) and not list(home.rglob("*.timer"))
+    assert not (inst / "registry" / "schedule.yaml").exists()
+
+    assert main(["--repo", str(inst), "schedule", "--every", "6h", "--yes"]) == 0
+    assert (inst / "registry" / "schedule.yaml").exists()
+    assert list(home.rglob("*.plist")) or list(home.rglob("*.timer"))

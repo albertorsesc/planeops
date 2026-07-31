@@ -252,7 +252,7 @@ def test_schedule_observes_after_writing(monkeypatch, tmp_path):
             seen.append(repo) or {"observed": [], "uncovered": [], "host": "h"}
         ),
     )
-    assert main(["--repo", str(inst), "schedule", "--every", "6h"]) == 0
+    assert main(["--repo", str(inst), "schedule", "--every", "6h", "--yes"]) == 0
     assert seen == [inst.resolve()]
 
 

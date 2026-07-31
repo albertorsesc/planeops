@@ -37,12 +37,16 @@ class SystemdScheduler:
             f"[Service]\nType=oneshot\nEnvironment=PATH={path_env}\n"
             f"ExecStart={plane} reconcile\n"
         )
-        # OnUnitActiveSec = every N since the last run; OnBootSec ~ at login/boot.
+        # OnUnitActiveSec = every N since the last run, but it is relative to
+        # the SERVICE's last activation, so it alone never fires on a fresh
+        # enable. OnActiveSec (relative to the TIMER's activation) schedules
+        # the first run at enable time; OnBootSec adds the login/boot trigger.
+        # No Persistent=: it only affects OnCalendar timers, a no-op here.
         timer = (
             "[Unit]\nDescription=planeops ambient reconcile schedule\n\n"
-            f"[Timer]\nOnUnitActiveSec={interval}s\n"
+            f"[Timer]\nOnActiveSec={interval}s\nOnUnitActiveSec={interval}s\n"
             + ("OnBootSec=2min\n" if login else "")
-            + "Persistent=true\n\n[Install]\nWantedBy=timers.target\n"
+            + "\n[Install]\nWantedBy=timers.target\n"
         )
         entry = {
             "id": f"systemd/{UNIT}.timer",

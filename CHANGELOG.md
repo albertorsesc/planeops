@@ -8,6 +8,14 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plane schedule --no-login` now actually fires on Linux. The generated timer
+  had only `OnUnitActiveSec`, which is relative to the service's last activation
+  and so never elapses on a fresh enable (verified live: `NEXT` stayed empty
+  forever); the timer now also carries `OnActiveSec`, so enabling it schedules
+  the first run. The no-op `Persistent=` (calendar timers only) is dropped. And
+  `plane schedule` now shows what it will write and asks before writing (job
+  files + the registry entry), with `--yes` for scripts, the same confirm posture
+  as `import --write`: no readable stdin and no `--yes` writes nothing.
 - The apply journal is crash-safe: each record is appended the moment its change
   is decided, not batched at the end of the run, so a crash mid-apply still
   leaves every already-executed mutation on the record (previously such a crash

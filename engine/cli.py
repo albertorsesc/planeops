@@ -177,12 +177,29 @@ def _cmd_schedule(args: argparse.Namespace) -> int:
         login=not args.no_login,
         off=args.off,
     )
+
+    repo = resolve_instance_root(args.repo)
+    # schedule writes machine state (job files + a registry entry): show what it
+    # will write and confirm, the same posture as `import --write`. No readable
+    # stdin and no --yes: write nothing.
+    print("schedule will write:")
+    for path in job.files:
+        print(f"  {path}")
+    print(f"  {repo / 'registry' / 'schedule.yaml'} (the governed entry)")
+    if not args.yes:
+        try:
+            answer = input("proceed? (y/N) ")
+        except (EOFError, OSError):
+            answer = ""
+        if answer.strip().lower()[:1] != "y":
+            print("not written (use --yes to write non-interactively)", file=sys.stderr)
+            return 0
+
     for path, content in job.files.items():
         path.parent.mkdir(parents=True, exist_ok=True)
         atomic_write(path, content)
         print(f"wrote {path}")
 
-    repo = resolve_instance_root(args.repo)
     schedule_yaml = repo / "registry" / "schedule.yaml"
     schedule_yaml.parent.mkdir(parents=True, exist_ok=True)
     doc: dict[str, object] = {"entries": job.entries}
@@ -405,6 +422,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_schedule.add_argument(
         "--off", action="store_true", help="retire the schedule (apply then unloads it)"
+    )
+    p_schedule.add_argument(
+        "--yes", action="store_true", help="skip the write confirmation prompt"
     )
     p_schedule.set_defaults(func=_cmd_schedule)
 
