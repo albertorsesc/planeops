@@ -173,13 +173,29 @@ def test_observe_no_drift_when_a_persistent_agent_is_loaded(tmp_path, fake_platf
 # ---- plan ----------------------------------------------------------------
 
 
+class _Plat:
+    """Minimal Platform stub: plan/execute receive a real ctx, per the contract."""
+
+    name = "fake"
+
+    def hostname(self):
+        return "testhost"
+
+    def home(self):
+        from pathlib import Path
+
+        return Path("/home/fake")
+
+
 def test_launchd_is_a_mutating_adapter():
     assert can_apply(ADAPTER)
 
 
 def test_plan_retired_but_loaded_proposes_bootout():
     changes = ADAPTER.plan(
-        _entry("launchd/svc", "retired"), _obs("svc", loaded=True, pid=99)
+        _entry("launchd/svc", "retired"),
+        _obs("svc", loaded=True, pid=99),
+        _ctx(_Plat()),
     )
     assert len(changes) == 1
     assert changes[0].kind == "remove"
@@ -192,23 +208,32 @@ def test_plan_retired_but_loaded_proposes_bootout():
 
 
 def test_plan_purge_also_deletes_plist():
-    changes = ADAPTER.plan(_entry("launchd/svc", "purge"), _obs("svc", loaded=True))
+    changes = ADAPTER.plan(
+        _entry("launchd/svc", "purge"), _obs("svc", loaded=True), _ctx(_Plat())
+    )
     assert changes[0].action["delete_plist"] is True
     assert "delete its plist" in changes[0].diff
 
 
 def test_plan_active_but_unloaded_proposes_bootstrap():
-    changes = ADAPTER.plan(_entry("launchd/svc", "active"), _obs("svc", loaded=False))
+    changes = ADAPTER.plan(
+        _entry("launchd/svc", "active"), _obs("svc", loaded=False), _ctx(_Plat())
+    )
     assert len(changes) == 1 and changes[0].kind == "configure"
     assert changes[0].action["op"] == "bootstrap"
 
 
 def test_plan_conformant_states_propose_nothing():
-    assert ADAPTER.plan(_entry("launchd/svc", "active"), _obs("svc", loaded=True)) == []
+    ctx = _ctx(_Plat())
     assert (
-        ADAPTER.plan(_entry("launchd/svc", "retired"), _obs("svc", loaded=False)) == []
+        ADAPTER.plan(_entry("launchd/svc", "active"), _obs("svc", loaded=True), ctx)
+        == []
     )
-    assert ADAPTER.plan(_entry("launchd/svc", "active"), None) == []
+    assert (
+        ADAPTER.plan(_entry("launchd/svc", "retired"), _obs("svc", loaded=False), ctx)
+        == []
+    )
+    assert ADAPTER.plan(_entry("launchd/svc", "active"), None, ctx) == []
 
 
 # ---- execute -------------------------------------------------------------

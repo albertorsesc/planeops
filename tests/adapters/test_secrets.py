@@ -47,9 +47,25 @@ def _consumer(name, injected_as):
     )
 
 
+class _Plat:
+    """Minimal Platform stub: plan/execute receive a real ctx, per the contract.
+    Home is a fixed fake path; every injection target in these tests is absolute,
+    so nothing resolves against it."""
+
+    name = "fake"
+
+    def hostname(self):
+        return "testhost"
+
+    def home(self):
+        from pathlib import Path
+
+        return Path("/home/fake")
+
+
 def _ctx(entries, repo_root=None, secrets=None):
     return Ctx(
-        platform=None,
+        platform=_Plat(),
         host="testhost",
         now=datetime(2026, 7, 28),
         entries=tuple(entries),
@@ -137,10 +153,6 @@ def test_plan_proposes_a_value_redacted_materialization(tmp_path):
         "path": str(target),
         "key": "OPENROUTER_API_KEY",
     }
-
-
-def test_plan_without_ctx_is_empty():
-    assert SecretsAdapter().plan(_entry("k"), None) == []
 
 
 def test_plan_skips_an_already_materialized_key(tmp_path):

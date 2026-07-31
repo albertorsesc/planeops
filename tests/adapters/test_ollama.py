@@ -31,7 +31,21 @@ class RecordingRun:
 
 
 def _ctx():
-    return Ctx(platform=None, host="testhost", now=datetime(2026, 7, 27))
+    return Ctx(platform=_Plat(), host="testhost", now=datetime(2026, 7, 27))
+
+
+class _Plat:
+    """Minimal Platform stub: plan/execute receive a real ctx, per the contract."""
+
+    name = "fake"
+
+    def hostname(self):
+        return "testhost"
+
+    def home(self):
+        from pathlib import Path
+
+        return Path("/home/fake")
 
 
 def _entry(entry_id, lifecycle):
@@ -82,22 +96,28 @@ def test_ollama_is_a_mutating_adapter():
 
 
 def test_plan_active_but_absent_proposes_pull():
-    changes = ADAPTER.plan(_entry("ollama/mistral:7b", "active"), None)
+    changes = ADAPTER.plan(_entry("ollama/mistral:7b", "active"), None, _ctx())
     assert len(changes) == 1
     assert changes[0].kind == "install"
     assert changes[0].action == {"op": "pull", "model": "mistral:7b"}
 
 
 def test_plan_retired_but_present_proposes_remove():
-    changes = ADAPTER.plan(_entry("ollama/mistral:7b", "retired"), _obs("mistral:7b"))
+    changes = ADAPTER.plan(
+        _entry("ollama/mistral:7b", "retired"), _obs("mistral:7b"), _ctx()
+    )
     assert len(changes) == 1
     assert changes[0].kind == "remove"
     assert changes[0].action == {"op": "remove", "model": "mistral:7b"}
 
 
 def test_plan_conformant_states_propose_nothing():
-    assert ADAPTER.plan(_entry("ollama/mistral:7b", "active"), _obs("mistral:7b")) == []
-    assert ADAPTER.plan(_entry("ollama/mistral:7b", "retired"), None) == []
+    ctx = _ctx()
+    assert (
+        ADAPTER.plan(_entry("ollama/mistral:7b", "active"), _obs("mistral:7b"), ctx)
+        == []
+    )
+    assert ADAPTER.plan(_entry("ollama/mistral:7b", "retired"), None, ctx) == []
 
 
 # ---- execute -------------------------------------------------------------

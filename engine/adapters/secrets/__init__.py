@@ -65,12 +65,8 @@ class SecretsAdapter:
             if entry.adapter == self.name
         ]
 
-    def plan(
-        self, entry: Entry, obs: Observed | None, ctx: Ctx | None = None
-    ) -> list[Change]:
-        if ctx is None:
-            return []
-        home = ctx.platform.home() if ctx.platform is not None else Path.home()
+    def plan(self, entry: Entry, obs: Observed | None, ctx: Ctx) -> list[Change]:
+        home = ctx.platform.home()
         changes: list[Change] = []
         for path_str, key in _targets_for(entry.native_id, ctx.entries):
             target = _resolve(path_str, home)
@@ -172,14 +168,13 @@ def _allowed_bases(ctx: Ctx) -> list[Path]:
     bases: list[Path] = []
     if ctx.repo_root is not None:
         bases.append(Path(os.path.realpath(ctx.repo_root)))
-    home = ctx.platform.home() if ctx.platform is not None else None
-    if home is not None:
-        bases.append(Path(os.path.realpath(home)))
+    home = ctx.platform.home()
+    bases.append(Path(os.path.realpath(home)))
     configured = instance_section(ctx.repo_root, "secrets").get("allow_targets")
     if isinstance(configured, list):
         for item in configured:
             if isinstance(item, str) and item:
-                resolved = _resolve(item, home or Path.home())
+                resolved = _resolve(item, home)
                 bases.append(Path(os.path.realpath(resolved)))
     return bases
 

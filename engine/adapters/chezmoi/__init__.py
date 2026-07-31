@@ -27,7 +27,7 @@ from engine.core.schema import ABSENT_LIFECYCLES, Entry
 def _abs_target(path: str, ctx: Ctx) -> str:
     """`chezmoi managed` yields home-relative paths; resolve to the absolute target
     `chezmoi apply` expects. An already-absolute path is returned unchanged."""
-    if path.startswith("/") or ctx.platform is None:
+    if path.startswith("/"):
         return path
     return str(ctx.platform.home() / path)
 
@@ -78,9 +78,7 @@ class ChezmoiAdapter:
             for path in parse_chezmoi_managed(managed.out)
         ]
 
-    def plan(
-        self, entry: Entry, obs: Observed | None, ctx: Ctx | None = None
-    ) -> list[Change]:
+    def plan(self, entry: Entry, obs: Observed | None, ctx: Ctx) -> list[Change]:
         if entry.lifecycle in ABSENT_LIFECYCLES:
             return []  # removing a chezmoi-managed file is out of scope for v1
         if obs is None or not obs.facts.get("drifted"):

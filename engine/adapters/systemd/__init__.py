@@ -100,9 +100,7 @@ class SystemdAdapter:
         # would read as enabled/disabled, so decide on the word instead.
         return self._run(["systemctl", "--user", check, unit]).out.strip()
 
-    def plan(
-        self, entry: Entry, obs: Observed | None, ctx: Ctx | None = None
-    ) -> list[Change]:
+    def plan(self, entry: Entry, obs: Observed | None, ctx: Ctx) -> list[Change]:
         if obs is None:
             return []  # no unit file observed to enable or disable
         facts = obs.facts

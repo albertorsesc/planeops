@@ -112,11 +112,11 @@ class MutatingAdapter(Adapter, Protocol):
     """An adapter that can converge its domain. `plan` is pure (proposes Changes
     from an entry, its observed state, and a read-only `ctx` for host/repo/secrets
     resolution); `execute` runs one confirmed Change. The engine owns confirmation
-    between them, so an adapter never mutates unprompted."""
+    between them, so an adapter never mutates unprompted. `ctx` is required: the
+    engine always provides it, and an optional-`None` contract only invited
+    None-guards in adapters for a case production never produces."""
 
-    def plan(
-        self, entry: Entry, obs: Observed | None, ctx: Ctx | None = None
-    ) -> list[Change]: ...
+    def plan(self, entry: Entry, obs: Observed | None, ctx: Ctx) -> list[Change]: ...
 
     def execute(self, change: Change, ctx: Ctx) -> Result: ...
 

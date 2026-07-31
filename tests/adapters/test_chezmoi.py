@@ -37,7 +37,21 @@ class RecordingRun:
 
 
 def _ctx():
-    return Ctx(platform=None, host="testhost", now=datetime(2026, 7, 27))
+    return Ctx(platform=_Plat(), host="testhost", now=datetime(2026, 7, 27))
+
+
+class _Plat:
+    """Minimal Platform stub: plan/execute receive a real ctx, per the contract."""
+
+    name = "fake"
+
+    def hostname(self):
+        return "testhost"
+
+    def home(self):
+        from pathlib import Path
+
+        return Path("/home/fake")
 
 
 def _entry(entry_id, lifecycle):
@@ -95,15 +109,24 @@ def test_chezmoi_is_a_mutating_adapter():
 
 
 def test_plan_drifted_proposes_apply():
-    changes = ADAPTER.plan(_entry("chezmoi/.zshrc", "active"), _obs(".zshrc", True))
+    changes = ADAPTER.plan(
+        _entry("chezmoi/.zshrc", "active"), _obs(".zshrc", True), _ctx()
+    )
     assert len(changes) == 1 and changes[0].kind == "configure"
     assert changes[0].action == {"op": "apply", "path": ".zshrc"}
 
 
 def test_plan_clean_or_absent_proposes_nothing():
-    assert ADAPTER.plan(_entry("chezmoi/.zshrc", "active"), _obs(".zshrc", False)) == []
-    assert ADAPTER.plan(_entry("chezmoi/.zshrc", "active"), None) == []
-    assert ADAPTER.plan(_entry("chezmoi/.zshrc", "retired"), _obs(".zshrc", True)) == []
+    ctx = _ctx()
+    assert (
+        ADAPTER.plan(_entry("chezmoi/.zshrc", "active"), _obs(".zshrc", False), ctx)
+        == []
+    )
+    assert ADAPTER.plan(_entry("chezmoi/.zshrc", "active"), None, ctx) == []
+    assert (
+        ADAPTER.plan(_entry("chezmoi/.zshrc", "retired"), _obs(".zshrc", True), ctx)
+        == []
+    )
 
 
 # ---- execute -------------------------------------------------------------
