@@ -8,6 +8,16 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plane drift` no longer stays silent about things it can see. A new **Ungoverned**
+  section lists everything observed on the machine that is neither declared nor
+  excluded by an unmanaged glob, and an ungoverned item whose own facts say it is
+  always-on (a login/keepalive/interval launchd agent, an enabled systemd unit)
+  raises an alert: software that installed itself into the boot path is the one
+  thing a control plane must never miss. Adapters expose this as a general
+  `always_on` fact. The JSON pane's `schema_version` bumps to 2 for the new
+  section. Also, entries whose adapter crashed during observe now alert as
+  "adapter scan failed; state unknown" instead of the false "expected present,
+  not observed", and `plane observe` prints a warning per failed adapter.
 - `plane apply` and `plane schedule` report the truth. A typo'd `--id` is a loud
   error instead of a false "machine matches desired state"; the no-changes message
   is now neutral and surfaces any standing drift alerts (services and config can't

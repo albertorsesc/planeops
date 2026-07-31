@@ -30,6 +30,13 @@ def _cmd_observe(args: argparse.Namespace) -> int:
         f"{len(snap['uncovered'])} uncovered adapter(s) "
         f"-> observed/{snap['host']}/snapshot.json"
     )
+    # A crashed adapter produced no observations; silence here would let its
+    # entries misreport downstream. Name it so the user sees the scan was partial.
+    for f in snap.get("failed", []):
+        print(
+            f"warning: adapter {f['adapter']!r} failed to scan: {f['error']}",
+            file=sys.stderr,
+        )
     return 0
 
 

@@ -76,6 +76,9 @@ class SystemdAdapter:
                         "enabled": enabled,
                         "active": active,
                         "drifted": drifted,
+                        # General fact for drift's ungoverned pass: an enabled
+                        # unit starts at login, so undeclared it must alert.
+                        "always_on": enabled,
                         "unit_path": str(unit_path),
                     },
                 )

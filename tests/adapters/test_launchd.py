@@ -260,3 +260,13 @@ def test_execute_bootstrap_calls_launchctl():
     res = LaunchdAdapter(run=rec).execute(change, _ctx(None))
     assert res.ok
     assert rec.calls == [["launchctl", "bootstrap", f"gui/{os.getuid()}", "/p.plist"]]
+
+
+def test_observe_marks_always_on_for_persistent_agents(tmp_path, fake_platform):
+    # always_on feeds drift's ungoverned pass: an undeclared agent that will run
+    # code (login/keepalive/interval) alerts; a plain on-demand one only reports.
+    _write_plist(tmp_path, "ai.example.dead", keepalive=False, run_at_load=True)
+    _write_plist(tmp_path, "ai.example.ondemand", keepalive=False)
+    facts = _observe_facts(tmp_path, fake_platform)
+    assert facts["ai.example.dead"]["always_on"] is True
+    assert facts["ai.example.ondemand"]["always_on"] is False

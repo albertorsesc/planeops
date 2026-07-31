@@ -88,6 +88,7 @@ def test_observe_reports_enabled_and_active(tmp_path):
         "enabled": True,
         "active": True,
         "drifted": False,
+        "always_on": True,
         "unit_path": str(d / "on.service"),
     }
     assert out["off.service"].facts["enabled"] is False
@@ -270,3 +271,14 @@ def test_execute_failure_and_unknown_op():
     assert not SystemdAdapter(run=fail).execute(bad, _ctx()).ok
     unknown = Change("systemd/x", "configure", "d", {"op": "bogus", "unit": "x"})
     assert not SystemdAdapter(run=Fake()).execute(unknown, _ctx()).ok
+
+
+def test_observe_marks_always_on_for_enabled_units(tmp_path):
+    # enabled = starts at login; feeds drift's ungoverned always-on alert.
+    d = _units(tmp_path, "on.service", "off.service")
+    fake = Fake(enabled={"on.service"}, active={"on.service"})
+    out = {
+        o.native_id: o for o in SystemdAdapter(run=fake, units_dir=d).observe(_ctx())
+    }
+    assert out["on.service"].facts["always_on"] is True
+    assert out["off.service"].facts["always_on"] is False
