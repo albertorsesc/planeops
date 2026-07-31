@@ -1,5 +1,5 @@
 # Observed items matching these globs are skipped before diffing, so machine-
-# generated workloads never appear as drift (SPEC.md F8).
+# generated workloads never appear as drift (SPEC.md section 2).
 
 globs:
   - glob: "*/session-*"

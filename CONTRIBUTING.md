@@ -39,11 +39,15 @@ a package scan, so you never edit a central list.
 3. Expose the instance as a module-level `ADAPTER`. Discovery imports it and
    verifies it satisfies the contract.
 4. To let the adapter converge its domain, also implement `MutatingAdapter`:
-   `plan(entry, obs) -> list[Change]` (pure) and `execute(change, ctx) -> Result`.
-   The engine renders each `Change` and takes a confirmation before calling
-   `execute`; an adapter never mutates unprompted.
-5. Add `tests/adapters/<name>/` that exercise `observe` (and `plan`) against
-   recorded fixtures. No test touches the live machine.
+   `plan(entry, obs, ctx) -> list[Change]` (pure; `ctx` is always provided) and
+   `execute(change, ctx) -> Result`. The engine renders each `Change` and takes
+   a confirmation before calling `execute`; an adapter never mutates unprompted.
+   Optionally declare `default_phase` (converge ordering; see SPEC section 5)
+   and `EXECUTE_TIMEOUT` (`None` for confirmed long operations like installs,
+   a bounded ceiling for quick service/config operations).
+5. Add `tests/adapters/test_<name>.py` exercising `observe` (and `plan`)
+   against recorded fixtures. No unit test touches the live machine; the shared
+   conformance suite will fail until the new adapter is wired into it.
 
 ## Design invariants
 

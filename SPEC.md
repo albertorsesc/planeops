@@ -1,21 +1,26 @@
 # SPEC v0.1: authoritative build specification
 
-Status: current-state spec. It is distilled from a private design evidence trail kept outside this public repo; **where that trail conflicts with this file, this file wins.** Three known conflicts resolved here: secrets default is sops+age (not Keychain); the build order lands the launchd adapter in M2 ahead of the harness-config adapter, because the first two real transactions (a legacy gateway retirement, updater relocation) are launchd-shaped; and converge materializes secrets before loading services, so services start against complete config.
+Status: current-state spec, kept in lockstep with the code. Where this file and
+the implementation disagree, one of them is a bug to fix in the same change; the
+docs wave of the 2026-07 audit reset them to agreement. Distilled from a private
+design evidence trail kept outside this public repo; where that trail conflicts
+with this file, this file wins.
 
-Date: 2026-07-22.
+Date: 2026-07-31.
 
 ## 1. Locked decisions
 
 | Decision | Choice | Rationale trail |
 |---|---|---|
 | Repo shape | Public engine repo (this repo: engine, spec, example registry, tests); machine-specific data (real registry, snapshots, secrets) lives in a separate private instance | engine/instance split |
-| Language | Python >= 3.12, uv-managed, `src`-less flat `engine/` package, pytest | Matches the target machine's tooling (uv present) |
-| CLI | `plane` entry point (`uv run plane <verb>`); verbs: `observe`, `drift`, `apply`, `import` | `cp` collides with coreutils |
-| Secrets | sops+age file in-repo is primary; Keychain and env files are materialization targets; age private key travels out-of-band | portable across machines; values never in-repo |
-| Reconciler | Human. Engine has no code path that mutates the machine without rendering a change and receiving confirmation; the scheduled job may run `observe` + `drift` only | no unattended mutation |
-| Daemons | None, ever | smallest attack surface |
-| Adapter wire | In-process Python protocol (section 4); adapters are packages under `engine/adapters/`, discovered by package scan, never by a central edit list | OCP: add an adapter without editing the core |
-| Formats | `registry/` = YAML (human-authored, any file grouping); `observed/<host>/snapshot.json` = generated JSON; `observed/<host>/DRIFT.md` = generated report | desired state authored, observed state generated |
+| Language | Python >= 3.12, uv-managed, `src`-less flat `engine/` package, pytest | Matches the target machine's tooling; the workload is subprocess-bound, so a systems language buys nothing (evaluated 2026-07) |
+| CLI | `plane` entry point; verbs: `init`, `observe`, `drift`, `status`, `reconcile`, `schedule`, `mcp`, `apply`, `import` | `cp` collides with coreutils |
+| Secrets | sops+age file in-repo is primary; env files are materialization targets; age private key travels out-of-band | portable across machines; values never in-repo |
+| Reconciler | Human. No code path mutates the machine without a rendered plan and an explicit confirmation (`apply` per change; `schedule` and `import --write` per run, with `--yes` for scripts); the scheduled job runs `reconcile` (observe+drift) only | no unattended mutation |
+| Daemons | None, ever. The optional `plane-mcp` server is a user-started stdio process with no listening port; it never mutates the managed machine (its one non-pure tool refreshes the recorded snapshot) | smallest attack surface |
+| Adapter wire | In-process Python protocol (section 4); adapters are packages under `engine/adapters/`, discovered by package scan, never by a central edit list. The same discovery pattern governs importers, platforms, and schedulers | OCP: add one without editing the core |
+| Formats | `registry/` = YAML (human-authored, any file grouping); `observed/<host>/snapshot.json` = generated JSON; `observed/<host>/DRIFT.md` + `DRIFT.json` = generated report panes | desired state authored, observed state generated |
+| Non-goals | planeops is not an agent runtime, orchestrator, or gateway: it never sits in any request path and never proxies traffic. Windows support is deliberately out of scope until real demand exists (the platform seam accepts it structurally; every adapter currently assumes POSIX tools). Statistical/ML anomaly scoring stays out of the core | the invariants ARE the product |
 | Rent/usage | Optional capability, not v0.1 scope | deferred |
 
 ## 2. Entry schema (field reference)
@@ -24,41 +29,46 @@ One entry = one managed asset. Registry files contain `entries: [...]`.
 
 | Field | Type | Req | Default | Notes |
 |---|---|---|---|---|
-| `id` | str | yes | | Unique. Convention `<adapter>/<native-id>`, e.g. `launchd/ai.example.gateway`, `ollama/qwen3:30b` |
+| `id` | str | yes | | Unique. Convention `<adapter>/<native-id>`, e.g. `launchd/com.example.agent-gateway`, `ollama/qwen3:30b` |
 | `adapter` | str | yes | | Owning adapter name |
-| `domain` | str | yes | | Adapter-declared, open set: `service`, `model`, `package`, `mcp-server`, `skill`, ... |
+| `domain` | str | yes | | Adapter-declared, open set: `service`, `model`, `package`, `mcp-server`, `config`, ... |
 | `class` | enum | no | `recipe` | `recipe` \| `data` \| `cache`. `data` entries reproduce via their declared sync; `cache` normally appears only in `unmanaged` |
 | `scope` | str | no | `machine` | `machine` \| `user` \| `project:<abs-path>` |
 | `hosts` | list[str] | no | `[any]` | Pin to named hosts; observed state is always per-host |
 | `lifecycle` | enum | yes | | `active` \| `maintain` \| `parked` \| `retired` \| `purge` |
-| `owner` | enum | file-backed only | `runtime` | `plane` \| `runtime` \| `human` (single-writer rule) |
-| `tolerance` | enum | no | `report` | `auto` \| `report` \| `alert` |
+| `owner` | enum | no | `runtime` | `plane` \| `runtime` \| `human` (a `human` entry is observed and reported, never written) |
+| `tolerance` | enum | no | `report` | `auto` \| `report` \| `alert`; routes the soft drift signals (staleness, content drift, in-major version drift). Structural violations alert regardless |
 | `intent` | str | yes | | One line: why this exists |
 | `kill_criteria` | str | no | | Falsifiable where possible |
 | `auth` | enum | no | `none` | `interactive` entries feed the re-auth checklist |
 | `phase` | int | no | adapter default | Converge ordering (section 5) |
-| `pin` | str | no | | Exact version pin; absent = recorded-or-newer-within-major |
-| `secrets` | list | no | `[]` | Items: `{ref: secret://<backend>/<name>, injected_as: env:NAME \| file:<path>#KEY, rotation: <dur>}` |
-| `desired` | map | no | `{}` | Adapter-specific shape (e.g. `{present: true}`, launchd plist source path, model tag) |
-| `data` | map | `class: data` only | | `{location: <path>, sync: git \| none \| <backend>}` (sync backend is adapter-declared, not a core enum) |
+| `pin` | str | no | | Exact version pin. Only pinned entries get version-drift triage (same-major drift is tolerance-routed); with no pin, versions are recorded but not compared |
+| `needs` | list[str] | no | `[]` | Ids of entries this one depends on; drift alerts when an active entry's dependency is retired/purged or absent |
+| `secrets` | list | no | `[]` | Items: `{ref: secret://<backend>/<name>, injected_as: file:<path>#KEY, rotation: <dur>}`. Validated at registry load. `env:NAME` injection is deferred (only `file:` targets materialize today) |
+| `desired` | map | no | `{}` | Adapter-specific shape |
+| `data` | map | `class: data` only | | `{location: <path>, sync: git \| none \| <backend>}` |
 
-`registry/unmanaged.yaml`: `globs: [{glob: <pattern>, reason: <str>}]`. Observed items matching a glob are skipped before diffing.
+`registry/unmanaged.yaml`: `globs: [{glob: <pattern>, reason: <str>}]`. Observed
+items matching a glob are skipped before diffing (section 2's lifecycle model
+plus these globs define what "governed" means).
 
-## 3. Repo layout (v0.1)
+## 3. Repo layout
 
 ```
 planeops/
 ├── SPEC.md
 ├── engine/                   # Python package: core loop, schema, report, contracts
-│   ├── core/                 # vendor-free: schema, drift triage, rendering, confirm loop
+│   ├── core/                 # vendor-free: schema, observe, drift triage, apply, report, locate, statefile
 │   ├── adapters/             # one package per adapter (scan-discovered)
-│   ├── platform/darwin.py    # platform contract impl
-│   └── secrets/              # backend contract + sops_age.py, keychain.py
-├── registry/                 # entries + unmanaged.yaml (+ secrets.sops.yaml encrypted)
-├── policy/                   # deferred beyond secrets rotation classes
-├── observed/<host>/          # snapshot.json + DRIFT.md (generated; commit is opt-in)
+│   ├── importers/            # one module per import kind (scan-discovered)
+│   ├── platform/             # one module per OS (scan-discovered): darwin, linux
+│   ├── schedulers/           # one package per OS scheduler backend (scan-discovered)
+│   ├── secrets/              # backend contract, redaction gate, sops backend
+│   └── mcp_server/           # optional read-only MCP server (mcp extra)
+├── registry/                 # example entries + unmanaged.yaml
+├── observed/<host>/          # snapshot.json + DRIFT.md + DRIFT.json + applied.jsonl (generated)
 ├── tests/                    # mirrors engine/ one-to-one
-└── pyproject.toml            # uv-managed; console script `plane`
+└── pyproject.toml            # uv-managed; console scripts `plane`, `plane-mcp`
 ```
 
 ## 4. Contracts (Python protocols)
@@ -67,16 +77,19 @@ planeops/
 class Adapter(Protocol):
     name: str
     domains: tuple[str, ...]
-    default_phase: int
-    def observe(self, ctx: Ctx) -> list[Observed]: ...          # required, read-only
-    def plan(self, entry: Entry, obs: Observed | None) -> list[Change]: ...  # recipe adapters
-    def execute(self, change: Change, ctx: Ctx) -> Result: ...  # called only post-confirmation
-    def usage(self, entry: Entry, ctx: Ctx) -> Usage | None: ...  # optional
+    def observe(self, ctx: Ctx) -> list[Observed]: ...   # required, read-only
+
+class MutatingAdapter(Adapter, Protocol):                # opted into by implementing it
+    def plan(self, entry: Entry, obs: Observed | None, ctx: Ctx) -> list[Change]: ...
+    def execute(self, change: Change, ctx: Ctx) -> Result: ...  # post-confirmation only
 ```
 
-This protocol splits `apply` into `plan` + `execute` so the engine owns confirmation; per-adapter `diff` is dropped (the engine computes structural diffs from `Observed`); `compile` is deferred post-v0.1 along with the policy compilers it serves.
+Optional adapter class data (not part of the protocol; read via `getattr`):
+`default_phase: int` (converge order, section 5) and `EXECUTE_TIMEOUT: float | None`
+(per-operation subprocess ceiling: `None` for confirmed long operations like
+installs and model pulls, bounded for service/config operations).
 
-Core wire types (M1 scope):
+Core wire types:
 
 ```python
 Observed = {adapter: str, native_id: str, facts: dict, version: str | None}
@@ -85,58 +98,112 @@ Change   = {entry_id: str, kind: "install" | "configure" | "remove" | "patch",
             diff: str,            # human-readable, shown at confirmation
             action: dict}         # adapter-opaque execute payload
 Result   = {ok: bool, detail: str}
-Usage    = {last: datetime | None, count: int | None}
-# snapshot.json = {host, ts, engine_version, observed: [Observed],
-#                  uncovered: [adapter names declared in registry but not implemented]}
+# snapshot.json = {host, ts, schema_version, engine_version,
+#                  observed: [Observed], uncovered: [adapter names declared
+#                  in registry but not implemented], failed: [{adapter, error}]}
 ```
 
-- Engine, not adapters, owns confirmation: `plan()` returns `Change` objects; `execute()` is invoked per confirmed change. An adapter with no `plan/execute` is observe-only (report coverage without apply).
-- `Ctx` carries platform + secrets handles. `ctx.secrets.get()` raises outside `execute()` (and, post-v0.1, compile paths): the redaction guarantee, enforced in code.
-- `SecretsBackend`: `exists(name)`, `meta(name) -> {created, rotated} | None`, `set(name)` (interactive), `get(name)` (gated as above).
-- `PlatformDarwin`: scheduler (launchd load/unload/list), standard paths, process listing.
-- A `manual` adapter ships in core: observe = attestation recorded in observed state, no execute. Attestation prompts run only in interactive `plane observe --attest`; in non-TTY runs (the Sunday slot) `manual` reuses the last attestation and marks it stale after 30 days (stale attestation = report-level drift). `manual` is reserved for assets with no planned adapter; rows whose real adapter is merely unbuilt keep the real adapter name and surface under **Uncovered** until it lands.
+- Engine, not adapters, owns confirmation: `plan()` proposes `Change`s;
+  `execute()` runs one confirmed change. An adapter without `plan`/`execute` is
+  observe-only.
+- `ctx` is required on `plan`: the engine always provides it (an optional-`None`
+  contract only invited None-guards for a state production never produces).
+- General facts the triage understands from ANY adapter: `present` (semantic
+  presence, e.g. a service is present when loaded/enabled, not when its file
+  exists; absent fact means observed-at-all is presence), `drifted` (content or
+  definition drift, tolerance-routed), `always_on` (will run code at login/on a
+  schedule; drives the ungoverned alert), `stale` (attestation age), and
+  `configured` (secret presence).
+- `Ctx.secrets` carries the redaction gate: a presence-only handle whose
+  `get()` raises everywhere except inside the secrets adapter's confirmed
+  execute, where the engine substitutes a value-capable handle it builds from
+  the backend.
+- The `manual` adapter ships in core: observe = attestation recorded in observed
+  state, no execute. Attestations refresh only in an interactive
+  `plane observe --attest`; in scheduled runs the last attestation is reused and
+  marks stale after 30 days (report-level drift). `manual` is reserved for
+  assets with no planned adapter; rows whose real adapter is merely unbuilt keep
+  the real adapter name and surface under **Uncovered**.
+- Shared subprocess seam (`engine/_run.py`): every shell-out goes through one
+  injected `Runner` with a per-call timeout; a timeout (exit 124, "may still be
+  running") is distinct from a missing binary (127).
 
-## 5. Verbs and phases
+## 5. Verbs, exit codes, and phases
 
-- `plane observe` → writes `observed/<host>/snapshot.json`. Read-only, safe for the Sunday launchd slot.
-- `plane drift` → renders `DRIFT.md`: **Alerts** (lifecycle violations, missing required secrets, new always-on services), **Report**, **Auto-folded** (in-major version drift), **Uncovered** (entries awaiting their adapter), **Re-auth pending**. Exit code 2 if alerts exist.
-- `plane apply [--id <id> | --phase <n>]` → plan, render each change, confirm per change (`y`/`n`/`a` for rest-of-domain), execute, re-observe touched entries.
-- `plane import stackfile <path>` → proposes registry entries (section 6); writes nothing without confirmation.
-- Converge phases: 1 package managers/runtimes → 2 packages/CLIs → 3 harness config → 4 models → 5 secrets materialization → 6 services (load last, against complete config) → 7 re-auth checklist.
+- `plane init [path]` scaffolds an instance (marker, `registry/`, commented
+  `instance.yaml`) and registers it in `~/.config/planeops/config.toml`;
+  `--seed` observes and seeds the registry in the same run.
+- `plane observe [--attest]` writes `observed/<host>/snapshot.json`. Read-only.
+  A crashed adapter is contained, recorded under `failed`, and warned about.
+- `plane drift` renders `DRIFT.md` + `DRIFT.json`: **Alerts** (lifecycle
+  violations, missing required secrets, failed adapter scans, ungoverned
+  always-on services, broken `needs` dependencies), **Report**, **Auto-folded**
+  (tolerance-routed soft drift), **Uncovered** (entries awaiting their adapter),
+  **Ungoverned** (observed, neither declared nor unmanaged), **Re-auth pending**.
+  `--json` prints the same structured report.
+- `plane status [--short|--json]` reads the last `DRIFT.json` without
+  recomputing; `--short` is the shell-prompt token (silent when clean).
+- `plane reconcile` = observe + drift in one pass; what the OS timer runs.
+- `plane schedule [--every 6h] [--no-login] [--off] [--yes]` previews and (after
+  confirmation) writes the OS-native reconcile timer + a governed registry
+  entry, then observes; `plane apply` loads it. Backends under
+  `engine/schedulers/<os>/`, scan-discovered.
+- `plane mcp [--json]` is the read-only cross-client MCP view.
+- `plane apply [--id <id> | --phase <n>]` plans, renders each change, confirms
+  per change (`y`/`n`/`a` = rest of domain), executes, journals each record the
+  moment it is decided (`applied.jsonl`), re-observes AND recomputes the drift
+  panes. An unknown `--id` is a loud error. "No changes planned" reports any
+  standing alerts instead of claiming the machine matches.
+- `plane import <kind> [path] [--adapter <n>] [--write] [--yes]` proposes
+  registry entries; `observed` defaults its path to the host's own snapshot.
+- Exit codes, uniform: `0` ok, `1` operator error (bad registry, missing/torn
+  snapshot, unknown id, unsupported platform: handled once at the CLI dispatch
+  point) or a confirmed change that failed during `apply`, `2` drift alerts
+  exist (`drift`, `status`, `reconcile`). `--json` always emits JSON on stdout,
+  an `{"error": ...}` object when unseeded or on an operator error.
+- Converge phases (encoded as adapter `default_phase`, entry `phase` overrides):
+  2 packages/CLIs (`pkg-brew`, `pkg-npm`, `pkg-uv`) → 3 config (`chezmoi`) →
+  4 models (`ollama`) → 5 secrets materialization → 6 services (`launchd`,
+  `systemd`: load last, against complete config). Unphased entries converge
+  after phased ones.
 
 ## 6. Manifest import mapping
 
 The section-to-adapter mapping is configuration, not code: rules live under
-`instance.yaml`'s `importer.rules` at the instance root (`engine/instance.example.yaml`
-ships as a template) and the importer names no specific tool. A section matching no
-rule imports as `manual`. The table below is an illustrative mapping; the `Skills`
-row in particular is tool-specific and belongs in an instance's own config.
-
-| manifest section | Adapter | Domain | Notes |
-|---|---|---|---|
-| Machine | `manual` | `host` | attestation only |
-| Runtimes (Agent Execution) | `launchd` / `manual` | `service`, `harness` | services get real entries; harness binaries → package adapters where installable |
-| Browser Automation | `pkg-npm` / `manual` | `package`, `app` | |
-| Infrastructure | `manual` (docker adapter deferred) | `service` | observe-only in v0.1 |
-| Custom Systems | `manual` | `project` | `class: data` pointers to repos + their sync |
-| MCP Servers | `mcp` | `mcp-server` | reads a configurable source list (`instance.yaml`'s `mcp.sources`), merges servers by name across runtimes |
-| Skills | `claude-code` | `skill` | recipe = source (repo/symlink target) |
-| Secrets / API Keys / Subscriptions | `manual` (M1) → sops+age refs (M4) | `secret` | M1 imports names + `auth: interactive` flags as manual entries; M4's importer migrates them to `secret://` refs. Values never read |
-
-Importer emission rule: a rule may name an adapter that is not yet implemented; such entries appear under DRIFT's **Uncovered** section, never as violations, and need no migration when the adapter lands. `manual` is the fallback for sections no rule matches. Every imported row carries `intent: "imported from manifest, verify"` for a human to confirm.
+`instance.yaml`'s `importer.rules` at the instance root
+(`engine/instance.example.yaml` ships as the template) and the importer names no
+specific tool. A section matching no rule imports as `manual`. Import kinds are
+scan-discovered (`stackfile`, `envfile`, `observed`); every imported row carries
+an intent marking it for human verification, and `--write` lands proposals in
+`registry/imported.yaml` (de-duped, confirmed) for pruning.
 
 ## 7. Testing
 
-- Unit: each adapter tested against fixture outputs of its tool (recorded real output, then edited variants); no test touches the live machine.
-- Contract conformance: one shared parametrized suite every adapter must pass (observe returns valid `Observed`, plan is pure, execute never runs unconfirmed).
-- Engine: schema validation, triage, redaction gate (a test proves `secrets.get` raises during observe).
-- Acceptance: the clean-account rehearsal, scoped per adapter during the build, full pass at milestone M4.
+- Unit: each adapter tested against fixture outputs of its tool; no unit test
+  touches the live machine.
+- Contract conformance: a shared parametrized suite every discovered adapter
+  must pass; the suite fails the build if a discovered adapter is not covered.
+- Engine: schema validation, triage, redaction gate (tests prove `secrets.get`
+  raises during observe and that a leaking adapter fails rather than leaks).
+- Integration: real tools (sops/age/chezmoi on both CI OSes, systemctl on the
+  Linux job, launchctl on the macOS job). The Linux job's release-binary
+  downloads are version-pinned and checksum-verified; the macOS job installs
+  through Homebrew (its own trust channel).
 - `tests/` mirrors `engine/` one-to-one.
 
 ## 8. Milestones
 
-- **M1**: engine core (schema, observe/drift loop, manual adapter, DRIFT rendering) + registry seeded via stackfile import. Machine fully covered, mostly by attestation.
-- **M2**: pkg-brew, pkg-nvm (node runtime), pkg-npm, pkg-uv, launchd adapters with plan/execute. A machine's own scheduled maintenance script (e.g. a weekly stack updater) stays in that machine's private instance, out of any cloud-synced directory, and is governed here only as a `launchd` service entry, never committed to this repo. Its scheduled slot runs the update, then `plane observe && plane drift`, so every update lands already observed and drift-checked. (A legacy gateway retirement, originally this milestone's first transaction, was executed manually before the build.)
-- **M3**: `ollama` adapter (done) and `mcp` adapter (done, cross-runtime MCP visibility from a configurable source list). Harness-config reproduction (`~/.claude` and any other tool's config) is delegated to an external, agnostic dotfiles manager (chezmoi) behind a normal adapter, rather than an in-house `claude-code` adapter, so no tool-specific config engine lives in the core.
-- **M4**: secrets (sops+age store, importer, materialization, re-auth checklist) + a service home recipe (declared key-paths in its config, venv rebuild, cron jobs) + first full clean-account rehearsal green.
-- Post-v0.1 (explicitly out): usage/rent, policy compilers, docker adapter, second host.
+- **M1-M4 (done)**: engine core; package + launchd adapters with plan/execute;
+  ollama + mcp + chezmoi (config reproduction delegated to chezmoi rather than a
+  tool-specific config engine); systemd parity incl. `.timer` units; secrets
+  (sops+age store, materialization, redaction gate, containment); onboarding
+  (`init --seed`, instance resolution, `import observed --write`); the ambient
+  loop (`reconcile`, `schedule`, dead-heartbeat detection); shadow detection
+  (ungoverned + always-on alerts); structured `DRIFT.json`; `status`; `mcp`
+  view; the optional read-only MCP server; the 2026-07 audit-debt program.
+- **Next**: a tagged, installable release with signed artifacts, then the
+  holistic clean-account reproduction rehearsal as the end-to-end acceptance
+  test. The forward roadmap (adapter surfaces, transitions journal, reproduce,
+  multi-host) is tracked outside this spec.
+- Post-v0.1 (explicitly out): usage/rent, policy compilers, docker adapter,
+  agent-runtime anything (see Non-goals).
