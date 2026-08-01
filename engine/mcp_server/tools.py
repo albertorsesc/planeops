@@ -12,9 +12,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from engine.adapters.mcp.view import read_mcp_view
 from engine.core.contracts import Adapter, Platform
 from engine.core.drift import run_drift
-from engine.core.mcp_view import read_mcp_view
 from engine.core.observe import run_observe
 from engine.core.report import drift_report_dict
 from engine.core.schema import SchemaError

@@ -14,8 +14,6 @@ adapter's execute (see `engine.secrets.materialization_handle`).
 
 from __future__ import annotations
 
-import importlib
-import pkgutil
 from pathlib import Path
 
 import engine.secrets.stores
@@ -25,19 +23,13 @@ from engine.secrets import SecretsHandle, SecretsStore, SecretsStoreProvider
 
 def discover_stores() -> dict[str, SecretsStoreProvider]:
     """Every `engine.secrets.stores.<mod>` exposing a `STORE` provider."""
-    found: dict[str, SecretsStoreProvider] = {}
-    for info in pkgutil.iter_modules(engine.secrets.stores.__path__):
-        module = importlib.import_module(f"engine.secrets.stores.{info.name}")
-        provider = getattr(module, "STORE", None)
-        if provider is None:
-            continue
-        if not isinstance(provider, SecretsStoreProvider):
-            raise TypeError(
-                f"engine.secrets.stores.{info.name}.STORE does not satisfy "
-                "the SecretsStoreProvider contract"
-            )
-        found[provider.name] = provider
-    return found
+    from engine.core.discovery import discover
+
+    return discover(
+        engine.secrets.stores,
+        "STORE",
+        SecretsStoreProvider,  # type: ignore[type-abstract]  # isinstance-only
+    )
 
 
 def resolve_store(repo_root: Path | None) -> SecretsStore | None:

@@ -7,7 +7,6 @@ alert exists.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
@@ -15,31 +14,14 @@ from engine.core.contracts import Observed, Platform
 from engine.core.discovery import discover_adapters
 from engine.core.observe import load_observed, load_snapshot
 from engine.core.registry import load_registry
+from engine.core.report import (
+    DriftItem,
+    DriftReport,
+    render_drift,
+    render_drift_json,
+)
 from engine.core.schema import ABSENT_LIFECYCLES, Auth, Entry, Lifecycle, Tolerance
 from engine.core.statefile import atomic_write
-
-
-@dataclass(frozen=True, slots=True)
-class DriftItem:
-    entry_id: str
-    lifecycle: str
-    message: str
-
-
-@dataclass(slots=True)
-class DriftReport:
-    host: str
-    ts: str
-    alerts: list[DriftItem] = field(default_factory=list)
-    report: list[DriftItem] = field(default_factory=list)
-    auto_folded: list[DriftItem] = field(default_factory=list)
-    uncovered: list[DriftItem] = field(default_factory=list)
-    ungoverned: list[DriftItem] = field(default_factory=list)
-    reauth: list[DriftItem] = field(default_factory=list)
-
-    @property
-    def alert_count(self) -> int:
-        return len(self.alerts)
 
 
 def _item(entry: Entry, message: str) -> DriftItem:
@@ -207,10 +189,6 @@ def run_drift(
     implemented: set[str] | None = None,
     write: bool = True,
 ) -> DriftReport:
-    from engine.core.report import (  # local import avoids cycle
-        render_drift,
-        render_drift_json,
-    )
     from engine.platform import current_platform
 
     now = now or datetime.now()

@@ -66,6 +66,7 @@ def test_value_is_unreachable_during_observe(tmp_path, fake_platform):
     class Spy:
         name = "spy"
         domains = ("secret",)
+        default_phase = 5
 
         def observe(self, ctx):
             captured["handle"] = ctx.secrets
@@ -92,6 +93,7 @@ def test_adapter_reading_a_value_during_observe_fails_rather_than_leaks(
     class Leaky:
         name = "leaky"
         domains = ("secret",)
+        default_phase = 5
 
         def observe(self, ctx):
             ctx.secrets.get("x")  # attempting a value here must raise, not leak
@@ -125,6 +127,7 @@ def test_non_secret_adapter_execute_cannot_obtain_a_value(tmp_path, fake_platfor
     class LeakySpy:
         name = "spy"
         domains = ("service",)
+        default_phase = 6
 
         def observe(self, ctx):
             return []

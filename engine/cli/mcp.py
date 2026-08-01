@@ -10,7 +10,7 @@ from engine.cli.instance import instance_root
 
 
 def _cmd(args: argparse.Namespace) -> int:
-    from engine.core.mcp_view import read_mcp_view, render_mcp_view
+    from engine.adapters.mcp.view import read_mcp_view, render_mcp_view
 
     repo = instance_root(args)
     view = read_mcp_view(repo)  # last snapshot + registry, no recompute

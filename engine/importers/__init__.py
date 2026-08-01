@@ -9,8 +9,6 @@ its `kind` from discovery, never from a central edit list (OCP).
 
 from __future__ import annotations
 
-import importlib
-import pkgutil
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
@@ -63,18 +61,14 @@ def write_proposal(
 
 
 def discover_importers() -> dict[str, Importer]:
-    """Every `engine.importers.<mod>` exposing a module-level `IMPORTER`, keyed by
-    its `kind`. Mirrors adapter discovery."""
-    found: dict[str, Importer] = {}
-    for info in pkgutil.iter_modules(__path__):
-        module = importlib.import_module(f"engine.importers.{info.name}")
-        importer = getattr(module, "IMPORTER", None)
-        if importer is None:
-            continue
-        if not isinstance(importer, Importer):
-            raise TypeError(
-                f"engine.importers.{info.name}.IMPORTER does not satisfy "
-                "the Importer contract"
-            )
-        found[importer.kind] = importer
-    return found
+    """Every `engine.importers.<mod>` exposing a module-level `IMPORTER`, keyed
+    by its `kind`. The shared package-scan seam."""
+    import engine.importers
+    from engine.core.discovery import discover
+
+    return discover(
+        engine.importers,
+        "IMPORTER",
+        Importer,  # type: ignore[type-abstract]  # isinstance-only, see discover()
+        key="kind",
+    )
