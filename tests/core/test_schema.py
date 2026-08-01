@@ -143,6 +143,33 @@ def test_secret_injected_as_shape_is_checked():
         entry_from_dict(_secret_entry([{"ref": "secret://sops/x", "injected_as": 42}]))
 
 
+def test_env_injection_is_rejected_as_unsupported():
+    # The old error message advertised env:NAME as a valid form while
+    # materialization silently dropped it: a user following the tool's own
+    # words got a no-op. Unsupported must say so at load.
+    with pytest.raises(SchemaError, match="not supported"):
+        entry_from_dict(
+            _secret_entry([{"ref": "secret://sops/x", "injected_as": "env:KEY"}])
+        )
+
+
+def test_injected_as_must_be_a_file_target_with_a_key():
+    for bad in ("file:~/.env", "file:#KEY", "file:~/.env#", "somewhere"):
+        with pytest.raises(SchemaError, match=r"file:<path>#KEY"):
+            entry_from_dict(
+                _secret_entry([{"ref": "secret://sops/x", "injected_as": bad}])
+            )
+
+
+def test_unknown_key_in_a_secrets_item_is_rejected():
+    # `injectd_as:` used to be silently dropped -> the secret was declared but
+    # never materialized anywhere.
+    with pytest.raises(SchemaError, match="injected_as"):
+        entry_from_dict(
+            _secret_entry([{"ref": "secret://sops/x", "injectd_as": "file:~/.e#K"}])
+        )
+
+
 # ---- scalar fields are type-checked, not passed through ----
 
 
