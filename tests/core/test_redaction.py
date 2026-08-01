@@ -6,11 +6,11 @@ from datetime import datetime
 
 import pytest
 
-from engine.adapters.secrets import SecretsAdapter
-from engine.core.apply import run_apply
-from engine.core.contracts import Change, Result
-from engine.core.observe import run_observe
-from engine.secrets import RedactionError
+from planeops.adapters.secrets import SecretsAdapter
+from planeops.core.apply import run_apply
+from planeops.core.contracts import Change, Result
+from planeops.core.observe import run_observe
+from planeops.secrets import RedactionError
 
 VALUE = "sk-super-secret-value"
 

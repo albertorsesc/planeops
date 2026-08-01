@@ -1,9 +1,9 @@
 from datetime import datetime
 
-from engine._run import RunResult
-from engine.adapters.pkg_brew import ADAPTER, PkgBrewAdapter, parse_brew_versions
-from engine.core.contracts import Change, Ctx, Observed, can_apply
-from engine.core.schema import entry_from_dict
+from planeops._run import RunResult
+from planeops.adapters.pkg_brew import ADAPTER, PkgBrewAdapter, parse_brew_versions
+from planeops.core.contracts import Change, Ctx, Observed, can_apply
+from planeops.core.schema import entry_from_dict
 
 # Recorded from `brew list --versions --formula`, trimmed to representative rows.
 BREW_VERSIONS = "git 2.45.2\nripgrep 14.1.0\npython@3.12 3.12.4 3.12.5\n"

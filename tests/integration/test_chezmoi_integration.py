@@ -11,9 +11,9 @@ from datetime import datetime
 
 import pytest
 
-from engine.adapters.chezmoi import ChezmoiAdapter
-from engine.core.contracts import Ctx
-from engine.core.schema import entry_from_dict
+from planeops.adapters.chezmoi import ChezmoiAdapter
+from planeops.core.contracts import Ctx
+from planeops.core.schema import entry_from_dict
 
 pytestmark = pytest.mark.skipif(
     shutil.which("chezmoi") is None, reason="requires the real chezmoi binary"

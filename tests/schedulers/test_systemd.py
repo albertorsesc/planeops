@@ -3,7 +3,7 @@ service pair, the governed entry, and its refusal of unsafe values."""
 
 import pytest
 
-from engine.schedulers.systemd import SCHEDULER as SYSTEMD
+from planeops.schedulers.systemd import SCHEDULER as SYSTEMD
 
 
 def test_pairs_timer_and_service_and_unmanages_the_service(tmp_path):

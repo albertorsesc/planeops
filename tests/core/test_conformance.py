@@ -13,21 +13,21 @@ from datetime import datetime
 
 import pytest
 
-from engine._run import RunResult
-from engine.adapters.chezmoi import ChezmoiAdapter
-from engine.adapters.launchd import LaunchdAdapter
-from engine.adapters.manual import ManualAdapter
-from engine.adapters.mcp import McpAdapter
-from engine.adapters.ollama import OllamaAdapter
-from engine.adapters.pkg_brew import PkgBrewAdapter
-from engine.adapters.pkg_npm import PkgNpmAdapter
-from engine.adapters.pkg_nvm import PkgNvmAdapter
-from engine.adapters.pkg_uv import PkgUvAdapter
-from engine.adapters.secrets import SecretsAdapter
-from engine.adapters.systemd import SystemdAdapter
-from engine.core.contracts import Adapter, Change, Ctx, Observed, can_apply
-from engine.core.discovery import discover_adapters
-from engine.core.schema import entry_from_dict
+from planeops._run import RunResult
+from planeops.adapters.chezmoi import ChezmoiAdapter
+from planeops.adapters.launchd import LaunchdAdapter
+from planeops.adapters.manual import ManualAdapter
+from planeops.adapters.mcp import McpAdapter
+from planeops.adapters.ollama import OllamaAdapter
+from planeops.adapters.pkg_brew import PkgBrewAdapter
+from planeops.adapters.pkg_npm import PkgNpmAdapter
+from planeops.adapters.pkg_nvm import PkgNvmAdapter
+from planeops.adapters.pkg_uv import PkgUvAdapter
+from planeops.adapters.secrets import SecretsAdapter
+from planeops.adapters.systemd import SystemdAdapter
+from planeops.core.contracts import Adapter, Change, Ctx, Observed, can_apply
+from planeops.core.discovery import discover_adapters
+from planeops.core.schema import entry_from_dict
 
 CHANGE_KINDS = {"install", "configure", "remove", "patch"}
 

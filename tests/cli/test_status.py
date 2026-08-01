@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from engine.cli import main
+from planeops.cli import main
 from tests.cli.helpers import _status
 
 
@@ -18,7 +18,7 @@ def inst(tmp_path):
 
 def test_status_prints_summary_and_exit_code(monkeypatch, capsys, inst):
     monkeypatch.setattr(
-        "engine.core.status.read_status", lambda repo: _status(2, report=1)
+        "planeops.core.status.read_status", lambda repo: _status(2, report=1)
     )
     code = main(["--repo", inst, "status"])
     out = capsys.readouterr().out
@@ -27,35 +27,35 @@ def test_status_prints_summary_and_exit_code(monkeypatch, capsys, inst):
 
 
 def test_status_short_prints_token_only_when_alerts(monkeypatch, capsys, inst):
-    monkeypatch.setattr("engine.core.status.read_status", lambda repo: _status(3))
+    monkeypatch.setattr("planeops.core.status.read_status", lambda repo: _status(3))
     assert main(["--repo", inst, "status", "--short"]) == 2
     assert capsys.readouterr().out.strip() == "drift:3"
-    monkeypatch.setattr("engine.core.status.read_status", lambda repo: _status(0))
+    monkeypatch.setattr("planeops.core.status.read_status", lambda repo: _status(0))
     assert main(["--repo", inst, "status", "--short"]) == 0
     assert capsys.readouterr().out == ""  # clean: silent, prompt-friendly
 
 
 def test_status_json_emits_the_stored_report(monkeypatch, capsys, inst):
-    monkeypatch.setattr("engine.core.status.read_status", lambda repo: _status(1))
+    monkeypatch.setattr("planeops.core.status.read_status", lambda repo: _status(1))
     assert main(["--repo", inst, "status", "--json"]) == 2
     assert json.loads(capsys.readouterr().out)["alert_count"] == 1
 
 
 def test_status_without_a_report_is_not_an_error(monkeypatch, capsys, inst):
-    monkeypatch.setattr("engine.core.status.read_status", lambda repo: None)
+    monkeypatch.setattr("planeops.core.status.read_status", lambda repo: None)
     assert main(["--repo", inst, "status"]) == 0
     assert "no drift report yet" in capsys.readouterr().err
 
 
 def test_status_short_is_silent_when_no_report(monkeypatch, capsys, inst):
-    monkeypatch.setattr("engine.core.status.read_status", lambda repo: None)
+    monkeypatch.setattr("planeops.core.status.read_status", lambda repo: None)
     assert main(["--repo", inst, "status", "--short"]) == 0
     captured = capsys.readouterr()
     assert captured.out == "" and captured.err == ""  # a prompt never sees noise
 
 
 def test_status_json_unseeded_emits_a_json_error_object(monkeypatch, capsys, inst):
-    monkeypatch.setattr("engine.core.status.read_status", lambda repo: None)
+    monkeypatch.setattr("planeops.core.status.read_status", lambda repo: None)
     code = main(["--repo", inst, "status", "--json"])
     data = json.loads(capsys.readouterr().out)  # stdout parses even when unseeded
     assert "error" in data and code == 0
@@ -64,7 +64,7 @@ def test_status_json_unseeded_emits_a_json_error_object(monkeypatch, capsys, ins
 def test_status_tolerates_a_hand_edited_partial_report(monkeypatch, capsys, inst):
     # A user (or an older engine) may leave DRIFT.json with missing keys; the
     # prompt path must degrade, never traceback.
-    monkeypatch.setattr("engine.core.status.read_status", lambda repo: {"ts": "t"})
+    monkeypatch.setattr("planeops.core.status.read_status", lambda repo: {"ts": "t"})
     code = main(["--repo", inst, "status"])
     out = capsys.readouterr().out
     assert "0 alert(s)" in out and code == 0

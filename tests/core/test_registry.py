@@ -1,7 +1,7 @@
 import pytest
 
-from engine.core.registry import load_registry
-from engine.core.schema import SchemaError
+from planeops.core.registry import load_registry
+from planeops.core.schema import SchemaError
 
 
 def _write(dirpath, name, text):

@@ -1,6 +1,6 @@
 import pytest
 
-from engine.secrets import RedactionError, SecretsHandle, materialization_handle
+from planeops.secrets import RedactionError, SecretsHandle, materialization_handle
 
 
 class FakeBackend:

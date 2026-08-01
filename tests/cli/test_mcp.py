@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from engine.cli import main
+from planeops.cli import main
 from tests.cli.helpers import _mcp_view
 
 
@@ -16,7 +16,7 @@ def inst(tmp_path):
 
 def test_mcp_prints_the_human_view(monkeypatch, capsys, inst):
     monkeypatch.setattr(
-        "engine.adapters.mcp.view.read_mcp_view", lambda repo: _mcp_view()
+        "planeops.adapters.mcp.view.read_mcp_view", lambda repo: _mcp_view()
     )
     assert main(["--repo", inst, "mcp"]) == 0
     out = capsys.readouterr().out
@@ -25,7 +25,7 @@ def test_mcp_prints_the_human_view(monkeypatch, capsys, inst):
 
 def test_mcp_json_emits_the_structured_view(monkeypatch, capsys, inst):
     monkeypatch.setattr(
-        "engine.adapters.mcp.view.read_mcp_view", lambda repo: _mcp_view()
+        "planeops.adapters.mcp.view.read_mcp_view", lambda repo: _mcp_view()
     )
     assert main(["--repo", inst, "mcp", "--json"]) == 0
     data = json.loads(capsys.readouterr().out)
@@ -33,13 +33,13 @@ def test_mcp_json_emits_the_structured_view(monkeypatch, capsys, inst):
 
 
 def test_mcp_without_a_snapshot_is_not_an_error(monkeypatch, capsys, inst):
-    monkeypatch.setattr("engine.adapters.mcp.view.read_mcp_view", lambda repo: None)
+    monkeypatch.setattr("planeops.adapters.mcp.view.read_mcp_view", lambda repo: None)
     assert main(["--repo", inst, "mcp"]) == 0
     assert "plane observe" in capsys.readouterr().err
 
 
 def test_mcp_json_unseeded_emits_a_json_error_object(monkeypatch, capsys, inst):
-    monkeypatch.setattr("engine.adapters.mcp.view.read_mcp_view", lambda repo: None)
+    monkeypatch.setattr("planeops.adapters.mcp.view.read_mcp_view", lambda repo: None)
     code = main(["--repo", inst, "mcp", "--json"])
     data = json.loads(capsys.readouterr().out)
     assert "error" in data and code == 0

@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from engine.cli import build_parser, main
+from planeops.cli import build_parser, main
 from tests.cli.helpers import _report
 
 
@@ -21,7 +21,7 @@ def test_drift_json_flag_parses():
 
 
 def test_drift_json_prints_valid_report_and_sets_exit_code(monkeypatch, capsys, inst):
-    monkeypatch.setattr("engine.core.drift.run_drift", lambda repo: _report(alerts=2))
+    monkeypatch.setattr("planeops.core.drift.run_drift", lambda repo: _report(alerts=2))
     code = main(["--repo", inst, "drift", "--json"])
     out = capsys.readouterr().out
     data = json.loads(out)  # stdout is pure JSON, nothing else
@@ -31,7 +31,7 @@ def test_drift_json_prints_valid_report_and_sets_exit_code(monkeypatch, capsys, 
 
 
 def test_drift_without_json_prints_human_summary_not_json(monkeypatch, capsys, inst):
-    monkeypatch.setattr("engine.core.drift.run_drift", lambda repo: _report(alerts=0))
+    monkeypatch.setattr("planeops.core.drift.run_drift", lambda repo: _report(alerts=0))
     code = main(["--repo", inst, "drift"])
     out = capsys.readouterr().out
     assert "alert(s)" in out and "DRIFT.md" in out
@@ -45,7 +45,7 @@ def test_drift_json_unseeded_emits_a_json_error_object(monkeypatch, capsys, inst
     def _raise(repo):
         raise FileNotFoundError("no readable snapshot at x; run `plane observe` first")
 
-    monkeypatch.setattr("engine.core.drift.run_drift", _raise)
+    monkeypatch.setattr("planeops.core.drift.run_drift", _raise)
     code = main(["--repo", inst, "drift", "--json"])
     data = json.loads(capsys.readouterr().out)
     assert "error" in data and "plane observe" in data["error"]

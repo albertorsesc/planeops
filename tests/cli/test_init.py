@@ -4,8 +4,8 @@ import argparse
 
 import pytest
 
-from engine.cli import main
-from engine.cli.init import _should_seed
+from planeops.cli import main
+from planeops.cli.init import _should_seed
 
 
 def _args(seed=False, no_seed=False):
@@ -42,7 +42,7 @@ def test_init_scaffolds_and_prints_next_steps(tmp_path, monkeypatch, capsys):
     # Route the config pointer into the sandbox so the developer's real
     # ~/.config/planeops is never touched.
     monkeypatch.setattr(
-        "engine.core.locate.config_home", lambda: tmp_path / "confighome"
+        "planeops.core.locate.config_home", lambda: tmp_path / "confighome"
     )
     inst = tmp_path / "inst"
     code = main(["init", str(inst), "--no-seed"])
@@ -56,12 +56,12 @@ def test_init_scaffolds_and_prints_next_steps(tmp_path, monkeypatch, capsys):
 @pytest.mark.parametrize("answer", ["y", "Y", "yes"])
 def test_init_interactive_yes_triggers_the_seed(tmp_path, monkeypatch, answer):
     monkeypatch.setattr(
-        "engine.core.locate.config_home", lambda: tmp_path / "confighome"
+        "planeops.core.locate.config_home", lambda: tmp_path / "confighome"
     )
     monkeypatch.setattr("builtins.input", lambda _p: answer)
     seeded = []
     monkeypatch.setattr(
-        "engine.cli.init._seed_from_machine", lambda inst: seeded.append(inst)
+        "planeops.cli.init._seed_from_machine", lambda inst: seeded.append(inst)
     )
     assert main(["init", str(tmp_path / "inst")]) == 0
     assert seeded == [(tmp_path / "inst").resolve()]

@@ -5,7 +5,7 @@ torn-safe readers, so a file killed mid-write, or hand-corrupted, reads as "noth
 yet" instead of crashing a later command.
 """
 
-from engine.core.statefile import atomic_write, read_host_json, read_json_file
+from planeops.core.statefile import atomic_write, read_host_json, read_json_file
 
 
 def test_atomic_write_lands_content_and_leaves_no_tmp(tmp_path):

@@ -2,7 +2,7 @@
 
 import pytest
 
-from engine.cli import main
+from planeops.cli import main
 
 
 @pytest.fixture
@@ -13,7 +13,7 @@ def inst(tmp_path):
 
 def test_observe_warns_about_failed_adapter_scans(monkeypatch, capsys, inst):
     monkeypatch.setattr(
-        "engine.core.observe.run_observe",
+        "planeops.core.observe.run_observe",
         lambda repo, attest=False: {
             "observed": [],
             "uncovered": [],

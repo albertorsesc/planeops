@@ -17,9 +17,9 @@ from datetime import datetime
 
 import pytest
 
-from engine.adapters.launchd import LaunchdAdapter
-from engine.core.contracts import Ctx
-from engine.core.schema import entry_from_dict
+from planeops.adapters.launchd import LaunchdAdapter
+from planeops.core.contracts import Ctx
+from planeops.core.schema import entry_from_dict
 
 pytestmark = pytest.mark.skipif(
     sys.platform != "darwin" or shutil.which("launchctl") is None,

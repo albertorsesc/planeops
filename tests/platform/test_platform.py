@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from engine.core.contracts import Platform
-from engine.platform import current_platform, discover_platforms
+from planeops.core.contracts import Platform
+from planeops.platform import current_platform, discover_platforms
 
 
 def test_discovers_the_os_impls():

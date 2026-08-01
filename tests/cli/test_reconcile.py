@@ -2,7 +2,7 @@
 
 import pytest
 
-from engine.cli import main
+from planeops.cli import main
 from tests.cli.helpers import _report
 
 
@@ -17,11 +17,11 @@ def test_reconcile_observes_then_drifts_and_returns_drift_exit_code(
 ):
     calls = []
     monkeypatch.setattr(
-        "engine.core.observe.run_observe",
+        "planeops.core.observe.run_observe",
         lambda repo, **k: calls.append("observe") or {"observed": [1, 2], "host": "h"},
     )
     monkeypatch.setattr(
-        "engine.core.drift.run_drift",
+        "planeops.core.drift.run_drift",
         lambda repo: calls.append("drift") or _report(alerts=3),
     )
     code = main(["--repo", inst, "reconcile"])
@@ -33,8 +33,8 @@ def test_reconcile_observes_then_drifts_and_returns_drift_exit_code(
 
 def test_reconcile_clean_exits_zero(monkeypatch, inst):
     monkeypatch.setattr(
-        "engine.core.observe.run_observe",
+        "planeops.core.observe.run_observe",
         lambda repo, **k: {"observed": [], "host": "h"},
     )
-    monkeypatch.setattr("engine.core.drift.run_drift", lambda repo: _report(alerts=0))
+    monkeypatch.setattr("planeops.core.drift.run_drift", lambda repo: _report(alerts=0))
     assert main(["--repo", inst, "reconcile"]) == 0

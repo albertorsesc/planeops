@@ -6,8 +6,8 @@ config_dir is injected so nothing here touches the real ~/.config.
 import tomllib
 from pathlib import Path
 
-from engine.cli import main
-from engine.core.init import init_instance
+from planeops.cli import main
+from planeops.core.init import init_instance
 
 
 def test_init_scaffolds_the_instance_and_registers_it(tmp_path):
@@ -66,10 +66,10 @@ def test_cli_init_seed_populates_registry_from_the_machine(tmp_path, monkeypatch
             ],
         }
 
-    monkeypatch.setattr("engine.core.observe.run_observe", fake_observe)
+    monkeypatch.setattr("planeops.core.observe.run_observe", fake_observe)
     inst = tmp_path / "inst"
     assert main(["init", str(inst), "--seed"]) == 0
-    from engine.core.registry import load_registry
+    from planeops.core.registry import load_registry
 
     ids = {e.id for e in load_registry(inst / "registry").entries}
     assert ids == {"ollama/m1", "mcp/c7"}  # one command -> a governed registry
@@ -77,7 +77,7 @@ def test_cli_init_seed_populates_registry_from_the_machine(tmp_path, monkeypatch
 
 def test_after_init_the_resolver_finds_the_instance(tmp_path):
     # End-to-end: init writes the pointer, resolve_instance_root reads it back.
-    from engine.core.locate import resolve_instance_root
+    from planeops.core.locate import resolve_instance_root
 
     inst = tmp_path / "inst"
     xdg = tmp_path / "xdgcfg"

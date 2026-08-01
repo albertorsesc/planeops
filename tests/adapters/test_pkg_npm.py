@@ -1,9 +1,9 @@
 from datetime import datetime
 
-from engine._run import RunResult
-from engine.adapters.pkg_npm import ADAPTER, PkgNpmAdapter, parse_npm_globals
-from engine.core.contracts import Change, Ctx, Observed, can_apply
-from engine.core.schema import entry_from_dict
+from planeops._run import RunResult
+from planeops.adapters.pkg_npm import ADAPTER, PkgNpmAdapter, parse_npm_globals
+from planeops.core.contracts import Change, Ctx, Observed, can_apply
+from planeops.core.schema import entry_from_dict
 
 # Illustrative `npm ls -g --depth=0 --json` output.
 NPM_GLOBAL = (

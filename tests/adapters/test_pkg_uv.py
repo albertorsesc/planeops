@@ -1,9 +1,9 @@
 from datetime import datetime
 
-from engine._run import RunResult
-from engine.adapters.pkg_uv import ADAPTER, PkgUvAdapter, parse_uv_tools
-from engine.core.contracts import Change, Ctx, Observed, can_apply
-from engine.core.schema import entry_from_dict
+from planeops._run import RunResult
+from planeops.adapters.pkg_uv import ADAPTER, PkgUvAdapter, parse_uv_tools
+from planeops.core.contracts import Change, Ctx, Observed, can_apply
+from planeops.core.schema import entry_from_dict
 
 # Illustrative `uv tool list` output. Each tool is `name vX.Y.Z`; the indented
 # `- executable` lines under it are not tools.

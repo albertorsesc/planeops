@@ -9,7 +9,7 @@ import pytest
 
 pytest.importorskip("mcp")  # server module imports the optional dependency
 
-from engine.mcp_server.server import build_server  # noqa: E402
+from planeops.mcp_server.server import build_server  # noqa: E402
 
 
 def _tools_by_name(server):
@@ -75,7 +75,7 @@ def test_default_repo_resolves_like_the_cli(tmp_path, monkeypatch):
         def home(self):
             return tmp_path
 
-    monkeypatch.setattr("engine.platform.current_platform", lambda: _Plat())
+    monkeypatch.setattr("planeops.platform.current_platform", lambda: _Plat())
     monkeypatch.chdir(tmp_path)  # a cwd that is NOT the instance
 
     res = asyncio.run(build_server().call_tool("planeops_status", {}))

@@ -1,14 +1,14 @@
 import json
 from datetime import datetime
 
-from engine.adapters.mcp import (
+from planeops.adapters.mcp import (
     ADAPTER,
     McpAdapter,
     McpSource,
     load_sources,
     servers_from_mapping,
 )
-from engine.core.contracts import Ctx, can_apply
+from planeops.core.contracts import Ctx, can_apply
 
 
 def _ctx(platform, repo_root=None):

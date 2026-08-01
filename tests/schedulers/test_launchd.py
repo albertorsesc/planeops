@@ -1,7 +1,7 @@
 """launchd scheduler backend: pure generation of the reconcile plist + its
 governed registry entry."""
 
-from engine.schedulers.launchd import SCHEDULER as LAUNCHD
+from planeops.schedulers.launchd import SCHEDULER as LAUNCHD
 
 
 def test_runs_reconcile_on_interval_and_login(tmp_path):

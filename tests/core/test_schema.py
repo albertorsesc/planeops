@@ -1,6 +1,6 @@
 import pytest
 
-from engine.core.schema import (
+from planeops.core.schema import (
     Auth,
     Entry,
     Klass,

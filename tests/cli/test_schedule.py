@@ -4,8 +4,8 @@ post-write observe. Backend generation lives in tests/schedulers/."""
 import pytest
 import yaml
 
-from engine.cli import main
-from engine.cli.schedule import _parse_every
+from planeops.cli import main
+from planeops.cli.schedule import _parse_every
 
 
 @pytest.mark.parametrize("s,secs", [("6h", 21600), ("30m", 1800), ("90s", 90)])
@@ -38,9 +38,9 @@ def sched(tmp_path, monkeypatch):
     ~/Library or ~/.config is never written and no real adapter runs."""
     home = tmp_path / "home"
     home.mkdir()
-    monkeypatch.setattr("engine.platform.current_platform", lambda: _Plat(home))
+    monkeypatch.setattr("planeops.platform.current_platform", lambda: _Plat(home))
     monkeypatch.setattr(
-        "engine.core.observe.run_observe",
+        "planeops.core.observe.run_observe",
         lambda repo: {"observed": [], "uncovered": [], "host": "h"},
     )
     inst = tmp_path / "inst"
@@ -103,7 +103,7 @@ def test_schedule_observes_after_writing(sched, monkeypatch):
     home, inst = sched
     seen = []
     monkeypatch.setattr(
-        "engine.core.observe.run_observe",
+        "planeops.core.observe.run_observe",
         lambda repo: (
             seen.append(repo) or {"observed": [], "uncovered": [], "host": "h"}
         ),

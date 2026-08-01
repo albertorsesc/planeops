@@ -7,7 +7,7 @@ written somewhere.
 
 import json
 
-from engine.core.report import (
+from planeops.core.report import (
     DRIFT_SCHEMA_VERSION,
     DriftItem,
     DriftReport,

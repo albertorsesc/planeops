@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from engine.platform.linux import PlatformLinux
+from planeops.platform.linux import PlatformLinux
 
 
 def test_hostname_is_untouched(monkeypatch):

@@ -8,8 +8,14 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **BREAKING (pre-1.0):** the Python package is `planeops`, not `engine`.
+  `pip install planeops` now installs `import planeops`; the maximally generic
+  top-level name `engine` will never be claimed in anyone's site-packages. Done
+  before the first release precisely because it could never be done after.
+  Entry points, mypy/ruff targets, docs, and the architecture fitness tests all
+  follow the rename; the conceptual word "engine" survives only as prose.
 - **BREAKING (pre-1.0):** secrets stores are the fifth discovery seam. Store
-  implementations live under `engine/secrets/stores/`, one module per kind
+  implementations live under `planeops/secrets/stores/`, one module per kind
   exposing a `STORE` provider; the resolution layer knows no concrete store
   (enforced by the architecture fitness tests), and even the default is the
   provider's own declaration. In `instance.yaml`, `secrets.store` now names the
@@ -19,7 +25,7 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `run_apply`'s injection parameter is `secrets_store`. Swapping or adding a
   store now touches zero engine code: drop a module in, it self-registers.
 - The CLI is a package: one module per verb, each owning its command and its
-  parser registration, with `engine/cli/__init__.py` reduced to composition and
+  parser registration, with `planeops/cli/__init__.py` reduced to composition and
   the single operator-error choke point. Tests mirror the source tree
   one-to-one (`tests/cli/test_<verb>.py`, per-backend scheduler tests, per-OS
   platform tests), the mirror rule is codified in CONTRIBUTING, and the
@@ -140,7 +146,7 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (with the current PATH baked in so scheduled adapters find their tools) and declares
   a `launchd`/`systemd` registry entry; `plane apply` loads it through the confirm gate
   and `plane drift` then governs the schedule itself. Scheduler backends live under
-  `engine/schedulers/<os>/` and are self-discovered per platform, no OS branch, the
+  `planeops/schedulers/<os>/` and are self-discovered per platform, no OS branch, the
   same package-scan pattern as adapters and platforms.
 - The `systemd` adapter now observes and converges `.timer` units, not just
   `.service` (a unit is a unit: `UNIT_TYPES` is data, not a branch, so is-enabled/
@@ -164,7 +170,7 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   marker, `registry/`, and the commented reference `instance.yaml`) and writes
   `~/.config/planeops/config.toml` pointing at it, so the installed `plane` finds it
   from any directory. The reference `instance.yaml` now ships as package data
-  (`engine/instance.example.yaml`), so an installed user gets the full documented
+  (`planeops/instance.example.yaml`), so an installed user gets the full documented
   template, not just a stub. Idempotent; keeps existing files, repoints only with
   `--force`. `--seed` then observes the machine and seeds the registry in the same
   command (`--no-seed` scaffolds only; interactive runs offer it, default yes), so

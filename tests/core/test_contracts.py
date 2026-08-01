@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from engine.core.contracts import Adapter, Ctx, Observed
+from planeops.core.contracts import Adapter, Ctx, Observed
 
 
 class ObserveOnly:
