@@ -61,3 +61,29 @@ def test_malformed_glob_is_a_clean_schema_error(tmp_path):
     _write(tmp_path, "unmanaged.yaml", "globs:\n  - just-a-string\n")
     with pytest.raises(SchemaError):
         load_registry(tmp_path)
+
+
+def test_unknown_top_level_key_is_rejected_with_a_suggestion(tmp_path):
+    # `entrys:` used to make the whole file silently contribute nothing.
+    (tmp_path / "r.yaml").write_text(
+        "entrys:\n  - {id: a/b, adapter: a, domain: d, lifecycle: active, intent: i}\n"
+    )
+    with pytest.raises(SchemaError, match="entries"):
+        load_registry(tmp_path)
+
+
+def test_glob_value_must_be_a_string(tmp_path):
+    (tmp_path / "u.yaml").write_text("globs:\n  - {glob: 3, reason: r}\n")
+    with pytest.raises(SchemaError, match="glob"):
+        load_registry(tmp_path)
+
+
+def test_a_non_registry_file_in_registry_names_the_allowed_keys(tmp_path):
+    # A file that isn't a registry document at all (e.g. an encrypted secrets
+    # store parked here by mistake; its default home is the instance root) has
+    # no near-miss key, so the error lists what registry/ files may contain.
+    (tmp_path / "secrets.sops.yaml").write_text(
+        "test-canary: ENC[data]\nsops:\n  version: '3'\n"
+    )
+    with pytest.raises(SchemaError, match="expected one of: entries, globs"):
+        load_registry(tmp_path)

@@ -1,6 +1,6 @@
 """Entry schema: one entry is one managed asset.
 
-Field reference is SPEC.md section 2. `lifecycle` and `tolerance` are closed
+Field reference is SPEC.md. `lifecycle` and `tolerance` are closed
 core vocabularies the engine reasons about; `domain` is an open set owned by
 adapters.
 """
@@ -117,18 +117,59 @@ def _validate_secret_ref(ref: Any, entry_id: Any) -> None:
         )
 
 
+# The complete key set an entry may carry. A key outside it is a typo, and a
+# typo'd OPTIONAL key silently meaning "use the default" is the worst failure
+# mode a declarative tool can have (`tolerence: alert` quietly not escalating).
+_ENTRY_KEYS = frozenset(
+    {
+        "id", "adapter", "domain", "lifecycle", "intent", "class", "scope",
+        "hosts", "owner", "tolerance", "kill_criteria", "auth", "phase", "pin",
+        "needs", "secrets", "desired", "data",
+    }
+)  # fmt: skip
+
+
+def _reject_unknown_keys(
+    raw: dict[str, Any], allowed: frozenset[str], context: str
+) -> None:
+    """Unknown keys fail loudly: a did-you-mean when one is close, the allowed
+    set otherwise, so even a file that plain doesn't belong (nothing close to
+    match) explains what WOULD be valid here."""
+    import difflib
+
+    for key in raw:
+        if not isinstance(key, str) or key not in allowed:
+            close = difflib.get_close_matches(str(key), allowed, n=1)
+            if close:
+                hint = f"; did you mean {close[0]!r}?"
+            else:
+                hint = f"; expected one of: {', '.join(sorted(allowed))}"
+            raise SchemaError(f"{context}: unknown field {key!r}{hint}")
+
+
+def _require_str(value: Any, field_name: str, entry_id: Any) -> str:
+    if not isinstance(value, str) or not value:
+        raise SchemaError(
+            f"entry {entry_id!r}: {field_name}={value!r} must be a non-empty string"
+        )
+    return value
+
+
 def entry_from_dict(raw: dict[str, Any]) -> Entry:
     """Build and validate one Entry from a registry mapping."""
     if not isinstance(raw, dict):
         raise SchemaError(f"entry must be a mapping, got {type(raw).__name__}")
 
     entry_id = raw.get("id")
+    _reject_unknown_keys(raw, _ENTRY_KEYS, f"entry {entry_id or '<no id>'!r}")
     for required in ("id", "adapter", "domain", "lifecycle", "intent"):
         if not raw.get(required):
             raise SchemaError(
                 f"entry {entry_id or '<no id>'!r}: missing required field {required!r}"
             )
     assert entry_id is not None  # guaranteed by the required-field check above
+    for field_name in ("id", "adapter", "domain", "intent"):
+        _require_str(raw[field_name], field_name, entry_id)
 
     scope = raw.get("scope", "machine")
     if not isinstance(scope, str) or (
@@ -140,8 +181,16 @@ def entry_from_dict(raw: dict[str, Any]) -> Entry:
         )
 
     hosts = raw.get("hosts", ["any"])
-    if not isinstance(hosts, list) or not hosts:
-        raise SchemaError(f"entry {entry_id!r}: hosts must be a non-empty list")
+    if (
+        not isinstance(hosts, list)
+        or not hosts
+        or not all(isinstance(h, str) and h for h in hosts)
+    ):
+        # A non-string host never matches a hostname: the entry would silently
+        # never apply anywhere.
+        raise SchemaError(
+            f"entry {entry_id!r}: hosts must be a non-empty list of strings"
+        )
 
     klass = _enum(Klass, raw.get("class", "recipe"), "class", entry_id)
     data = raw.get("data")

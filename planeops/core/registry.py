@@ -9,7 +9,14 @@ from pathlib import Path
 
 import yaml
 
-from planeops.core.schema import Entry, SchemaError, entry_from_dict
+from planeops.core.schema import (
+    Entry,
+    SchemaError,
+    _reject_unknown_keys,
+    entry_from_dict,
+)
+
+_DOC_KEYS = frozenset({"entries", "globs"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +54,9 @@ def load_registry(registry_dir: Path) -> Registry:
                 continue
             if not isinstance(doc, dict):
                 raise SchemaError(f"{path.name}: top-level document must be a mapping")
+            # A typo'd top-level key (`entrys:`) used to make the whole file
+            # silently contribute nothing.
+            _reject_unknown_keys(doc, _DOC_KEYS, path.name)
 
             for raw in doc.get("entries", []) or []:
                 entry = entry_from_dict(raw)
@@ -56,9 +66,14 @@ def load_registry(registry_dir: Path) -> Registry:
                 entries.append(entry)
 
             for raw in doc.get("globs", []) or []:
-                if not isinstance(raw, dict) or "glob" not in raw:
+                if (
+                    not isinstance(raw, dict)
+                    or not isinstance(raw.get("glob"), str)
+                    or not raw["glob"]
+                ):
                     raise SchemaError(
-                        f"{path.name}: each glob must be a mapping with a 'glob' key"
+                        f"{path.name}: each glob must be a mapping with a "
+                        "string 'glob' key"
                     )
                 unmanaged.append(
                     UnmanagedGlob(glob=raw["glob"], reason=raw.get("reason", ""))
