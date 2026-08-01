@@ -19,6 +19,11 @@ class FakeBackend:
         return {"configured": True} if name in self._present else None
 
     def get(self, name):
+        # As strict as the real SopsBackend: an unknown name raises rather than
+        # minting a value, so a test can't silently materialize a nonexistent
+        # secret and pass anyway.
+        if name not in self._present:
+            raise KeyError(f"secret {name!r} is not configured")
         return f"VALUE::{name}"
 
 

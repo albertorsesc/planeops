@@ -1,3 +1,6 @@
+"""The platform package seam: discovery and per-OS selection. Per-OS behavior
+lives in test_darwin.py / test_linux.py."""
+
 import sys
 from pathlib import Path
 
@@ -5,8 +8,6 @@ import pytest
 
 from engine.core.contracts import Platform
 from engine.platform import current_platform, discover_platforms
-from engine.platform.darwin import PlatformDarwin
-from engine.platform.linux import PlatformLinux
 
 
 def test_discovers_the_os_impls():
@@ -31,9 +32,3 @@ def test_unknown_os_raises(monkeypatch):
     monkeypatch.setattr(sys, "platform", "sunos5")
     with pytest.raises(NotImplementedError):
         current_platform()
-
-
-def test_darwin_strips_local_suffix_linux_does_not(monkeypatch):
-    monkeypatch.setattr("socket.gethostname", lambda: "host.local")
-    assert PlatformDarwin().hostname() == "host"  # Bonjour suffix stripped
-    assert PlatformLinux().hostname() == "host.local"  # kept on Linux

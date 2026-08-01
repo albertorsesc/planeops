@@ -145,8 +145,8 @@ uv run plane import observed --write
 uv run plane apply --id launchd/com.example.agent-gateway
 ```
 
-`registry/example.yaml` shows the entry shape and every drift section without
-assuming any particular tool. Copy it and describe your own machine.
+`registry/example.yaml` shows the entry shape and the common drift situations
+without assuming any particular tool. Copy it and describe your own machine.
 
 ## Governing your own scheduled script
 
