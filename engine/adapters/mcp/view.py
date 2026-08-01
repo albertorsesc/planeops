@@ -1,5 +1,9 @@
 """`plane mcp`: a cross-client view of MCP servers from the last snapshot.
 
+Lives beside the adapter that owns the facts it reads: the view interprets this
+adapter's `facts["sources"]` schema, so it belongs here, not in core (which
+stays adapter-generic and, per the fitness tests, never names one).
+
 A pure read of `observed/<host>/snapshot.json` (what `plane observe` already wrote),
 turned into the one thing no single tool's config shows: every MCP server and which
 clients each is wired into. Same read-only, no-recompute posture as `plane status`.

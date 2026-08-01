@@ -40,8 +40,12 @@ def test_read_status_returns_none_on_a_torn_or_corrupt_file(tmp_path, fake_platf
 def test_read_status_round_trips_a_real_drift_report(tmp_path, fake_platform):
     # Pins the producer->consumer contract: what `render_drift_json` writes is
     # exactly what `read_status` returns, including the keys `plane status` reads.
-    from engine.core.drift import DriftItem, DriftReport
-    from engine.core.report import drift_report_dict, render_drift_json
+    from engine.core.report import (
+        DriftItem,
+        DriftReport,
+        drift_report_dict,
+        render_drift_json,
+    )
 
     rep = DriftReport(host="testhost", ts="2026-07-29T00:00:00")
     rep.alerts = [DriftItem("manual/x", "active", "expected present, not observed")]

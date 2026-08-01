@@ -114,7 +114,13 @@ class MutatingAdapter(Adapter, Protocol):
     resolution); `execute` runs one confirmed Change. The engine owns confirmation
     between them, so an adapter never mutates unprompted. `ctx` is required: the
     engine always provides it, and an optional-`None` contract only invited
-    None-guards in adapters for a case production never produces."""
+    None-guards in adapters for a case production never produces.
+
+    `default_phase` is the converge order an unphased entry inherits (packages 2,
+    config 3, models 4, secrets 5, services 6): part of the contract, so an
+    adapter author gets a typed signal it exists instead of a duck-typed getattr."""
+
+    default_phase: int
 
     def plan(self, entry: Entry, obs: Observed | None, ctx: Ctx) -> list[Change]: ...
 

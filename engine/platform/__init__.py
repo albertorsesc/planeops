@@ -9,8 +9,6 @@ OS is dropping a module in, not editing a dispatch.
 
 from __future__ import annotations
 
-import importlib
-import pkgutil
 import sys
 
 from engine.core.contracts import Platform
@@ -18,19 +16,15 @@ from engine.core.contracts import Platform
 
 def discover_platforms() -> list[Platform]:
     """Every `engine.platform.<os>` exposing a module-level `PLATFORM`."""
-    found: list[Platform] = []
-    for info in pkgutil.iter_modules(__path__):
-        module = importlib.import_module(f"engine.platform.{info.name}")
-        platform = getattr(module, "PLATFORM", None)
-        if platform is None:
-            continue
-        if not isinstance(platform, Platform):
-            raise TypeError(
-                f"engine.platform.{info.name}.PLATFORM does not satisfy "
-                "the Platform contract"
-            )
-        found.append(platform)
-    return found
+    import engine.platform
+    from engine.core.discovery import discover
+
+    found = discover(
+        engine.platform,
+        "PLATFORM",
+        Platform,  # type: ignore[type-abstract]  # isinstance-only, see discover()
+    )
+    return list(found.values())
 
 
 def _serves(platform: Platform, host: str) -> bool:

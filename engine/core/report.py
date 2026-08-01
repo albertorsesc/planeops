@@ -10,9 +10,37 @@ markdown. Both draw from `_SECTIONS`, so a new section shows up in both at once.
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass, field
 from typing import Any
 
-from engine.core.drift import DriftItem, DriftReport
+
+@dataclass(frozen=True, slots=True)
+class DriftItem:
+    entry_id: str
+    lifecycle: str
+    message: str
+
+
+@dataclass(slots=True)
+class DriftReport:
+    """The pane model: triage (`engine.core.drift`) fills it, this module
+    renders it. The types live with the renderers so the dependency points one
+    way (drift -> report), instead of the old cycle hidden behind a
+    function-local import."""
+
+    host: str
+    ts: str
+    alerts: list[DriftItem] = field(default_factory=list)
+    report: list[DriftItem] = field(default_factory=list)
+    auto_folded: list[DriftItem] = field(default_factory=list)
+    uncovered: list[DriftItem] = field(default_factory=list)
+    ungoverned: list[DriftItem] = field(default_factory=list)
+    reauth: list[DriftItem] = field(default_factory=list)
+
+    @property
+    def alert_count(self) -> int:
+        return len(self.alerts)
+
 
 _SECTIONS = [
     ("alerts", "Alerts", "lifecycle violations, missing required assets"),

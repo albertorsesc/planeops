@@ -7,9 +7,10 @@ written somewhere.
 
 import json
 
-from engine.core.drift import DriftItem, DriftReport
 from engine.core.report import (
     DRIFT_SCHEMA_VERSION,
+    DriftItem,
+    DriftReport,
     drift_report_dict,
     render_drift,
     render_drift_json,

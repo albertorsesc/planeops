@@ -20,6 +20,7 @@ REG = (
 class FakeMutating:
     name = "fake"
     domains = ("d",)
+    default_phase = 1  # required by the MutatingAdapter contract
 
     def __init__(self, changes_by_entry):
         self._changes = changes_by_entry
@@ -47,6 +48,7 @@ class FakeObserveOnly:
 class FakeRaisingExecute:
     name = "fake"
     domains = ("d",)
+    default_phase = 1
 
     def observe(self, ctx):
         return []
@@ -108,9 +110,10 @@ def test_yes_executes_no_skips(tmp_path, fake_platform):
 
 
 def test_unphased_entries_converge_by_adapter_default_phase(tmp_path, fake_platform):
-    # An unphased secret-like adapter (default_phase=5) must converge before an
-    # unphased service-like adapter (no default_phase -> last), even though the
-    # registry lists the service first.
+    # Unphased entries inherit each adapter's contract-declared default_phase
+    # (now REQUIRED on MutatingAdapter): the secret-like adapter (5) converges
+    # before the service-like one (6), though the registry lists the service
+    # first.
     reg = (
         "entries:\n"
         "  - {id: svc/x, adapter: svc, domain: s, lifecycle: active, intent: i}\n"
@@ -137,7 +140,7 @@ def test_unphased_entries_converge_by_adapter_default_phase(tmp_path, fake_platf
 
     adapters = {
         "sec": Recorder("sec", "sd", default_phase=5),
-        "svc": Recorder("svc", "s"),  # no default_phase -> converges last
+        "svc": Recorder("svc", "s", default_phase=6),  # services load last
     }
     _run(tmp_path, fake_platform, adapters, ["y", "y"])
     assert order == ["sec/y", "svc/x"]
@@ -318,6 +321,7 @@ def test_a_crashing_plan_is_recorded_and_the_run_continues(tmp_path, fake_platfo
     class CrashyPlan:
         name = "fake"
         domains = ("d",)
+        default_phase = 1
 
         def observe(self, ctx):
             return []

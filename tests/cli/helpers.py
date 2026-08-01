@@ -1,7 +1,7 @@
 """Shared builders for the per-verb CLI tests: canned drift reports, stored
 status payloads, and MCP views, so each verb file stubs the engine the same way."""
 
-from engine.core.drift import DriftItem, DriftReport
+from engine.core.report import DriftItem, DriftReport
 
 
 def _report(alerts=0):

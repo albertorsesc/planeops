@@ -124,11 +124,14 @@ def run_apply(
         to_converge = [e for e in to_converge if e.phase == only_phase]
 
     def _phase_of(entry: Entry) -> int:
-        # entry phase wins; else the adapter's declared default; else last.
+        # entry phase wins; else the adapter's contract-declared default; an
+        # unbuilt or observe-only adapter's entries sort last (apply skips them).
         if entry.phase is not None:
             return entry.phase
-        default = getattr(adapters.get(entry.adapter), "default_phase", None)
-        return default if default is not None else _UNPHASED
+        adapter = adapters.get(entry.adapter)
+        if adapter is not None and can_apply(adapter):
+            return adapter.default_phase
+        return _UNPHASED
 
     # Stable sort, so registry order is preserved within a phase.
     to_converge = sorted(to_converge, key=_phase_of)

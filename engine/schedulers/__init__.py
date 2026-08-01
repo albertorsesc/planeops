@@ -14,8 +14,6 @@ confirmation gate, so scheduling stays on the one mutation path.
 
 from __future__ import annotations
 
-import importlib
-import pkgutil
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -54,19 +52,15 @@ class Scheduler(Protocol):
 
 def discover_schedulers() -> list[Scheduler]:
     """Every `engine.schedulers.<os>` exposing a module-level `SCHEDULER`."""
-    found: list[Scheduler] = []
-    for info in pkgutil.iter_modules(__path__):
-        module = importlib.import_module(f"engine.schedulers.{info.name}")
-        scheduler = getattr(module, "SCHEDULER", None)
-        if scheduler is None:
-            continue
-        if not isinstance(scheduler, Scheduler):
-            raise TypeError(
-                f"engine.schedulers.{info.name}.SCHEDULER does not satisfy "
-                "the Scheduler contract"
-            )
-        found.append(scheduler)
-    return found
+    import engine.schedulers
+    from engine.core.discovery import discover
+
+    found = discover(
+        engine.schedulers,
+        "SCHEDULER",
+        Scheduler,  # type: ignore[type-abstract]  # isinstance-only, see discover()
+    )
+    return list(found.values())
 
 
 def current_scheduler() -> Scheduler:
