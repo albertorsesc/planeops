@@ -18,7 +18,7 @@ Date: 2026-07-31.
 | Secrets | sops+age file in-repo is primary; env files are materialization targets; age private key travels out-of-band | portable across machines; values never in-repo |
 | Reconciler | Human. No code path mutates the machine without a rendered plan and an explicit confirmation (`apply` per change; `schedule` and `import --write` per run, with `--yes` for scripts); the scheduled job runs `reconcile` (observe+drift) only | no unattended mutation |
 | Daemons | None, ever. The optional `plane-mcp` server is a user-started stdio process with no listening port; it never mutates the managed machine (its one non-pure tool refreshes the recorded snapshot) | smallest attack surface |
-| Adapter wire | In-process Python protocol (section 4); adapters are packages under `engine/adapters/`, discovered by package scan, never by a central edit list. The same discovery pattern governs importers, platforms, and schedulers | OCP: add one without editing the core |
+| Adapter wire | In-process Python protocol (section 4); adapters are packages under `engine/adapters/`, discovered by package scan, never by a central edit list. The same discovery pattern governs importers, platforms, schedulers, and secrets stores (selected by `secrets.store`, defaulting to the provider that declares itself default) | OCP: add or swap one without editing the core |
 | Formats | `registry/` = YAML (human-authored, any file grouping); `observed/<host>/snapshot.json` = generated JSON; `observed/<host>/DRIFT.md` + `DRIFT.json` = generated report panes | desired state authored, observed state generated |
 | Non-goals | planeops is not an agent runtime, orchestrator, or gateway: it never sits in any request path and never proxies traffic. Windows support is deliberately out of scope until real demand exists (the platform seam accepts it structurally; every adapter currently assumes POSIX tools). Statistical/ML anomaly scoring stays out of the core | the invariants ARE the product |
 | Rent/usage | Optional capability, not v0.1 scope | deferred |
@@ -63,7 +63,7 @@ planeops/
 │   ├── importers/            # one module per import kind (scan-discovered)
 │   ├── platform/             # one module per OS (scan-discovered): darwin, linux
 │   ├── schedulers/           # one package per OS scheduler backend (scan-discovered)
-│   ├── secrets/              # backend contract, redaction gate, sops backend
+│   ├── secrets/              # store contracts, redaction gate, resolve; stores/ per kind (scan-discovered)
 │   └── mcp_server/           # optional read-only MCP server (mcp extra)
 ├── registry/                 # example entries + unmanaged.yaml
 ├── observed/<host>/          # snapshot.json + DRIFT.md + DRIFT.json + applied.jsonl (generated)

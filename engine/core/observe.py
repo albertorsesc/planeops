@@ -17,7 +17,7 @@ from engine.core.discovery import discover_adapters
 from engine.core.registry import Registry, load_registry
 from engine.core.statefile import atomic_write, read_json_file
 from engine.platform import current_platform
-from engine.secrets.store import build_handle
+from engine.secrets.resolve import build_handle
 
 SNAPSHOT_SCHEMA_VERSION = 1  # bump when the snapshot / entry wire format changes
 

@@ -17,22 +17,31 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 # The core layer: modules that must know only contracts + resolution machinery.
+# engine/secrets/__init__.py (the contracts + redaction gate) and resolve.py
+# (store discovery) belong here too: swapping a secrets store must never touch
+# them, so they may not import a concrete store.
 CORE_LAYER = [
     *sorted((ROOT / "engine" / "core").glob("*.py")),
     ROOT / "engine" / "_run.py",
     ROOT / "engine" / "config.py",
+    ROOT / "engine" / "secrets" / "__init__.py",
+    ROOT / "engine" / "secrets" / "resolve.py",
 ]
 
 EXTENSION_PACKAGES = (
     "engine.adapters",
     "engine.importers",
     "engine.schedulers",
+    "engine.secrets.stores",
     "engine.cli",
     "engine.mcp_server",
 )
 
-# The sanctioned composition edge: discovery must scan the adapters namespace.
-IMPORT_ALLOWLIST = {("engine/core/discovery.py", "engine.adapters")}
+# The sanctioned composition edges: each discovery scans its own namespace.
+IMPORT_ALLOWLIST = {
+    ("engine/core/discovery.py", "engine.adapters"),
+    ("engine/secrets/resolve.py", "engine.secrets.stores"),
+}
 
 # Vendor/tool names that must never appear in core CODE (identifiers or
 # non-docstring strings). Comments and docstrings may mention them as examples.

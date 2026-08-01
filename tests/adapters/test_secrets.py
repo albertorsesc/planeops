@@ -19,7 +19,7 @@ class FakeBackend:
         return {"configured": True} if name in self._present else None
 
     def get(self, name):
-        # As strict as the real SopsBackend: an unknown name raises rather than
+        # As strict as the real SopsStore: an unknown name raises rather than
         # minting a value, so a test can't silently materialize a nonexistent
         # secret and pass anyway.
         if name not in self._present:
@@ -83,7 +83,7 @@ def _ctx(entries, repo_root=None, secrets=None):
 
 
 def test_observe_reports_presence_only():
-    a = SecretsAdapter(backend=FakeBackend(["openrouter"]))
+    a = SecretsAdapter(store=FakeBackend(["openrouter"]))
     out = {
         o.native_id: o for o in a.observe(_ctx([_entry("openrouter"), _entry("gone")]))
     }
@@ -93,7 +93,7 @@ def test_observe_reports_presence_only():
 
 
 def test_observe_never_carries_a_value():
-    o = SecretsAdapter(backend=FakeBackend(["k"])).observe(_ctx([_entry("k")]))[0]
+    o = SecretsAdapter(store=FakeBackend(["k"])).observe(_ctx([_entry("k")]))[0]
     assert set(o.facts) == {"configured"} and o.version is None
 
 
@@ -107,7 +107,7 @@ def test_ignores_non_secret_entries():
             "intent": "i",
         }
     )
-    assert SecretsAdapter(backend=FakeBackend([])).observe(_ctx([other])) == []
+    assert SecretsAdapter(store=FakeBackend([])).observe(_ctx([other])) == []
 
 
 def test_default_backend_needs_a_repo_root():
@@ -131,7 +131,10 @@ def test_default_backend_resolves_the_registry_store(tmp_path):
 def test_store_path_is_overridable_via_instance_yaml(tmp_path):
     store = tmp_path / "vault.sops.yaml"
     store.write_text("k: ENC[data]\nsops: {}\n")
-    (tmp_path / "instance.yaml").write_text("secrets:\n  store: vault.sops.yaml\n")
+    # `store` names the KIND (discovered); `path` is the sops store's own knob.
+    (tmp_path / "instance.yaml").write_text(
+        "secrets:\n  store: sops\n  path: vault.sops.yaml\n"
+    )
     out = SecretsAdapter().observe(_ctx([_entry("k")], repo_root=tmp_path))
     assert out[0].facts == {"configured": True}
 
