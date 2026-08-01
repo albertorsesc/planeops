@@ -96,13 +96,18 @@ def _enum[E: StrEnum](cls: type[E], value: Any, field_name: str, entry_id: str) 
         ) from None
 
 
+_SECRET_REF_KEYS = frozenset({"ref", "injected_as"})
+
+
 def _validate_secret_ref(ref: Any, entry_id: Any) -> None:
     """One `secrets` item: `{ref: secret://<backend>/<name>, injected_as:
-    env:NAME | file:<path>#KEY, rotation: <dur>}`. Checked at load, so a typo'd
-    ref fails with the entry named instead of being silently skipped when the
-    secrets adapter later scans for consumers."""
+    file:<path>#KEY}`. Checked at load, so a typo'd ref fails with the entry
+    named instead of being silently skipped when the secrets adapter later
+    scans for consumers. Only the file form exists; an env: target is rejected
+    as unsupported rather than advertised and then silently dropped."""
     if not isinstance(ref, dict):
         raise SchemaError(f"entry {entry_id!r}: each secrets item must be a mapping")
+    _reject_unknown_keys(ref, _SECRET_REF_KEYS, f"entry {entry_id!r} secrets item")
     uri = ref.get("ref")
     if not isinstance(uri, str) or not uri.startswith("secret://"):
         raise SchemaError(
@@ -110,10 +115,21 @@ def _validate_secret_ref(ref: Any, entry_id: Any) -> None:
             "'secret://<backend>/<name>' string"
         )
     injected = ref.get("injected_as")
-    if injected is not None and not isinstance(injected, str):
+    if injected is None:
+        return
+    if isinstance(injected, str) and injected.startswith("env:"):
         raise SchemaError(
-            f"entry {entry_id!r}: injected_as={injected!r} must be a string "
-            "('env:NAME' or 'file:<path>#KEY')"
+            f"entry {entry_id!r}: injected_as={injected!r}: env: injection is "
+            "not supported yet; use 'file:<path>#KEY'"
+        )
+    path, sep, key = (
+        injected[len("file:") :].rpartition("#")
+        if isinstance(injected, str) and injected.startswith("file:")
+        else ("", "", "")
+    )
+    if not (sep and path and key):
+        raise SchemaError(
+            f"entry {entry_id!r}: injected_as={injected!r} must be 'file:<path>#KEY'"
         )
 
 

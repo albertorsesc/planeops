@@ -41,6 +41,11 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `injected_as` on a secrets item must be `file:<path>#KEY`. The `env:NAME`
+  form the old error message advertised was silently dropped at
+  materialization; it is now rejected at load as not yet supported, and a
+  typo'd key inside a secrets item (`injectd_as:`) fails like any other
+  unknown key instead of quietly meaning "never materialize this secret".
 - A typo'd YAML key is a loud error, never a silent no-op. Unknown keys on a
   registry entry (`tolerence:`, `need:`), on a top-level registry document
   (`entrys:`), and malformed items in `mcp.sources` (`pth:`) are rejected with
