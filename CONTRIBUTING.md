@@ -49,6 +49,26 @@ a package scan, so you never edit a central list.
    against recorded fixtures. No unit test touches the live machine; the shared
    conformance suite will fail until the new adapter is wired into it.
 
+## Test layout (the mirror rule)
+
+`tests/` shadows `engine/` exactly, so knowing where code lives tells you where
+its test lives:
+
+- `engine/<path>/<module>.py` -> `tests/<path>/test_<module>.py`.
+- A package whose logic lives in `__init__.py` -> `tests/<path>/test_<package>.py`
+  (e.g. `engine/adapters/launchd/` -> `tests/adapters/test_launchd.py`).
+- When a module grows several concerns, split the *implementation* into a
+  package first (one module per concern) and mirror it, as `engine/cli/` does
+  with one module per verb; never let one test file become a junk drawer for a
+  module that should be a package.
+- Cross-cutting contract suites (`tests/core/test_conformance.py`,
+  `tests/core/test_redaction.py`) sit beside the contracts they enforce and are
+  the sanctioned exceptions.
+- Shared builders for one directory's tests live in that directory's
+  `helpers.py` (e.g. `tests/cli/helpers.py`); fixtures go in `conftest.py`.
+- `tests/integration/` is organized by scenario against real tools, a different
+  axis than unit mirroring, deliberately.
+
 ## Design invariants
 
 Hold these; a change that breaks one needs a very good reason:

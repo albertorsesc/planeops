@@ -141,3 +141,34 @@ def test_secret_ref_must_carry_a_secret_uri():
 def test_secret_injected_as_shape_is_checked():
     with pytest.raises(SchemaError, match="injected_as"):
         entry_from_dict(_secret_entry([{"ref": "secret://sops/x", "injected_as": 42}]))
+
+
+# ---- scalar fields are type-checked, not passed through ----
+
+
+def test_phase_must_be_an_integer():
+    # YAML `phase: "3"` used to load fine and then crash apply's phase sort
+    # with a TypeError; the schema now rejects it at load with the entry named.
+    with pytest.raises(SchemaError, match="phase"):
+        entry_from_dict(
+            {"id": "a/b", "adapter": "a", "domain": "d", "lifecycle": "active",
+             "intent": "i", "phase": "3"}
+        )  # fmt: skip
+
+
+def test_phase_rejects_bool():
+    # bool is an int subclass; `phase: true` is a typo, not phase 1.
+    with pytest.raises(SchemaError, match="phase"):
+        entry_from_dict(
+            {"id": "a/b", "adapter": "a", "domain": "d", "lifecycle": "active",
+             "intent": "i", "phase": True}
+        )  # fmt: skip
+
+
+def test_pin_must_be_a_string():
+    # YAML `pin: 1.2` parses as a float; version comparison then misbehaves.
+    with pytest.raises(SchemaError, match="pin"):
+        entry_from_dict(
+            {"id": "a/b", "adapter": "a", "domain": "d", "lifecycle": "active",
+             "intent": "i", "pin": 1.2}
+        )  # fmt: skip

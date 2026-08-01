@@ -6,8 +6,23 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- The CLI is a package: one module per verb, each owning its command and its
+  parser registration, with `engine/cli/__init__.py` reduced to composition and
+  the single operator-error choke point. Tests mirror the source tree
+  one-to-one (`tests/cli/test_<verb>.py`, per-backend scheduler tests, per-OS
+  platform tests), the mirror rule is codified in CONTRIBUTING, and the
+  previously missing mirrors exist, so "tests mirror engine" is now literally,
+  mechanically true.
+
 ### Fixed
 
+- `phase` must be an integer and `pin` a string at registry load (a YAML
+  `phase: "3"` used to load fine and then crash apply's phase sort). Every verb
+  notes a resolution landing on a directory without the `.planeops` marker (the
+  skipped-init trap), and `plane schedule` warns when the plane binary it bakes
+  into the job does not exist yet.
 - Hardening follow-ups from the audit: parents created for a materialized secret
   are 0700 (not the process umask, which undermined the 0600 file inside a
   listable directory); the systemd scheduler refuses a newline in the plane path

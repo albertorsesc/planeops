@@ -160,6 +160,19 @@ def entry_from_dict(raw: dict[str, Any]) -> Entry:
     for ref in secrets:
         _validate_secret_ref(ref, entry_id)
 
+    phase = raw.get("phase")
+    # bool is an int subclass; `phase: true` is a typo, not phase 1. A string
+    # phase used to load fine and then crash apply's phase sort.
+    if phase is not None and (isinstance(phase, bool) or not isinstance(phase, int)):
+        raise SchemaError(f"entry {entry_id!r}: phase={phase!r} must be an integer")
+
+    pin = raw.get("pin")
+    if pin is not None and not isinstance(pin, str):
+        raise SchemaError(
+            f"entry {entry_id!r}: pin={pin!r} must be a string "
+            "(quote it: YAML reads 1.2 as a number)"
+        )
+
     return Entry(
         id=entry_id,
         adapter=raw["adapter"],

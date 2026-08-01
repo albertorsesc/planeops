@@ -284,3 +284,67 @@ def test_every_mutating_adapter_declares_its_converge_phase():
         "launchd": 6,
         "systemd": 6,
     }
+
+
+# ---- the interactive gate itself ----
+
+
+def test_prompt_confirm_parses_answers(monkeypatch, capsys):
+    from engine.core.apply import prompt_confirm
+
+    answers = iter(["y", "N", " a ", "", "yes"])
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+    assert prompt_confirm(CA) == "y"
+    assert prompt_confirm(CA) == "n"  # case-folded
+    assert prompt_confirm(CA) == "a"  # whitespace stripped
+    assert prompt_confirm(CA) == "n"  # empty answer never mutates
+    assert prompt_confirm(CA) == "y"  # first letter decides
+    assert "do a" in capsys.readouterr().out  # the diff is shown before asking
+
+
+def test_prompt_confirm_defaults_to_no_without_stdin(monkeypatch):
+    from engine.core.apply import prompt_confirm
+
+    def _eof(_prompt):
+        raise EOFError
+
+    monkeypatch.setattr("builtins.input", _eof)
+    assert prompt_confirm(CA) == "n"  # non-interactive: never mutate
+
+
+def test_a_crashing_plan_is_recorded_and_the_run_continues(tmp_path, fake_platform):
+    # One adapter's broken plan must not abort the whole run; the failure is
+    # journaled and the other entries still converge.
+    class CrashyPlan:
+        name = "fake"
+        domains = ("d",)
+
+        def observe(self, ctx):
+            return []
+
+        def plan(self, entry, obs, ctx):
+            if entry.id == "fake/a":
+                raise RuntimeError("plan boom")
+            return [CB]
+
+        def execute(self, change, ctx):
+            return Result(ok=True, detail="done")
+
+    _seed(tmp_path)
+    applied = _run(tmp_path, fake_platform, {"fake": CrashyPlan()}, ["y"])
+    outcomes = {
+        a.change.entry_id: (a.executed, a.result.ok if a.result else None)
+        for a in applied
+    }
+    assert outcomes["fake/a"] == (False, False)  # recorded, not executed
+    assert outcomes["fake/b"] == (True, True)  # the run continued
+    journal = tmp_path / "observed" / "testhost" / "applied.jsonl"
+    assert "plan boom" in journal.read_text()
+
+
+def test_only_phase_filters(tmp_path, fake_platform):
+    _seed(tmp_path, PHASED)  # fake/a phase 5, fake/b phase 1
+    fake = FakeMutating({"fake/a": [CA], "fake/b": [CB]})
+    applied = _run(tmp_path, fake_platform, {"fake": fake}, ["y"], only_phase=5)
+    assert fake.executed == [CA]
+    assert [a.change.entry_id for a in applied] == ["fake/a"]

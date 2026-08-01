@@ -1,49 +1,49 @@
-"""`plane import --write`: land proposed entries into registry/imported.yaml.
-
-Turns onboarding from hand-authoring YAML into pruning a generated list: `observe`
-then `import observed --write` seeds the registry from the machine itself.
-"""
+"""`plane import` wiring: the observed default path, --write confirmation, and
+the path requirement for other kinds. Importer logic lives in tests/importers/."""
 
 import json
 
-import yaml
-
 from engine.cli import main
 from engine.core.registry import load_registry
-from engine.importers import write_proposal
 
 
-def _entries(*ids):
-    return [
-        {
-            "id": i,
-            "adapter": i.split("/")[0],
-            "domain": "package",
-            "lifecycle": "active",
-            "tolerance": "report",
-            "intent": "imported, verify",
-        }
-        for i in ids
-    ]
-
-
-def test_write_proposal_creates_then_merges_without_dupes(tmp_path):
-    (tmp_path / "registry").mkdir()
-    p, total = write_proposal(_entries("pkg-brew/a", "pkg-brew/b"), tmp_path)
-    assert p == tmp_path / "registry" / "imported.yaml"
-    ids = [e["id"] for e in yaml.safe_load(p.read_text())["entries"]]
-    assert ids == ["pkg-brew/a", "pkg-brew/b"] and total == 2
-    # a second write merges: keeps existing, adds new, de-dups the repeat
-    _, total2 = write_proposal(_entries("pkg-brew/b", "pkg-brew/c"), tmp_path)
-    ids = [e["id"] for e in yaml.safe_load(p.read_text())["entries"]]
-    assert ids == ["pkg-brew/a", "pkg-brew/b", "pkg-brew/c"] and total2 == 3
-
-
-def _snapshot(observed, host="testhost"):
+def _snapshot(observed, host="h"):
     return json.dumps({"host": host, "observed": observed})
 
 
-def test_cli_import_write_seeds_the_registry(tmp_path, capsys):
+def test_import_observed_defaults_to_the_host_snapshot(monkeypatch, capsys, tmp_path):
+    # The CLI computes this path everywhere else; making the user retype it was
+    # pure friction. `plane import observed` alone now reads it.
+    class _Plat:
+        name = "fake"
+
+        def hostname(self):
+            return "h"
+
+        def home(self):
+            return tmp_path
+
+    monkeypatch.setattr("engine.platform.current_platform", lambda: _Plat())
+    inst = tmp_path / "inst"
+    (inst / "registry").mkdir(parents=True)
+    (inst / ".planeops").write_text("")
+    snapdir = inst / "observed" / "h"
+    snapdir.mkdir(parents=True)
+    (snapdir / "snapshot.json").write_text(
+        _snapshot([{"adapter": "manual", "native_id": "x", "facts": {}}])
+    )
+    assert main(["--repo", str(inst), "import", "observed"]) == 0
+    out = capsys.readouterr().out
+    assert "manual/x" in out  # proposal printed from the defaulted snapshot
+
+
+def test_import_other_kinds_still_require_a_path(capsys, tmp_path):
+    (tmp_path / ".planeops").write_text("")
+    assert main(["--repo", str(tmp_path), "import", "envfile"]) == 1
+    assert "path" in capsys.readouterr().err
+
+
+def test_import_write_seeds_the_registry(tmp_path, capsys):
     reg = tmp_path / "registry"
     reg.mkdir()
     (tmp_path / ".planeops").write_text("")
@@ -53,7 +53,8 @@ def test_cli_import_write_seeds_the_registry(tmp_path, capsys):
             [
                 {"adapter": "ollama", "native_id": "m1", "facts": {}},
                 {"adapter": "mcp", "native_id": "context7", "facts": {}},
-            ]
+            ],
+            host="testhost",
         )
     )
     code = main(
@@ -72,7 +73,7 @@ def test_cli_import_write_seeds_the_registry(tmp_path, capsys):
     assert "nothing new" in capsys.readouterr().out.lower()
 
 
-def test_cli_import_write_without_yes_and_no_tty_does_not_write(tmp_path, capsys):
+def test_import_write_without_yes_and_no_tty_does_not_write(tmp_path):
     # Non-interactive without --yes must not silently mutate the registry.
     reg = tmp_path / "registry"
     reg.mkdir()
