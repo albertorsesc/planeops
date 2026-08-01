@@ -101,5 +101,10 @@ entry with **BREAKING:**. Pre-1.0 (while `0.x`): a breaking change bumps the **m
 (`0.MINOR.0`); features and fixes bump the **patch** (`0.x.PATCH`). After 1.0, standard
 SemVer (breaking → major).
 
+The first published release is `0.1.0`, per the [SemVer FAQ](https://semver.org/#faq).
+`1.0.0` is a stability commitment, deliberately deferred: it is cut when the registry
+schema, the CLI, the config format, and the adapter contracts are stable enough that
+other people's machines depend on them staying put, not at any feature milestone.
+
 Open a PR against `main`; the template lists what to confirm, and the body should
 state the change type and any breaking impact (and the version bump it implies).
