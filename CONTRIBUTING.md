@@ -62,8 +62,10 @@ its test lives:
   with one module per verb; never let one test file become a junk drawer for a
   module that should be a package.
 - Cross-cutting contract suites (`tests/core/test_conformance.py`,
-  `tests/core/test_redaction.py`) sit beside the contracts they enforce and are
-  the sanctioned exceptions.
+  `tests/core/test_redaction.py`, and the tree-level
+  `tests/test_architecture.py`, which enforces the layering rules and this very
+  mirror rule in CI) sit beside what they enforce and are the sanctioned
+  exceptions.
 - Shared builders for one directory's tests live in that directory's
   `helpers.py` (e.g. `tests/cli/helpers.py`); fixtures go in `conftest.py`.
 - `tests/integration/` is organized by scenario against real tools, a different
