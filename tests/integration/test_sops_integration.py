@@ -16,7 +16,7 @@ from engine.adapters.secrets import SecretsAdapter
 from engine.core.contracts import Ctx
 from engine.core.schema import entry_from_dict
 from engine.secrets import materialization_handle
-from engine.secrets.sops import SopsBackend
+from engine.secrets.stores.sops import SopsStore
 
 pytestmark = pytest.mark.skipif(
     shutil.which("sops") is None or shutil.which("age") is None,
@@ -49,7 +49,7 @@ def _encrypted_store(tmp_path, monkeypatch):
 def test_sops_backend_round_trips_a_real_store(tmp_path, monkeypatch):
     store = _encrypted_store(tmp_path, monkeypatch)
     assert VALUE not in store.read_text()  # ciphertext at rest
-    backend = SopsBackend(store)
+    backend = SopsStore(store)
     assert backend.exists("api-key")
     assert not backend.exists("nope")
     assert backend.get("api-key") == VALUE  # real `sops -d --extract`
@@ -98,7 +98,7 @@ def test_materialize_from_a_real_store_redacts_everywhere(tmp_path, monkeypatch)
     [change] = SecretsAdapter().plan(secret, None, ctx)
     assert VALUE not in change.diff
 
-    handle = materialization_handle(SopsBackend(store))
+    handle = materialization_handle(SopsStore(store))
     exec_ctx = Ctx(platform=_Plat(), host="h", now=datetime(2026, 7, 28),
                    entries=entries, repo_root=tmp_path, secrets=handle)  # fmt: skip
     res = SecretsAdapter().execute(change, exec_ctx)

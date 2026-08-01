@@ -8,6 +8,16 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **BREAKING (pre-1.0):** secrets stores are the fifth discovery seam. Store
+  implementations live under `engine/secrets/stores/`, one module per kind
+  exposing a `STORE` provider; the resolution layer knows no concrete store
+  (enforced by the architecture fitness tests), and even the default is the
+  provider's own declaration. In `instance.yaml`, `secrets.store` now names the
+  store KIND (`sops`, the default) and the sops file path moved to
+  `secrets.path`; an old-style path in `store` fails loudly with the available
+  kinds listed. The protocol is `SecretsStore` (was `SecretsBackend`), and
+  `run_apply`'s injection parameter is `secrets_store`. Swapping or adding a
+  store now touches zero engine code: drop a module in, it self-registers.
 - The CLI is a package: one module per verb, each owning its command and its
   parser registration, with `engine/cli/__init__.py` reduced to composition and
   the single operator-error choke point. Tests mirror the source tree

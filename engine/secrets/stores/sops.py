@@ -5,6 +5,11 @@ so whether a secret is configured can be checked without the age key and without
 decrypting anything: `exists`/`meta` read the key set only. Decrypting one value
 (`get`) shells out to `sops` and is reached only through an unsealed handle, so it
 never runs during observe.
+
+Selected as `secrets: {store: sops}` in `instance.yaml` (and by default: this
+module declares itself the default store, the resolution layer holds no such
+knowledge). Its one knob is `secrets.path`, the store file relative to the
+instance root.
 """
 
 from __future__ import annotations
@@ -16,8 +21,10 @@ import yaml
 
 from engine._run import Runner, default_run
 
+DEFAULT_PATH = "registry/secrets.sops.yaml"
 
-class SopsBackend:
+
+class SopsStore:
     name = "sops"
 
     def __init__(self, store_path: Path, run: Runner = default_run):
@@ -66,3 +73,18 @@ class SopsBackend:
                 f"sops decrypt failed for {name!r}: {res.err.strip()[:200]}"
             )
         return res.out.rstrip("\n")
+
+
+class SopsProvider:
+    """The discovery face of this store: name, default status, construction."""
+
+    name = "sops"
+    is_default = True  # the shipped default; a second store would ship False
+
+    def build(self, repo_root: Path, section: dict[str, Any]) -> SopsStore:
+        configured = section.get("path")
+        rel = configured if isinstance(configured, str) and configured else DEFAULT_PATH
+        return SopsStore(repo_root / rel)
+
+
+STORE = SopsProvider()

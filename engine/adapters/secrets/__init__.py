@@ -20,12 +20,12 @@ from typing import Any, Protocol
 from engine.config import section as instance_section
 from engine.core.contracts import Change, Ctx, Observed, Result
 from engine.core.schema import Entry
-from engine.secrets import SecretsBackend
-from engine.secrets.store import build_handle
+from engine.secrets import SecretsStore
+from engine.secrets.resolve import build_handle
 
 
 class _Reader(Protocol):
-    """Anything that can answer presence for the observe pass (a backend or the
+    """Anything that can answer presence for the observe pass (a store or the
     handle on Ctx both structurally satisfy this)."""
 
     def exists(self, name: str) -> bool: ...
@@ -38,14 +38,14 @@ class SecretsAdapter:
     # when an entry sets no explicit phase (mirrors the SPEC converge order).
     default_phase = 5
 
-    def __init__(self, backend: SecretsBackend | None = None):
-        self._backend = backend
+    def __init__(self, store: SecretsStore | None = None):
+        self._store = store
 
     def _reader(self, ctx: Ctx) -> _Reader | None:
-        # An injected backend (tests) wins; then the handle the engine put on Ctx;
+        # An injected store (tests) wins; then the handle the engine put on Ctx;
         # else resolve one from the repo. All expose exists() for presence.
-        if self._backend is not None:
-            return self._backend
+        if self._store is not None:
+            return self._store
         if ctx.secrets is not None:
             return ctx.secrets
         return build_handle(ctx.repo_root)

@@ -2,10 +2,10 @@ import pytest
 import yaml
 
 from engine._run import RunResult
-from engine.secrets.sops import SopsBackend
+from engine.secrets.stores.sops import DEFAULT_PATH, STORE, SopsStore
 
 # A sops file: keys plaintext, values encrypted, plus the `sops` metadata block.
-STORE = {
+STORE_DOC = {
     "openrouter_api_key": "ENC[AES256_GCM,data:abc,type:str]",
     "anthropic_api_key": "ENC[AES256_GCM,data:def,type:str]",
     "sops": {"age": [{"recipient": "age1example"}], "version": "3.8.1"},
@@ -14,23 +14,23 @@ STORE = {
 
 def _write_store(tmp_path):
     p = tmp_path / "secrets.sops.yaml"
-    p.write_text(yaml.safe_dump(STORE))
+    p.write_text(yaml.safe_dump(STORE_DOC))
     return p
 
 
 def test_exists_reads_keys_without_decrypting(tmp_path):
-    b = SopsBackend(_write_store(tmp_path))
+    b = SopsStore(_write_store(tmp_path))
     assert b.exists("openrouter_api_key")
     assert b.exists("anthropic_api_key")
     assert not b.exists("nonexistent_key")
 
 
 def test_sops_metadata_block_is_not_a_secret(tmp_path):
-    assert not SopsBackend(_write_store(tmp_path)).exists("sops")
+    assert not SopsStore(_write_store(tmp_path)).exists("sops")
 
 
 def test_missing_store_is_empty(tmp_path):
-    b = SopsBackend(tmp_path / "nope.yaml")
+    b = SopsStore(tmp_path / "nope.yaml")
     assert not b.exists("anything")
     assert b.meta("anything") is None
 
@@ -38,11 +38,11 @@ def test_missing_store_is_empty(tmp_path):
 def test_malformed_store_degrades_not_crashes(tmp_path):
     bad = tmp_path / "bad.yaml"
     bad.write_text("{ not: valid: yaml")
-    assert not SopsBackend(bad).exists("x")
+    assert not SopsStore(bad).exists("x")
 
 
 def test_meta_present_for_configured_secret(tmp_path):
-    assert SopsBackend(_write_store(tmp_path)).meta("openrouter_api_key") == {
+    assert SopsStore(_write_store(tmp_path)).meta("openrouter_api_key") == {
         "configured": True
     }
 
@@ -56,7 +56,7 @@ def test_get_decrypts_via_sops(tmp_path):
         timeouts.append(timeout)
         return RunResult(0, "sk-secret-value\n", "")
 
-    b = SopsBackend(_write_store(tmp_path), run=fake_run)
+    b = SopsStore(_write_store(tmp_path), run=fake_run)
     assert b.get("openrouter_api_key") == "sk-secret-value"  # trailing newline trimmed
     assert calls == [
         ["sops", "-d", "--extract", '["openrouter_api_key"]', str(b._store)]
@@ -74,14 +74,14 @@ def test_get_refuses_an_absent_key_without_shelling_out(tmp_path):
         called = True
         return RunResult(0, "", "")
 
-    b = SopsBackend(_write_store(tmp_path), run=fake_run)
+    b = SopsStore(_write_store(tmp_path), run=fake_run)
     with pytest.raises(KeyError):
         b.get("nonexistent_key")
     assert called is False
 
 
 def test_get_raises_when_sops_fails(tmp_path):
-    b = SopsBackend(
+    b = SopsStore(
         _write_store(tmp_path),
         run=lambda cmd, *, timeout=30: RunResult(1, "", "no key"),
     )
@@ -102,7 +102,21 @@ def test_get_refuses_a_name_that_cannot_be_safely_quoted(tmp_path):
 
     store = tmp_path / "s.yaml"
     store.write_text('bad"name: x\nbad\nline: y\n')
-    b = SopsBackend(store, run=fake_run)
+    b = SopsStore(store, run=fake_run)
     with pytest.raises(ValueError, match="safely"):
         b.get('bad"name')
     assert called is False
+
+
+# ---- the provider face (discovery + construction) ----
+
+
+def test_provider_declares_itself_the_default():
+    assert STORE.name == "sops" and STORE.is_default is True
+
+
+def test_provider_builds_from_the_instance_section(tmp_path):
+    store = STORE.build(tmp_path, {})
+    assert store._store == tmp_path / DEFAULT_PATH  # its own default path
+    custom = STORE.build(tmp_path, {"path": "vault/other.yaml"})
+    assert custom._store == tmp_path / "vault" / "other.yaml"

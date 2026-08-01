@@ -26,8 +26,8 @@ from engine.core.discovery import discover_adapters
 from engine.core.observe import load_observed, load_snapshot
 from engine.core.registry import load_registry
 from engine.core.schema import Entry, Owner
-from engine.secrets import SecretsBackend, SecretsHandle, materialization_handle
-from engine.secrets.store import resolve_backend
+from engine.secrets import SecretsHandle, SecretsStore, materialization_handle
+from engine.secrets.resolve import resolve_store
 
 # Returns 'y' (apply), 'n' (skip), or 'a' (apply this and the rest of its domain).
 Confirm = Callable[[Change], str]
@@ -91,7 +91,7 @@ def run_apply(
     adapters: dict[str, Adapter] | None = None,
     confirm: Confirm | None = None,
     now: datetime | None = None,
-    secrets_backend: SecretsBackend | None = None,
+    secrets_store: SecretsStore | None = None,
 ) -> list[Applied]:
     from engine.platform import current_platform
 
@@ -133,9 +133,7 @@ def run_apply(
     # Stable sort, so registry order is preserved within a phase.
     to_converge = sorted(to_converge, key=_phase_of)
 
-    backend = (
-        secrets_backend if secrets_backend is not None else resolve_backend(repo_root)
-    )
+    store = secrets_store if secrets_store is not None else resolve_store(repo_root)
     ctx = Ctx(
         platform=platform,
         host=host,
@@ -145,7 +143,7 @@ def run_apply(
         repo_root=repo_root,
         # Presence-only here (and for every non-secrets execute). The value-capable
         # handle is built per-execute below, and only for a secret-domain adapter.
-        secrets=SecretsHandle(backend) if backend is not None else None,
+        secrets=SecretsHandle(store) if store is not None else None,
     )
     auto_domains: set[str] = set()
     applied: list[Applied] = []
@@ -173,8 +171,8 @@ def run_apply(
             )
             continue
         # Only a secret-domain adapter's execute may obtain a value, and only if a
-        # backend resolved. Every other execute keeps the presence-only handle.
-        may_materialize = backend is not None and "secret" in adapter.domains
+        # store resolved. Every other execute keeps the presence-only handle.
+        may_materialize = store is not None and "secret" in adapter.domains
         for change in changes:
             if entry.domain in auto_domains:
                 decision = "y"
@@ -185,8 +183,8 @@ def run_apply(
                     decision = "y"
             if decision == "y":
                 exec_ctx = ctx
-                if may_materialize and backend is not None:
-                    exec_ctx = replace(ctx, secrets=materialization_handle(backend))
+                if may_materialize and store is not None:
+                    exec_ctx = replace(ctx, secrets=materialization_handle(store))
                 try:
                     result = adapter.execute(change, exec_ctx)
                 except Exception as exc:  # contain a crashing execute

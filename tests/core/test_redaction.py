@@ -145,7 +145,7 @@ def test_non_secret_adapter_execute_cannot_obtain_a_value(tmp_path, fake_platfor
         adapters=adapters,
         confirm=lambda change: "y",
         now=datetime(2026, 7, 28),
-        secrets_backend=FakeBackend(["openrouter-api-key"]),
+        secrets_store=FakeBackend(["openrouter-api-key"]),
     )
     assert applied and applied[0].result.ok is False  # get() raised, execute failed
     journal = (tmp_path / "observed" / "testhost" / "applied.jsonl").read_text()
@@ -165,7 +165,7 @@ def test_apply_materializes_the_value_without_journaling_it(tmp_path, fake_platf
         adapters=adapters,
         confirm=lambda change: "y",
         now=datetime(2026, 7, 28),
-        secrets_backend=FakeBackend(["openrouter-api-key"]),
+        secrets_store=FakeBackend(["openrouter-api-key"]),
     )
 
     assert [a.executed and a.result.ok for a in applied] == [True]
@@ -192,7 +192,7 @@ def test_id_filtered_apply_still_materializes_a_cross_phase_consumer(
         adapters=adapters,
         confirm=lambda change: "y",
         now=datetime(2026, 7, 28),
-        secrets_backend=FakeBackend(["openrouter-api-key"]),
+        secrets_store=FakeBackend(["openrouter-api-key"]),
     )
 
     assert [a.executed and a.result.ok for a in applied] == [True]
