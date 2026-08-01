@@ -17,30 +17,30 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 # The core layer: modules that must know only contracts + resolution machinery.
-# engine/secrets/__init__.py (the contracts + redaction gate) and resolve.py
+# planeops/secrets/__init__.py (the contracts + redaction gate) and resolve.py
 # (store discovery) belong here too: swapping a secrets store must never touch
 # them, so they may not import a concrete store.
 CORE_LAYER = [
-    *sorted((ROOT / "engine" / "core").glob("*.py")),
-    ROOT / "engine" / "_run.py",
-    ROOT / "engine" / "config.py",
-    ROOT / "engine" / "secrets" / "__init__.py",
-    ROOT / "engine" / "secrets" / "resolve.py",
+    *sorted((ROOT / "planeops" / "core").glob("*.py")),
+    ROOT / "planeops" / "_run.py",
+    ROOT / "planeops" / "config.py",
+    ROOT / "planeops" / "secrets" / "__init__.py",
+    ROOT / "planeops" / "secrets" / "resolve.py",
 ]
 
 EXTENSION_PACKAGES = (
-    "engine.adapters",
-    "engine.importers",
-    "engine.schedulers",
-    "engine.secrets.stores",
-    "engine.cli",
-    "engine.mcp_server",
+    "planeops.adapters",
+    "planeops.importers",
+    "planeops.schedulers",
+    "planeops.secrets.stores",
+    "planeops.cli",
+    "planeops.mcp_server",
 )
 
 # The sanctioned composition edges: each discovery scans its own namespace.
 IMPORT_ALLOWLIST = {
-    ("engine/core/discovery.py", "engine.adapters"),
-    ("engine/secrets/resolve.py", "engine.secrets.stores"),
+    ("planeops/core/discovery.py", "planeops.adapters"),
+    ("planeops/secrets/resolve.py", "planeops.secrets.stores"),
 }
 
 # Vendor/tool names that must never appear in core CODE (identifiers or
@@ -136,10 +136,10 @@ def _has_logic(path: Path) -> bool:
 def test_every_engine_module_has_its_mirror_test():
     sanctioned_missing: set[str] = set()  # none today; additions need a reason here
     missing = []
-    for src in sorted((ROOT / "engine").rglob("*.py")):
+    for src in sorted((ROOT / "planeops").rglob("*.py")):
         if "__pycache__" in str(src):
             continue
-        rel = src.relative_to(ROOT / "engine")
+        rel = src.relative_to(ROOT / "planeops")
         if src.name == "__init__.py":
             pkg = rel.parent
             if str(pkg) == "." or not _has_logic(src):

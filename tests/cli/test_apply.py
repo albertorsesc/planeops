@@ -3,9 +3,9 @@ and the post-converge drift refresh."""
 
 import pytest
 
-from engine.cli import main
-from engine.core.apply import Applied
-from engine.core.contracts import Change, Result
+from planeops.cli import main
+from planeops.core.apply import Applied
+from planeops.core.contracts import Change, Result
 from tests.cli.helpers import _report, _status
 
 
@@ -19,7 +19,7 @@ def test_apply_unknown_id_is_an_error(monkeypatch, capsys, inst):
     def _raise(repo, *, only_id=None, only_phase=None):
         raise LookupError("no registry entry with id 'launchd/typo'")
 
-    monkeypatch.setattr("engine.core.apply.run_apply", _raise)
+    monkeypatch.setattr("planeops.core.apply.run_apply", _raise)
     code = main(["--repo", inst, "apply", "--id", "launchd/typo"])
     assert code == 1
     assert "launchd/typo" in capsys.readouterr().err
@@ -30,9 +30,10 @@ def test_apply_no_changes_reports_remaining_drift(monkeypatch, capsys, inst):
     # alerts that no adapter could plan away (service file absent, uncovered,
     # owner: human). The message must be neutral and surface the standing alerts.
     monkeypatch.setattr(
-        "engine.core.apply.run_apply", lambda repo, *, only_id=None, only_phase=None: []
+        "planeops.core.apply.run_apply",
+        lambda repo, *, only_id=None, only_phase=None: [],
     )
-    monkeypatch.setattr("engine.core.status.read_status", lambda repo: _status(2))
+    monkeypatch.setattr("planeops.core.status.read_status", lambda repo: _status(2))
     code = main(["--repo", inst, "apply"])
     out = capsys.readouterr().out
     assert "machine matches desired state" not in out
@@ -49,17 +50,17 @@ def test_apply_refreshes_drift_after_execute(monkeypatch, inst):
         Change("x/y", "configure", "d", {}), True, Result(ok=True, detail="ok")
     )
     monkeypatch.setattr(
-        "engine.core.apply.run_apply",
+        "planeops.core.apply.run_apply",
         lambda repo, *, only_id=None, only_phase=None: [done],
     )
     monkeypatch.setattr(
-        "engine.core.observe.run_observe",
+        "planeops.core.observe.run_observe",
         lambda repo: (
             calls.append("observe") or {"observed": [], "uncovered": [], "host": "h"}
         ),
     )
     monkeypatch.setattr(
-        "engine.core.drift.run_drift", lambda repo: calls.append("drift") or _report()
+        "planeops.core.drift.run_drift", lambda repo: calls.append("drift") or _report()
     )
     code = main(["--repo", inst, "apply"])
     assert calls == ["observe", "drift"]  # panes recomputed, prompt is fresh
@@ -71,13 +72,13 @@ def test_apply_failed_execute_exits_1(monkeypatch, capsys, inst):
         Change("x/y", "configure", "d", {}), True, Result(ok=False, detail="boom")
     )
     monkeypatch.setattr(
-        "engine.core.apply.run_apply",
+        "planeops.core.apply.run_apply",
         lambda repo, *, only_id=None, only_phase=None: [failed],
     )
     monkeypatch.setattr(
-        "engine.core.observe.run_observe",
+        "planeops.core.observe.run_observe",
         lambda repo: {"observed": [], "uncovered": [], "host": "h"},
     )
-    monkeypatch.setattr("engine.core.drift.run_drift", lambda repo: _report())
+    monkeypatch.setattr("planeops.core.drift.run_drift", lambda repo: _report())
     assert main(["--repo", inst, "apply"]) == 1
     assert "FAILED" in capsys.readouterr().out

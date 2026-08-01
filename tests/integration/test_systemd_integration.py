@@ -20,9 +20,9 @@ from pathlib import Path
 
 import pytest
 
-from engine.adapters.systemd import SystemdAdapter
-from engine.core.contracts import Ctx
-from engine.core.schema import entry_from_dict
+from planeops.adapters.systemd import SystemdAdapter
+from planeops.core.contracts import Ctx
+from planeops.core.schema import entry_from_dict
 
 
 def _user_systemd_ok() -> bool:

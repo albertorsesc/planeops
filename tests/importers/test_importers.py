@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-from engine.importers import (
+from planeops.importers import (
     Importer,
     discover_importers,
     render_proposal,

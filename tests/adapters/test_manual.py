@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 
-from engine.adapters.manual import ADAPTER
-from engine.core.contracts import Ctx, Observed
-from engine.core.schema import entry_from_dict
+from planeops.adapters.manual import ADAPTER
+from planeops.core.contracts import Ctx, Observed
+from planeops.core.schema import entry_from_dict
 
 
 def _ctx(entries, *, prior=None, attest=False, now=None):

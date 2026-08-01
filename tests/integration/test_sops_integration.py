@@ -12,11 +12,11 @@ from datetime import datetime
 
 import pytest
 
-from engine.adapters.secrets import SecretsAdapter
-from engine.core.contracts import Ctx
-from engine.core.schema import entry_from_dict
-from engine.secrets import materialization_handle
-from engine.secrets.stores.sops import SopsStore
+from planeops.adapters.secrets import SecretsAdapter
+from planeops.core.contracts import Ctx
+from planeops.core.schema import entry_from_dict
+from planeops.secrets import materialization_handle
+from planeops.secrets.stores.sops import SopsStore
 
 pytestmark = pytest.mark.skipif(
     shutil.which("sops") is None or shutil.which("age") is None,

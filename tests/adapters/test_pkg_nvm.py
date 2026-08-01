@@ -1,7 +1,7 @@
 from datetime import datetime
 
-from engine.adapters.pkg_nvm import ADAPTER, PkgNvmAdapter
-from engine.core.contracts import Ctx, can_apply
+from planeops.adapters.pkg_nvm import ADAPTER, PkgNvmAdapter
+from planeops.core.contracts import Ctx, can_apply
 
 
 def _ctx(platform):

@@ -12,13 +12,13 @@ Date: 2026-07-31.
 
 | Decision | Choice | Rationale trail |
 |---|---|---|
-| Repo shape | Public engine repo (this repo: engine, spec, example registry, tests); machine-specific data (real registry, snapshots, secrets) lives in a separate private instance | engine/instance split |
-| Language | Python >= 3.12, uv-managed, `src`-less flat `engine/` package, pytest | Matches the target machine's tooling; the workload is subprocess-bound, so a systems language buys nothing (evaluated 2026-07) |
+| Repo shape | Public engine repo (this repo: engine, spec, example registry, tests); machine-specific data (real registry, snapshots, secrets) lives in a separate private instance | planeops/instance split |
+| Language | Python >= 3.12, uv-managed, `src`-less flat `planeops/` package, pytest | Matches the target machine's tooling; the workload is subprocess-bound, so a systems language buys nothing (evaluated 2026-07) |
 | CLI | `plane` entry point; verbs: `init`, `observe`, `drift`, `status`, `reconcile`, `schedule`, `mcp`, `apply`, `import` | `cp` collides with coreutils |
 | Secrets | sops+age file in-repo is primary; env files are materialization targets; age private key travels out-of-band | portable across machines; values never in-repo |
 | Reconciler | Human. No code path mutates the machine without a rendered plan and an explicit confirmation (`apply` per change; `schedule` and `import --write` per run, with `--yes` for scripts); the scheduled job runs `reconcile` (observe+drift) only | no unattended mutation |
 | Daemons | None, ever. The optional `plane-mcp` server is a user-started stdio process with no listening port; it never mutates the managed machine (its one non-pure tool refreshes the recorded snapshot) | smallest attack surface |
-| Adapter wire | In-process Python protocol (section 4); adapters are packages under `engine/adapters/`, discovered by package scan, never by a central edit list. The same discovery pattern governs importers, platforms, schedulers, and secrets stores (selected by `secrets.store`, defaulting to the provider that declares itself default) | OCP: add or swap one without editing the core |
+| Adapter wire | In-process Python protocol (section 4); adapters are packages under `planeops/adapters/`, discovered by package scan, never by a central edit list. The same discovery pattern governs importers, platforms, schedulers, and secrets stores (selected by `secrets.store`, defaulting to the provider that declares itself default) | OCP: add or swap one without editing the core |
 | Formats | `registry/` = YAML (human-authored, any file grouping); `observed/<host>/snapshot.json` = generated JSON; `observed/<host>/DRIFT.md` + `DRIFT.json` = generated report panes | desired state authored, observed state generated |
 | Non-goals | planeops is not an agent runtime, orchestrator, or gateway: it never sits in any request path and never proxies traffic. Windows support is deliberately out of scope until real demand exists (the platform seam accepts it structurally; every adapter currently assumes POSIX tools). Statistical/ML anomaly scoring stays out of the core | the invariants ARE the product |
 | Rent/usage | Optional capability, not v0.1 scope | deferred |
@@ -57,7 +57,7 @@ plus these globs define what "governed" means).
 ```
 planeops/
 ├── SPEC.md
-├── engine/                   # Python package: core loop, schema, report, contracts
+├── planeops/                   # Python package: core loop, schema, report, contracts
 │   ├── core/                 # vendor-free: schema, observe, drift triage, apply, report, locate, statefile
 │   ├── adapters/             # one package per adapter (scan-discovered)
 │   ├── importers/            # one module per import kind (scan-discovered)
@@ -67,7 +67,7 @@ planeops/
 │   └── mcp_server/           # optional read-only MCP server (mcp extra)
 ├── registry/                 # example entries + unmanaged.yaml
 ├── observed/<host>/          # snapshot.json + DRIFT.md + DRIFT.json + applied.jsonl (generated)
-├── tests/                    # mirrors engine/ one-to-one
+├── tests/                    # mirrors planeops/ one-to-one
 └── pyproject.toml            # uv-managed; console scripts `plane`, `plane-mcp`
 ```
 
@@ -124,7 +124,7 @@ Result   = {ok: bool, detail: str}
   marks stale after 30 days (report-level drift). `manual` is reserved for
   assets with no planned adapter; rows whose real adapter is merely unbuilt keep
   the real adapter name and surface under **Uncovered**.
-- Shared subprocess seam (`engine/_run.py`): every shell-out goes through one
+- Shared subprocess seam (`planeops/_run.py`): every shell-out goes through one
   injected `Runner` with a per-call timeout; a timeout (exit 124, "may still be
   running") is distinct from a missing binary (127).
 
@@ -147,7 +147,7 @@ Result   = {ok: bool, detail: str}
 - `plane schedule [--every 6h] [--no-login] [--off] [--yes]` previews and (after
   confirmation) writes the OS-native reconcile timer + a governed registry
   entry, then observes; `plane apply` loads it. Backends under
-  `engine/schedulers/<os>/`, scan-discovered.
+  `planeops/schedulers/<os>/`, scan-discovered.
 - `plane mcp [--json]` is the read-only cross-client MCP view.
 - `plane apply [--id <id> | --phase <n>]` plans, renders each change, confirms
   per change (`y`/`n`/`a` = rest of domain), executes, journals each record the
@@ -171,7 +171,7 @@ Result   = {ok: bool, detail: str}
 
 The section-to-adapter mapping is configuration, not code: rules live under
 `instance.yaml`'s `importer.rules` at the instance root
-(`engine/instance.example.yaml` ships as the template) and the importer names no
+(`planeops/instance.example.yaml` ships as the template) and the importer names no
 specific tool. A section matching no rule imports as `manual`. Import kinds are
 scan-discovered (`stackfile`, `envfile`, `observed`); every imported row carries
 an intent marking it for human verification, and `--write` lands proposals in
@@ -189,7 +189,7 @@ an intent marking it for human verification, and `--write` lands proposals in
   Linux job, launchctl on the macOS job). The Linux job's release-binary
   downloads are version-pinned and checksum-verified; the macOS job installs
   through Homebrew (its own trust channel).
-- `tests/` mirrors `engine/` one-to-one.
+- `tests/` mirrors `planeops/` one-to-one.
 
 ## 8. Milestones
 

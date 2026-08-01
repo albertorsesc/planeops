@@ -2,14 +2,14 @@ import os
 import plistlib
 from datetime import datetime
 
-from engine._run import RunResult
-from engine.adapters.launchd import (
+from planeops._run import RunResult
+from planeops.adapters.launchd import (
     ADAPTER,
     LaunchdAdapter,
     parse_launchctl_list,
 )
-from engine.core.contracts import Change, Ctx, can_apply
-from engine.core.schema import entry_from_dict
+from planeops.core.contracts import Change, Ctx, can_apply
+from planeops.core.schema import entry_from_dict
 
 # Recorded from a real `launchctl list`, then trimmed to representative rows.
 LAUNCHCTL = (
@@ -80,7 +80,7 @@ def _entry(entry_id, lifecycle):
 
 
 def _obs(label, *, loaded, pid=None, plist_path="/tmp/x.plist"):
-    from engine.core.contracts import Observed
+    from planeops.core.contracts import Observed
 
     return Observed(
         "launchd", label, {"loaded": loaded, "pid": pid, "plist_path": plist_path}

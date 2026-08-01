@@ -1,9 +1,9 @@
 from datetime import datetime
 
-from engine._run import RunResult
-from engine.adapters.ollama import ADAPTER, OllamaAdapter, parse_ollama_list
-from engine.core.contracts import Change, Ctx, Observed, can_apply
-from engine.core.schema import entry_from_dict
+from planeops._run import RunResult
+from planeops.adapters.ollama import ADAPTER, OllamaAdapter, parse_ollama_list
+from planeops.core.contracts import Change, Ctx, Observed, can_apply
+from planeops.core.schema import entry_from_dict
 
 # Illustrative `ollama list` output. Columns are whitespace-aligned; SIZE is two
 # tokens ("4.1 GB") and MODIFIED is fuzzy ("3 months ago").

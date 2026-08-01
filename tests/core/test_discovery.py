@@ -1,5 +1,5 @@
-from engine.core.contracts import Adapter
-from engine.core.discovery import discover_adapters
+from planeops.core.contracts import Adapter
+from planeops.core.discovery import discover_adapters
 
 
 def test_adapters_found_by_package_scan():

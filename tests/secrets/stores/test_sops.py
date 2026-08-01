@@ -1,8 +1,8 @@
 import pytest
 import yaml
 
-from engine._run import RunResult
-from engine.secrets.stores.sops import DEFAULT_PATH, STORE, SopsStore
+from planeops._run import RunResult
+from planeops.secrets.stores.sops import DEFAULT_PATH, STORE, SopsStore
 
 # A sops file: keys plaintext, values encrypted, plus the `sops` metadata block.
 STORE_DOC = {

@@ -7,7 +7,7 @@ makes visible (single-client, name drift, ungoverned).
 
 import json
 
-from engine.adapters.mcp.view import build_mcp_view, read_mcp_view, render_mcp_view
+from planeops.adapters.mcp.view import build_mcp_view, read_mcp_view, render_mcp_view
 
 
 def _snapshot(servers, host="testhost", ts="2026-07-29T00:00:00"):

@@ -7,7 +7,7 @@ command (an operator must be able to tell "tool absent" from "tool still
 running").
 """
 
-from engine._run import default_run
+from planeops._run import default_run
 
 
 def test_captures_output_and_exit_code():

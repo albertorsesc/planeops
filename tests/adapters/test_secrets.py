@@ -1,9 +1,9 @@
 from datetime import datetime
 
-from engine.adapters.secrets import ADAPTER, SecretsAdapter
-from engine.core.contracts import Ctx, can_apply
-from engine.core.schema import entry_from_dict
-from engine.secrets import SecretsHandle, materialization_handle
+from planeops.adapters.secrets import ADAPTER, SecretsAdapter
+from planeops.core.contracts import Ctx, can_apply
+from planeops.core.schema import entry_from_dict
+from planeops.secrets import SecretsHandle, materialization_handle
 
 
 class FakeBackend:
@@ -315,7 +315,7 @@ def test_materialization_creates_missing_parents_private(tmp_path):
     # A secret lands under a parent that may not exist yet; that parent must be
     # created 0700, not at the process umask, or the 0600 on the file is
     # undermined by a listable directory.
-    from engine.adapters.secrets import _upsert_env
+    from planeops.adapters.secrets import _upsert_env
 
     parent = tmp_path / "new" / "nested"
     _upsert_env(parent, ".env", "KEY", "value")

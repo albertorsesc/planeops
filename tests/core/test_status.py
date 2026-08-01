@@ -2,7 +2,7 @@
 
 import json
 
-from engine.core.status import read_status
+from planeops.core.status import read_status
 
 
 def _write_drift(tmp_path, host, data):
@@ -40,7 +40,7 @@ def test_read_status_returns_none_on_a_torn_or_corrupt_file(tmp_path, fake_platf
 def test_read_status_round_trips_a_real_drift_report(tmp_path, fake_platform):
     # Pins the producer->consumer contract: what `render_drift_json` writes is
     # exactly what `read_status` returns, including the keys `plane status` reads.
-    from engine.core.report import (
+    from planeops.core.report import (
         DriftItem,
         DriftReport,
         drift_report_dict,

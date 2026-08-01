@@ -72,7 +72,7 @@ observe  ->  drift  ->  apply
   `--adapter <type>` scopes a proposal to one kind.
 
 Adapters teach the engine about one kind of asset each (a service manager, a model
-runner, a package manager). They are packages under `engine/adapters/`, discovered
+runner, a package manager). They are packages under `planeops/adapters/`, discovered
 by a package scan, so adding one never edits a central list. An entry can also
 declare `needs: [id, ...]`; drift alerts when an active entry's dependency is being
 retired or is absent, so a model or package a tool relies on can't be pruned out
@@ -201,9 +201,9 @@ tests, and CI, with no machine-specific data. Real registry entries, generated
 `observed/` snapshots, and secrets belong in a separate private instance.
 
 ```
-engine/      core loop, schema, contracts, adapters, platform seam
+planeops/      core loop, schema, contracts, adapters, platform seam
 registry/    example entries and unmanaged-glob rules
-tests/       mirror engine/ one-to-one
+tests/       mirror planeops/ one-to-one
 SPEC.md      authoritative build spec
 ```
 

@@ -4,8 +4,8 @@ default resolves."""
 
 import pytest
 
-from engine.secrets import SecretsHandle, SecretsStore, SecretsStoreProvider
-from engine.secrets.resolve import build_handle, discover_stores, resolve_store
+from planeops.secrets import SecretsHandle, SecretsStore, SecretsStoreProvider
+from planeops.secrets.resolve import build_handle, discover_stores, resolve_store
 
 
 def test_discovers_providers_and_they_satisfy_the_contract():

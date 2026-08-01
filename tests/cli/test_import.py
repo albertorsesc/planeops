@@ -3,8 +3,8 @@ the path requirement for other kinds. Importer logic lives in tests/importers/."
 
 import json
 
-from engine.cli import main
-from engine.core.registry import load_registry
+from planeops.cli import main
+from planeops.core.registry import load_registry
 
 
 def _snapshot(observed, host="h"):
@@ -23,7 +23,7 @@ def test_import_observed_defaults_to_the_host_snapshot(monkeypatch, capsys, tmp_
         def home(self):
             return tmp_path
 
-    monkeypatch.setattr("engine.platform.current_platform", lambda: _Plat())
+    monkeypatch.setattr("planeops.platform.current_platform", lambda: _Plat())
     inst = tmp_path / "inst"
     (inst / "registry").mkdir(parents=True)
     (inst / ".planeops").write_text("")

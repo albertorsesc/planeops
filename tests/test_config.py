@@ -1,4 +1,4 @@
-from engine.config import load_instance, section
+from planeops.config import load_instance, section
 
 
 def test_no_root_is_empty():

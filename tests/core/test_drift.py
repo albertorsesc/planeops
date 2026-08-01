@@ -2,10 +2,10 @@ import json
 
 import pytest
 
-from engine.core.contracts import Observed
-from engine.core.drift import triage
-from engine.core.report import drift_report_dict, render_drift_json
-from engine.core.schema import entry_from_dict
+from planeops.core.contracts import Observed
+from planeops.core.drift import triage
+from planeops.core.report import drift_report_dict, render_drift_json
+from planeops.core.schema import entry_from_dict
 
 
 def _entry(**over):
@@ -348,7 +348,7 @@ def test_retired_entry_without_a_present_fact_keeps_alerting():
 
 def test_run_drift_on_a_corrupt_snapshot_raises_a_clean_error(tmp_path):
     # A torn/hand-mangled snapshot must say what to do, not traceback in json.
-    from engine.core.drift import run_drift
+    from planeops.core.drift import run_drift
 
     class _Plat:
         name = "fake"
@@ -370,7 +370,7 @@ def test_run_drift_on_a_corrupt_snapshot_raises_a_clean_error(tmp_path):
 def test_malformed_observed_items_are_skipped_not_fatal(tmp_path):
     # Snapshot items missing keys (hand-edit, schema drift) are dropped; the
     # valid remainder still triages.
-    from engine.core.drift import run_drift
+    from planeops.core.drift import run_drift
 
     class _Plat:
         name = "fake"

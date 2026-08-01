@@ -1,15 +1,15 @@
 from datetime import datetime
 from pathlib import Path
 
-from engine._run import RunResult
-from engine.adapters.chezmoi import (
+from planeops._run import RunResult
+from planeops.adapters.chezmoi import (
     ADAPTER,
     ChezmoiAdapter,
     parse_chezmoi_managed,
     parse_chezmoi_status,
 )
-from engine.core.contracts import Change, Ctx, Observed, can_apply
-from engine.core.schema import entry_from_dict
+from planeops.core.contracts import Change, Ctx, Observed, can_apply
+from planeops.core.schema import entry_from_dict
 
 MANAGED = ".zshrc\n.config/nvim/init.lua\n.gitconfig\n"
 # `chezmoi status` mimics git status: `XY path`; a non-space second column means

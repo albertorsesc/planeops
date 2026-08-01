@@ -2,9 +2,9 @@ import json
 
 import yaml
 
-from engine.cli import main
-from engine.importers import discover_importers
-from engine.importers.observed import ObservedImporter, propose_from_snapshot
+from planeops.cli import main
+from planeops.importers import discover_importers
+from planeops.importers.observed import ObservedImporter, propose_from_snapshot
 
 
 def _snapshot(observed, host="testhost"):

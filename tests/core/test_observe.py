@@ -7,9 +7,9 @@ adapter set), so nothing here touches the live machine.
 import json
 from datetime import datetime
 
-from engine.adapters.manual import ADAPTER as MANUAL
-from engine.core.drift import run_drift
-from engine.core.observe import run_observe, snapshot_path
+from planeops.adapters.manual import ADAPTER as MANUAL
+from planeops.core.drift import run_drift
+from planeops.core.observe import run_observe, snapshot_path
 
 REGISTRY = (
     "entries:\n"

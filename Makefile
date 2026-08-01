@@ -13,16 +13,16 @@ REPO ?= .
 test: fix check          ## auto-fix, then run the full gate
 
 fix:                     ## auto-fix lint + formatting
-	uv run --frozen ruff check --fix engine tests
-	uv run --frozen ruff format engine tests
+	uv run --frozen ruff check --fix planeops tests
+	uv run --frozen ruff format planeops tests
 
 check: lint fmt-check typecheck unit   ## the full gate, no mutations
 
 lint:
-	uv run --frozen ruff check engine tests
+	uv run --frozen ruff check planeops tests
 
 fmt-check:
-	uv run --frozen ruff format --check engine tests
+	uv run --frozen ruff format --check planeops tests
 
 typecheck:
 	uv run --frozen mypy

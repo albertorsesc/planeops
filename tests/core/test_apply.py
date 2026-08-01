@@ -7,8 +7,8 @@ from datetime import datetime
 
 import pytest
 
-from engine.core.apply import run_apply
-from engine.core.contracts import Change, Result
+from planeops.core.apply import run_apply
+from planeops.core.contracts import Change, Result
 
 REG = (
     "entries:\n"
@@ -269,8 +269,8 @@ def test_every_mutating_adapter_declares_its_converge_phase():
     # The documented order: packages(2) -> harness config(3) -> models(4) ->
     # secrets(5) -> services(6, load last against complete config). Encoded as
     # adapter data, so unphased entries converge in that order automatically.
-    from engine.core.contracts import can_apply
-    from engine.core.discovery import discover_adapters
+    from planeops.core.contracts import can_apply
+    from planeops.core.discovery import discover_adapters
 
     phases = {
         name: adapter.default_phase
@@ -293,7 +293,7 @@ def test_every_mutating_adapter_declares_its_converge_phase():
 
 
 def test_prompt_confirm_parses_answers(monkeypatch, capsys):
-    from engine.core.apply import prompt_confirm
+    from planeops.core.apply import prompt_confirm
 
     answers = iter(["y", "N", " a ", "", "yes"])
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
@@ -306,7 +306,7 @@ def test_prompt_confirm_parses_answers(monkeypatch, capsys):
 
 
 def test_prompt_confirm_defaults_to_no_without_stdin(monkeypatch):
-    from engine.core.apply import prompt_confirm
+    from planeops.core.apply import prompt_confirm
 
     def _eof(_prompt):
         raise EOFError

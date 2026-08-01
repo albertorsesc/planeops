@@ -6,8 +6,8 @@ same structure `plane drift --json` emits).
 
 from datetime import datetime
 
-from engine.adapters.manual import ADAPTER as MANUAL
-from engine.mcp_server.tools import (
+from planeops.adapters.manual import ADAPTER as MANUAL
+from planeops.mcp_server.tools import (
     drift_state,
     mcp_view_state,
     observe_state,

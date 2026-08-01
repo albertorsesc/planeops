@@ -5,7 +5,7 @@ Discovery anchors solely on a `.planeops` marker. env / home / cwd are injected 
 nothing here touches the real machine.
 """
 
-from engine.core.locate import config_home, find_repo_root, resolve_instance_root
+from planeops.core.locate import config_home, find_repo_root, resolve_instance_root
 
 
 def _marker(p):
