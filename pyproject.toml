@@ -64,6 +64,22 @@ path = "planeops/__init__.py"
 [tool.hatch.build.targets.wheel]
 packages = ["planeops"]
 
+# Explicit allowlist so the sdist can never pick up untracked local files.
+[tool.hatch.build.targets.sdist]
+only-include = [
+  "planeops",
+  "tests",
+  "registry",
+  "README.md",
+  "LICENSE",
+  "CHANGELOG.md",
+  "SPEC.md",
+  "CONTRIBUTING.md",
+  "SECURITY.md",
+  "Makefile",
+  "uv.lock",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
