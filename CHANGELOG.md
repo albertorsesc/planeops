@@ -8,6 +8,11 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **BREAKING:** renamed the project and distribution from `tarmac` to `planeops`. The
+  PyPI name `tarmac` was taken by an unrelated deployment tool, blocking a clean
+  install; the MCP server's tools are now `planeops_observe`/`planeops_drift`. The CLI
+  command is unchanged: it is still `plane` (and `plane-mcp`). Pre-launch, so no
+  installed users are affected.
 - **BREAKING (pre-1.0):** the sops store's default location moved from
   `registry/secrets.sops.yaml` to `secrets.sops.yaml` at the instance root, and
   `registry/` now holds only registry documents (`entries:` / `globs:`). The
@@ -41,6 +46,8 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `plane-mcp` on an install without the `mcp` extra prints
+  "pip install 'planeops[mcp]'" and exits 1 instead of a raw import traceback.
 - `injected_as` on a secrets item must be `file:<path>#KEY`. The `env:NAME`
   form the old error message advertised was silently dropped at
   materialization; it is now rejected at load as not yet supported, and a
@@ -149,14 +156,6 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `tolerance: alert`. Before, an agent that silently unloaded left drift green while the
   shell prompt kept showing stale state, the exact failure the ambient loop exists to
   prevent; `plane apply` already treated it as a change, so drift and apply now agree.
-
-### Changed
-
-- **BREAKING:** renamed the project and distribution from `tarmac` to `planeops`. The
-  PyPI name `tarmac` was taken by an unrelated deployment tool, blocking a clean
-  install; the MCP server's tools are now `planeops_observe`/`planeops_drift`. The CLI
-  command is unchanged: it is still `plane` (and `plane-mcp`). Pre-launch, so no
-  installed users are affected.
 
 ### Added
 

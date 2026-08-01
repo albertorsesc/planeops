@@ -2,13 +2,14 @@
 #
 # Three kinds of config live in a planeops instance, kept apart on purpose:
 #   registry/*.yaml        what should exist (desired state; one file or many)
-#   registry/*.sops.yaml   encrypted secret values (a sops store)
+#   secrets.sops.yaml      encrypted secret values (a sops store, instance root)
 #   instance.yaml (this)   how this machine's adapters read: where they look
 #
-# Copy this file to `instance.yaml` (gitignored) and edit the sections for the
-# adapters you actually run. The engine names no tool; every tool-specific path
-# appears only here. Each section is optional: omit one and that adapter falls
-# back to its default (no sources / no rules / the default secrets store).
+# `plane init` writes this file as `instance.yaml` (gitignored); edit the
+# sections for the adapters you actually run. The engine names no tool; every
+# tool-specific path appears only here. Each section is optional: omit one and
+# that adapter falls back to its default (no sources / no rules / the default
+# secrets store).
 
 # --- mcp adapter: where MCP servers are wired on this machine ----------------
 # Each source: label (shown as the source), path (`~` expands to home), format
