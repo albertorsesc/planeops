@@ -1,6 +1,8 @@
 import json
 from datetime import datetime
 
+import pytest
+
 from planeops.adapters.mcp import (
     ADAPTER,
     McpAdapter,
@@ -155,3 +157,19 @@ def test_default_adapter_loads_sources_from_config(tmp_path, fake_platform):
     out = McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path))
     assert [o.native_id for o in out] == ["filesystem"]
     assert out[0].facts["sources"] == ["harness"]
+
+
+def test_a_malformed_source_is_loud_not_silently_skipped(tmp_path):
+    # A typo'd key in one source used to mean "observe nothing" with no signal;
+    # raising here lands in the snapshot's failed-scan alert instead.
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n    - {label: a, paht: ~/x.json, format: json}\n"
+    )
+    with pytest.raises(ValueError, match="path"):
+        load_sources(tmp_path)
+
+
+def test_a_non_mapping_source_is_loud(tmp_path):
+    (tmp_path / "instance.yaml").write_text("mcp:\n  sources:\n    - just-a-string\n")
+    with pytest.raises(ValueError, match="mapping"):
+        load_sources(tmp_path)

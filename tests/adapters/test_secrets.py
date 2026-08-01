@@ -114,9 +114,10 @@ def test_default_backend_needs_a_repo_root():
     assert SecretsAdapter().observe(_ctx([_entry("k")])) == []
 
 
-def test_default_backend_resolves_the_registry_store(tmp_path):
-    store = tmp_path / "registry" / "secrets.sops.yaml"
-    store.parent.mkdir(parents=True)
+def test_default_store_resolves_at_the_instance_root(tmp_path):
+    # The default store lives at the instance ROOT, never inside registry/
+    # (registry files are strictly entries+globs; the store is not one).
+    store = tmp_path / "secrets.sops.yaml"
     store.write_text("openrouter-api-key: ENC[data]\nsops:\n  version: '3'\n")
     out = {
         o.native_id: o

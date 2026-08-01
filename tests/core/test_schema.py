@@ -172,3 +172,53 @@ def test_pin_must_be_a_string():
             {"id": "a/b", "adapter": "a", "domain": "d", "lifecycle": "active",
              "intent": "i", "pin": 1.2}
         )  # fmt: skip
+
+
+# ---- typo'd KEYS are rejected, not silently ignored ----
+
+
+def test_unknown_entry_key_is_rejected_with_a_suggestion():
+    # `tolerence: alert` used to be silently dropped -> tolerance defaulted to
+    # report and the escalation the user wrote never happened.
+    with pytest.raises(SchemaError, match="tolerance"):
+        entry_from_dict(
+            {"id": "a/b", "adapter": "a", "domain": "d", "lifecycle": "active",
+             "intent": "i", "tolerence": "alert"}
+        )  # fmt: skip
+
+
+def test_unknown_entry_key_without_a_close_match_lists_the_allowed_set():
+    # No suggestion possible -> the error names what WOULD be valid, so a file
+    # that plain doesn't belong here explains itself.
+    with pytest.raises(SchemaError, match="banana.*expected one of.*adapter"):
+        entry_from_dict(
+            {"id": "a/b", "adapter": "a", "domain": "d", "lifecycle": "active",
+             "intent": "i", "banana": 1}
+        )  # fmt: skip
+
+
+def test_needs_typo_is_caught():
+    # `need:` silently meant "no dependency tracking".
+    with pytest.raises(SchemaError, match="needs"):
+        entry_from_dict(
+            {"id": "a/b", "adapter": "a", "domain": "d", "lifecycle": "active",
+             "intent": "i", "need": ["x/y"]}
+        )  # fmt: skip
+
+
+def test_string_fields_must_be_strings():
+    with pytest.raises(SchemaError, match="intent"):
+        entry_from_dict(
+            {"id": "a/b", "adapter": "a", "domain": "d", "lifecycle": "active",
+             "intent": 123}
+        )  # fmt: skip
+
+
+def test_hosts_items_must_be_strings():
+    # A numeric host never matches a hostname: the entry would silently never
+    # apply anywhere.
+    with pytest.raises(SchemaError, match="hosts"):
+        entry_from_dict(
+            {"id": "a/b", "adapter": "a", "domain": "d", "lifecycle": "active",
+             "intent": "i", "hosts": [1]}
+        )  # fmt: skip

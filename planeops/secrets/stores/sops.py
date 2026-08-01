@@ -21,7 +21,10 @@ import yaml
 
 from planeops._run import Runner, default_run
 
-DEFAULT_PATH = "registry/secrets.sops.yaml"
+# At the instance ROOT, deliberately not inside registry/: registry files are
+# declared entries and globs, strictly validated as such; the encrypted store
+# is a different kind of document and cohabiting only ever worked by accident.
+DEFAULT_PATH = "secrets.sops.yaml"
 
 
 class SopsStore:

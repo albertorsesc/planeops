@@ -23,9 +23,9 @@ def test_non_mapping_document_is_empty(tmp_path):
 
 def test_reads_sections(tmp_path):
     (tmp_path / "instance.yaml").write_text(
-        "mcp:\n  sources: []\nsecrets:\n  store: registry/secrets.sops.yaml\n"
+        "mcp:\n  sources: []\nsecrets:\n  store: secrets.sops.yaml\n"
     )
-    assert section(tmp_path, "secrets") == {"store": "registry/secrets.sops.yaml"}
+    assert section(tmp_path, "secrets") == {"store": "secrets.sops.yaml"}
     assert section(tmp_path, "mcp") == {"sources": []}
 
 

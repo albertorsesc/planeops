@@ -55,22 +55,33 @@ def servers_from_mapping(servers: object) -> dict[str, dict[str, Any]]:
 
 def load_sources(repo_root: Path | None) -> list[McpSource]:
     """Read the source list from `instance.yaml`'s `mcp.sources`. Missing file,
-    root, or section yields no sources (the adapter then observes nothing)."""
+    root, or section yields no sources (the adapter then observes nothing): the
+    feature is opt-in. A PRESENT but malformed source raises instead of being
+    silently skipped: the raise lands in the snapshot's failed-scan alert, so a
+    typo'd key can never quietly mean "observe nothing"."""
     raw = instance_section(repo_root, "mcp").get("sources")
     if not isinstance(raw, list):
         return []
     sources: list[McpSource] = []
-    for item in raw:
+    for i, item in enumerate(raw):
         if not isinstance(item, dict):
-            continue
+            raise ValueError(f"mcp.sources[{i}] must be a mapping, got {item!r}")
         label, path_str, fmt = item.get("label"), item.get("path"), item.get("format")
         key = item.get("key", "mcpServers")
-        if (
-            isinstance(label, str)
-            and isinstance(path_str, str)
-            and isinstance(fmt, str)
+        for field_name, value in (
+            ("label", label),
+            ("path", path_str),
+            ("format", fmt),
         ):
-            sources.append(McpSource(label, path_str, fmt, str(key)))
+            if not isinstance(value, str) or not value:
+                raise ValueError(
+                    f"mcp.sources[{i}] needs a string {field_name!r} "
+                    f"(got {value!r}); check instance.yaml for a typo"
+                )
+        assert isinstance(label, str)  # narrowed by the loop above
+        assert isinstance(path_str, str)
+        assert isinstance(fmt, str)
+        sources.append(McpSource(label, path_str, fmt, str(key)))
     return sources
 
 

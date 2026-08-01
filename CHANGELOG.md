@@ -8,6 +8,13 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **BREAKING (pre-1.0):** the sops store's default location moved from
+  `registry/secrets.sops.yaml` to `secrets.sops.yaml` at the instance root, and
+  `registry/` now holds only registry documents (`entries:` / `globs:`). The
+  old cohabitation only worked because unknown top-level keys were silently
+  skipped; now that they are rejected, a store parked in `registry/` fails
+  loudly at load. Migration: move the file to the instance root (or point
+  `secrets.path` at its new home).
 - **BREAKING (pre-1.0):** the Python package is `planeops`, not `engine`.
   `pip install planeops` now installs `import planeops`; the maximally generic
   top-level name `engine` will never be claimed in anyone's site-packages. Done
@@ -34,6 +41,14 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A typo'd YAML key is a loud error, never a silent no-op. Unknown keys on a
+  registry entry (`tolerence:`, `need:`), on a top-level registry document
+  (`entrys:`), and malformed items in `mcp.sources` (`pth:`) are rejected with
+  a did-you-mean suggestion, or the allowed key set when nothing is close.
+  Previously each was silently ignored, so the escalation, the whole file, or
+  the entire source list quietly contributed nothing. `id`/`adapter`/`domain`/
+  `intent` must be strings, `hosts` a non-empty list of non-empty strings, and
+  a glob's value a non-empty string, all enforced at load with the entry named.
 - `phase` must be an integer and `pin` a string at registry load (a YAML
   `phase: "3"` used to load fine and then crash apply's phase sort). Every verb
   notes a resolution landing on a directory without the `.planeops` marker (the
