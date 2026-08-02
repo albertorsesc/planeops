@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from planeops.cli._text import n_entries
+
 
 def _should_seed(args: argparse.Namespace) -> bool:
     """Seed the registry from the machine? --seed/--no-seed decide; otherwise offer it
@@ -35,7 +37,7 @@ def _seed_from_machine(inst: Path) -> None:
         print("  nothing observed to seed")
         return
     written, total = write_proposal(entries, inst)
-    print(f"  wrote {len(entries)} entries to {written}; prune, then `plane drift`")
+    print(f"  wrote {n_entries(len(entries))} to {written}; prune, then `plane drift`")
 
 
 def _cmd(args: argparse.Namespace) -> int:

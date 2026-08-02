@@ -74,6 +74,12 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   that exists but cannot be parsed surfaces as a failed scan instead of
   quietly observing no servers (an absent file stays quiet: the tool may
   simply not be installed).
+- A reachability failure of `systemctl --user` while user units exist on disk
+  is a failed-scan alert naming the likely fix (`XDG_RUNTIME_DIR`), instead of
+  silently observing zero units; an absent `systemctl` (macOS) stays quiet.
+  `plane schedule` only claims "the new job is in the snapshot" when it
+  actually is, and warns otherwise. The `plane-mcp` missing-extra hint no
+  longer assumes pip. Count messages pluralize ("wrote 1 entry").
 - A directory without the `.planeops` marker is refused by every verb (and by
   the MCP server's tools) with "run `plane init <path>` first", instead of
   being adopted with a warning and having `observed/` state scattered into

@@ -21,7 +21,8 @@ def main() -> None:
     except ModuleNotFoundError as exc:
         if exc.name and exc.name.split(".")[0] == "mcp":
             raise SystemExit(
-                "plane-mcp needs the MCP extra: pip install 'planeops[mcp]'"
+                "plane-mcp needs the MCP extra: reinstall with it, e.g. "
+                "uv tool install 'planeops[mcp]' (or the pipx/pip equivalent)"
             ) from None
         raise
     run()

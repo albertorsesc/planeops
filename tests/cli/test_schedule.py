@@ -110,3 +110,36 @@ def test_schedule_observes_after_writing(sched, monkeypatch):
     )
     assert main(["--repo", str(inst), "schedule", "--every", "6h", "--yes"]) == 0
     assert seen == [inst.resolve()]
+
+
+def test_schedule_confirms_when_the_job_lands_in_the_snapshot(
+    sched, monkeypatch, capsys
+):
+    home, inst = sched
+    monkeypatch.setattr(
+        "planeops.core.observe.run_observe",
+        lambda repo: {
+            "observed": [
+                {"adapter": e.split("/", 1)[0], "native_id": e.split("/", 1)[1]}
+                for e in (
+                    "launchd/ai.planeops.reconcile",
+                    "systemd/planeops-reconcile.timer",
+                )
+            ],
+            "uncovered": [],
+            "host": "h",
+        },
+    )
+    assert main(["--repo", str(inst), "schedule", "--every", "6h", "--yes"]) == 0
+    assert "the new job is in the snapshot" in capsys.readouterr().out
+
+
+def test_schedule_warns_when_the_job_did_not_land_in_the_snapshot(sched, capsys):
+    # The fixture's stubbed observe returns nothing: the old message claimed
+    # "the new job is in the snapshot" anyway (verifiably false in a session
+    # with a broken user bus). Now it says so and points at the fix.
+    home, inst = sched
+    assert main(["--repo", str(inst), "schedule", "--every", "6h", "--yes"]) == 0
+    out = capsys.readouterr()
+    assert "did not appear in the snapshot" in out.err
+    assert "the new job is in the snapshot" not in out.out
