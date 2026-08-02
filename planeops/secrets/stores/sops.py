@@ -106,7 +106,90 @@ class SopsStore:
         return res.out.rstrip("\n")
 
 
-class SopsProvider:
+def _sops_default_key_file(home: Path) -> Path:
+    """Where sops itself looks for age identities (its os.UserConfigDir rule),
+    so a bootstrapped setup decrypts with no environment variable at all."""
+    import sys
+
+    if sys.platform == "darwin":
+        return home / "Library" / "Application Support" / "sops" / "age" / "keys.txt"
+    return home / ".config" / "sops" / "age" / "keys.txt"
+
+
+def _recipient_from(key_file: Path) -> str | None:
+    if not key_file.is_file():
+        return None
+    for line in key_file.read_text().splitlines():
+        if "public key:" in line:
+            return line.split("public key:")[1].strip()
+    return None
+
+
+class _SopsBootstrap:
+    """Mixed into the provider: creates identity, rules, and the encrypted
+    store. Every sops call passes --config explicitly: the working directory
+    can never matter."""
+
+    def _paths(
+        self, repo_root: Path, age_key_file: Path | None
+    ) -> tuple[Path, Path, Path]:
+        key = age_key_file or _sops_default_key_file(Path.home())
+        return key, repo_root / ".sops.yaml", repo_root / DEFAULT_PATH
+
+    def bootstrap_preview(
+        self, repo_root: Path, *, age_key_file: Path | None
+    ) -> list[str]:
+        key, rules, store = self._paths(repo_root, age_key_file)
+        lines = []
+        if _recipient_from(key) is None:
+            lines.append(f"{key} (new age identity via age-keygen)")
+        else:
+            lines.append(f"{key} (existing identity, reused)")
+        lines.append(f"{rules} (sops creation rule for this store)")
+        lines.append(f"{store} (empty encrypted store)")
+        return lines
+
+    def bootstrap(self, repo_root: Path, *, age_key_file: Path | None) -> list[str]:
+        key, rules, store = self._paths(repo_root, age_key_file)
+        if store.exists():
+            raise LookupError(
+                f"a store already exists at {store}; re-initializing would "
+                "orphan its values, so delete it yourself first if you mean it"
+            )
+        actions: list[str] = []
+        recipient = _recipient_from(key)
+        if recipient is None:
+            key.parent.mkdir(parents=True, exist_ok=True)
+            res = default_run(["age-keygen", "-o", str(key)], timeout=30)
+            if res.code != 0:
+                detail = res.err.strip()[-200:] or "is age installed?"
+                raise LookupError(f"age-keygen failed: {detail}")
+            recipient = _recipient_from(key)
+            if recipient is None:
+                raise LookupError(f"no public key found in {key} after age-keygen")
+            actions.append(f"created age identity {key}")
+        else:
+            actions.append(f"reusing age identity {key}")
+        rules.write_text(
+            "creation_rules:\n"
+            f"  - path_regex: {DEFAULT_PATH.replace('.', chr(92) + '.')}$\n"
+            f"    age: {recipient}\n"
+        )
+        actions.append(f"wrote {rules}")
+        store.write_text("{}\n")
+        res = default_run(
+            ["sops", "--config", str(rules), "-e", "-i", str(store)], timeout=30
+        )
+        if res.code != 0:
+            store.unlink(missing_ok=True)  # never leave a plaintext husk behind
+            raise LookupError(
+                f"sops encrypt failed: {res.err.strip()[-200:] or 'is sops installed?'}"
+            )
+        actions.append(f"created encrypted store {store}")
+        return actions
+
+
+class SopsProvider(_SopsBootstrap):
     """The discovery face of this store: name, default status, construction."""
 
     name = "sops"

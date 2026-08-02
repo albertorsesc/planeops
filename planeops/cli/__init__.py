@@ -26,13 +26,25 @@ from planeops.cli import (
     observe,
     reconcile,
     schedule,
+    secrets,
     status,
 )
 
 # Registration order = `plane --help` order: the loop verbs first, then setup.
 # Journey order, not implementation order: --help doubles as the getting-started
 # path (init first, then the daily loop, then the occasional verbs).
-_VERBS = (init, observe, drift, status, apply, reconcile, schedule, import_, mcp)
+_VERBS = (
+    init,
+    observe,
+    drift,
+    status,
+    apply,
+    reconcile,
+    schedule,
+    secrets,
+    import_,
+    mcp,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
