@@ -27,6 +27,7 @@ import yaml
 
 from planeops.config import section as instance_section
 from planeops.core.contracts import Ctx, Observed
+from planeops.core.schema import reject_unknown_keys
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +54,21 @@ def servers_from_mapping(servers: object) -> dict[str, dict[str, Any]]:
     return out
 
 
+_SOURCE_KEYS = frozenset({"label", "path", "format", "key"})
+
+
+def _source_str(
+    item: dict[str, Any], field_name: str, i: int, default: str | None = None
+) -> str:
+    value = item.get(field_name, default)
+    if not isinstance(value, str) or not value:
+        raise ValueError(
+            f"mcp.sources[{i}] needs a string {field_name!r} "
+            f"(got {value!r}); check instance.yaml for a typo"
+        )
+    return value
+
+
 def load_sources(repo_root: Path | None) -> list[McpSource]:
     """Read the source list from `instance.yaml`'s `mcp.sources`. Missing file,
     root, or section yields no sources (the adapter then observes nothing): the
@@ -66,22 +82,15 @@ def load_sources(repo_root: Path | None) -> list[McpSource]:
     for i, item in enumerate(raw):
         if not isinstance(item, dict):
             raise ValueError(f"mcp.sources[{i}] must be a mapping, got {item!r}")
-        label, path_str, fmt = item.get("label"), item.get("path"), item.get("format")
-        key = item.get("key", "mcpServers")
-        for field_name, value in (
-            ("label", label),
-            ("path", path_str),
-            ("format", fmt),
-        ):
-            if not isinstance(value, str) or not value:
-                raise ValueError(
-                    f"mcp.sources[{i}] needs a string {field_name!r} "
-                    f"(got {value!r}); check instance.yaml for a typo"
-                )
-        assert isinstance(label, str)  # narrowed by the loop above
-        assert isinstance(path_str, str)
-        assert isinstance(fmt, str)
-        sources.append(McpSource(label, path_str, fmt, str(key)))
+        reject_unknown_keys(item, _SOURCE_KEYS, f"mcp.sources[{i}]")
+        sources.append(
+            McpSource(
+                label=_source_str(item, "label", i),
+                path=_source_str(item, "path", i),
+                format=_source_str(item, "format", i),
+                key=_source_str(item, "key", i, default="mcpServers"),
+            )
+        )
     return sources
 
 
@@ -96,12 +105,17 @@ def _resolve(path_str: str, home: Path) -> Path:
 def _read_source(source: McpSource, home: Path) -> dict[str, dict[str, Any]]:
     path = _resolve(source.path, home)
     if not path.is_file():
+        # The tool may simply not be installed on this machine: quiet.
         return {}
     try:
         text = path.read_text()
         data = yaml.safe_load(text) if source.format == "yaml" else json.loads(text)
-    except (json.JSONDecodeError, ValueError, yaml.YAMLError, OSError):
-        return {}
+    except (json.JSONDecodeError, ValueError, yaml.YAMLError, OSError) as exc:
+        # A file that EXISTS but cannot be read or parsed must not quietly
+        # observe as "no servers": raise into the failed-scan alert.
+        raise ValueError(
+            f"mcp source {source.label!r}: cannot read {path}: {exc}"
+        ) from exc
     servers = data.get(source.key) if isinstance(data, dict) else None
     return servers_from_mapping(servers)
 

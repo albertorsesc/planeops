@@ -1,7 +1,7 @@
 """Importers seed the registry from hand-maintained manifests. They propose
 entries and write nothing without confirmation.
 
-Each importer is a module under `engine/importers/` exposing a module-level
+Each importer is a module under `planeops/importers/` exposing a module-level
 `IMPORTER` that satisfies the `Importer` protocol, discovered by package scan the
 same way adapters are. Adding an importer is dropping a module in; the CLI learns
 its `kind` from discovery, never from a central edit list (OCP).

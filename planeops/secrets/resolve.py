@@ -1,6 +1,6 @@
 """Resolve which secrets store serves this instance, knowing no concrete store.
 
-Providers are discovered under `engine/secrets/stores/` (module-level `STORE`),
+Providers are discovered under `planeops/secrets/stores/` (module-level `STORE`),
 the same package-scan seam adapters, importers, platforms, and schedulers use.
 Selection is instance data: `instance.yaml`'s `secrets.store` names a provider;
 with no selection, the provider that declares `is_default` wins, so even the

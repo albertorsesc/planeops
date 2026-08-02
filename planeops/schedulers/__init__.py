@@ -1,7 +1,7 @@
 """Scheduler seam: one backend per OS behind the `Scheduler` contract.
 
 `plane schedule` sets up the ambient reconcile, an OS-native periodic job that runs
-`plane reconcile`. Each OS module under `engine/schedulers/` exposes a module-level
+`plane reconcile`. Each OS module under `planeops/schedulers/` exposes a module-level
 `SCHEDULER` declaring the `sys.platform` prefixes it serves; `current_scheduler()`
 selects the host's by scanning, the same package-scan / no-central-list discipline
 adapters, importers, and platforms use. Adding an OS is dropping a module in.

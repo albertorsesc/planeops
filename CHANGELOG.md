@@ -46,6 +46,14 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The sdist is an explicit allowlist. The default selection packed anything the
+  repo `.gitignore` missed, including untracked local tooling state on the
+  build machine; now only the intended tree ships.
+- `mcp.sources` items are fully strict: an unknown field (`kye:`) and a
+  non-string `key` are load errors like every other typo, and a source FILE
+  that exists but cannot be parsed surfaces as a failed scan instead of
+  quietly observing no servers (an absent file stays quiet: the tool may
+  simply not be installed).
 - `plane-mcp` on an install without the `mcp` extra prints
   "pip install 'planeops[mcp]'" and exits 1 instead of a raw import traceback.
 - `injected_as` on a secrets item must be `file:<path>#KEY`. The `env:NAME`

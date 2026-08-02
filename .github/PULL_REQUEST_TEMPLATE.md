@@ -8,11 +8,11 @@ with the migration and the implied version bump (pre-1.0: breaking → minor).
 
 ## Checklist
 
-- [ ] The gate passes locally: `uv run ruff check engine tests && uv run ruff format --check engine tests && uv run mypy && uv run pytest`
+- [ ] The gate passes locally: `uv run ruff check planeops tests && uv run ruff format --check planeops tests && uv run mypy && uv run pytest`
 - [ ] Verified on macOS **and** Linux (the CI `integration` job covers Linux)
-- [ ] Tests cover the change (`tests/` mirrors `engine/` one-to-one)
+- [ ] Tests cover the change (`tests/` mirrors `planeops/` one-to-one)
 - [ ] No new always-on process, no network call from the core, no secret value in
       code, snapshots, or reports
-- [ ] A new adapter is a package under `engine/adapters/` exposing `ADAPTER`; no
+- [ ] A new adapter is a package under `planeops/adapters/` exposing `ADAPTER`; no
       central registry was edited
 - [ ] `CHANGELOG.md` updated under `Unreleased` (right section; breaking prefixed **BREAKING:**)
