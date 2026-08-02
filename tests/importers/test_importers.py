@@ -62,3 +62,48 @@ def test_write_proposal_creates_then_merges_without_dupes(tmp_path):
     _, total2 = write_proposal(_entries("pkg-brew/b", "pkg-brew/c"), tmp_path)
     ids = [e["id"] for e in yaml.safe_load(p.read_text())["entries"]]
     assert ids == ["pkg-brew/a", "pkg-brew/b", "pkg-brew/c"] and total2 == 3
+
+
+def test_render_proposal_reads_like_a_document():
+    # Registry files are documents humans edit: one blank line between entries,
+    # not a dense machine dump.
+    entries = [
+        {"id": "a/one", "adapter": "a", "domain": "d", "lifecycle": "active",
+         "intent": "i"},
+        {"id": "a/two", "adapter": "a", "domain": "d", "lifecycle": "active",
+         "intent": "i"},
+    ]  # fmt: skip
+    out = render_proposal(entries)
+    assert (
+        "\n\n- id: a/two" in out.replace("  - id", "- id") or "\n\n  - id: a/two" in out
+    )
+    assert yaml.safe_load(out) == {"entries": entries}
+
+
+def test_write_proposal_appends_without_destroying_user_edits(tmp_path):
+    # The file is prune-not-author: a user's comments and pruning marks must
+    # survive a re-import. Only NEW entries are appended as text; the existing
+    # file body is never re-dumped.
+    (tmp_path / "registry").mkdir()
+    target = tmp_path / "registry" / "imported.yaml"
+    target.write_text(
+        "entries:\n"
+        "  # keep: verified 2026-08-02\n"
+        "  - id: a/one\n"
+        "    adapter: a\n"
+        "    domain: d\n"
+        "    lifecycle: active\n"
+        "    intent: i\n"
+    )
+    new = [
+        {"id": "a/one", "adapter": "a", "domain": "d", "lifecycle": "active",
+         "intent": "i"},
+        {"id": "a/two", "adapter": "a", "domain": "d", "lifecycle": "active",
+         "intent": "i"},
+    ]  # fmt: skip
+    path, total = write_proposal(new, tmp_path)
+    text = path.read_text()
+    assert "# keep: verified 2026-08-02" in text  # the user's edit survived
+    assert total == 2
+    loaded = yaml.safe_load(text)
+    assert [e["id"] for e in loaded["entries"]] == ["a/one", "a/two"]

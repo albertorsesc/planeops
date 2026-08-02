@@ -35,6 +35,9 @@ def _cmd(args: argparse.Namespace) -> int:
             f"{alerts} alert(s), {summary.get('report', 0)} report, "
             f"{summary.get('uncovered', 0)} uncovered (as of {data.get('ts', '?')})"
         )
+        # Resolution is invisible by design; the full status names which
+        # instance answered so a wrong-instance reading is self-evident.
+        print(f"instance: {repo}")
     return 2 if alerts else 0
 
 

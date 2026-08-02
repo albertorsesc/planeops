@@ -71,9 +71,12 @@ class SopsStore:
             timeout=60,
         )
         if res.code != 0:
-            # Cap stderr: it flows into an operator-facing error, not a value.
+            # Keep the TAIL of stderr: sops puts the actionable part (which
+            # identity paths it searched) last, and the head is boilerplate.
             raise RuntimeError(
-                f"sops decrypt failed for {name!r}: {res.err.strip()[:200]}"
+                f"sops decrypt failed for {name!r}: ...{res.err.strip()[-300:]} "
+                "(if the age identity lives outside sops's default path, "
+                "set SOPS_AGE_KEY_FILE)"
             )
         return res.out.rstrip("\n")
 

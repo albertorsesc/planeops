@@ -72,6 +72,7 @@ class Entry:
     phase: int | None = None
     pin: str | None = None
     needs: tuple[str, ...] = ()  # ids of entries this one depends on
+    logs: tuple[str, ...] = ()  # where this asset logs (paths or commands)
     secrets: tuple[dict[str, Any], ...] = ()
     desired: dict[str, Any] = field(default_factory=dict)
     data: dict[str, Any] | None = None
@@ -173,7 +174,7 @@ _ENTRY_KEYS = frozenset(
     {
         "id", "adapter", "domain", "lifecycle", "intent", "class", "scope",
         "hosts", "owner", "tolerance", "kill_criteria", "auth", "phase", "pin",
-        "needs", "secrets", "desired", "data",
+        "needs", "logs", "secrets", "desired", "data",
     }
 )  # fmt: skip
 
@@ -258,6 +259,12 @@ def entry_from_dict(raw: dict[str, Any]) -> Entry:
             f"entry {entry_id!r}: needs must be a list of entry ids (strings)"
         )
 
+    logs = raw.get("logs", [])
+    if not isinstance(logs, list) or not all(isinstance(x, str) and x for x in logs):
+        raise SchemaError(
+            f"entry {entry_id!r}: logs must be a list of paths or commands (strings)"
+        )
+
     secrets = raw.get("secrets", [])
     if not isinstance(secrets, list):
         raise SchemaError(f"entry {entry_id!r}: secrets must be a list of mappings")
@@ -295,6 +302,7 @@ def entry_from_dict(raw: dict[str, Any]) -> Entry:
         phase=raw.get("phase"),
         pin=raw.get("pin"),
         needs=tuple(needs),
+        logs=tuple(logs),
         secrets=tuple(raw.get("secrets", ())),
         desired=raw.get("desired", {}) or {},
         data=data,

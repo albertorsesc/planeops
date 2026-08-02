@@ -14,22 +14,22 @@
 # --- mcp adapter: where MCP servers are wired on this machine ----------------
 # Each source: label (shown as the source), path (`~` expands to home), format
 # (`json` or `yaml`), key (the mapping holding the servers; default mcpServers).
-mcp:
-  sources:
-    - label: coding-harness
-      path: ~/.some-harness/config.json
-      format: json
-      key: mcpServers
+# mcp:
+#   sources:
+#     - label: coding-harness
+#       path: ~/.some-harness/config.json
+#       format: json
+#       key: mcpServers
 
-    - label: desktop-app
-      path: ~/Library/Application Support/SomeApp/config.json
-      format: json
-      key: mcpServers
+#     - label: desktop-app
+#       path: ~/Library/Application Support/SomeApp/config.json
+#       format: json
+#       key: mcpServers
 
-    - label: gateway
-      path: ~/.some-gateway/config.yaml
-      format: yaml
-      key: mcp_servers
+#     - label: gateway
+#       path: ~/.some-gateway/config.yaml
+#       format: yaml
+#       key: mcp_servers
 
 # --- import: manifest section -> adapter mapping for `plane import stackfile` -
 # The first rule whose `keyword` appears (case-insensitively) in a section header
