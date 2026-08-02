@@ -158,17 +158,20 @@ app's own config file, and the engine hardcodes no vendor's paths, so you point
   <img src="https://raw.githubusercontent.com/albertorsesc/planeops/main/docs/assets/secrets-vault.png" alt="A vault: keys visible, values sealed" width="360">
 </p>
 
-The shipped store is [sops](https://github.com/getsops/sops)+[age](https://github.com/FiloSottile/age): key names stay readable, values stay encrypted, so `plane observe` can answer "is the OpenRouter key configured?" without decrypting anything. Bootstrapping the store is three commands (once per machine):
+The shipped store is [sops](https://github.com/getsops/sops)+[age](https://github.com/FiloSottile/age): key names stay readable, values stay encrypted, so `plane observe` can answer "is the OpenRouter key configured?" without decrypting anything. Bootstrapping the store is one command, runnable from anywhere:
 
 ```console
-$ age-keygen -o ~/.config/sops/age/keys.txt   # your identity; keep it out of the instance
-$ printf 'creation_rules:\n  - path_regex: secrets\\.sops\\.yaml$\n    age: <your age1... public key>\n' > ~/planeops/.sops.yaml
-$ echo 'openrouter-api-key: <the value>' > ~/planeops/secrets.sops.yaml && sops -e -i ~/planeops/secrets.sops.yaml
+$ plane secrets init
+secrets init will write:
+  /Users/you/.config/sops/age/keys.txt (new age identity via age-keygen)
+  /Users/you/planeops/.sops.yaml (sops creation rule for this store)
+  /Users/you/planeops/secrets.sops.yaml (empty encrypted store)
+proceed? (y/N) y
 ```
 
-On macOS, sops looks for the identity under `~/Library/Application Support/sops/age/`;
-if you keep it at the XDG path above, export `SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt`
-in your shell so confirmed applies can decrypt. A governed secret is one registry entry:
+It reuses an existing age identity when one exists (or pass `--age-key <path>`),
+and creates a new one where sops itself looks on your OS, so decryption needs no
+environment setup. A governed secret is one registry entry:
 
 ```yaml
 - id: secrets/openrouter-api-key
