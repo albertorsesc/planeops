@@ -41,7 +41,9 @@ def test_client_presence_via_app_bundle(tmp_path):
     (apps / "Claude.app").mkdir(parents=True)
     found = detect_sources(tmp_path, which=_nowhich, app_root=apps)
     desktop = next(f for f in found if f["label"] == "claude-desktop")
-    assert "{name}" in desktop["logs"]
+    # No logs in the proposal: known-client labels derive their template at
+    # read time, so instance.yaml never goes stale.
+    assert "logs" not in desktop
 
 
 def test_empty_disk_detects_nothing(tmp_path):
