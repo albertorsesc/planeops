@@ -57,11 +57,9 @@ def _check_section(
         raise LookupError(str(exc)) from None
 
 
-def resolve_store(repo_root: Path | None) -> SecretsStore | None:
-    """The selected (or default) store for this instance, or None without a
-    root. An unknown selection is a loud operator error, never a silent None."""
-    if repo_root is None:
-        return None
+def resolve_provider(repo_root: Path) -> SecretsStoreProvider | None:
+    """The selected (or default) store PROVIDER for this instance. An unknown
+    selection is a loud operator error, never a silent None."""
     section = instance_section(repo_root, "secrets")
     providers = discover_stores()
     _check_section(section, providers)
@@ -73,14 +71,24 @@ def resolve_store(repo_root: Path | None) -> SecretsStore | None:
                 f"unknown secrets store {selected!r}; available: "
                 + ", ".join(sorted(providers))
             )
-        return provider.build(repo_root, _provider_section(section, provider))
+        return provider
     defaults = [p for p in providers.values() if p.is_default]
     if len(defaults) > 1:
         names = ", ".join(sorted(p.name for p in defaults))
         raise LookupError(f"multiple secrets stores claim default: {names}")
-    if not defaults:
+    return defaults[0] if defaults else None
+
+
+def resolve_store(repo_root: Path | None) -> SecretsStore | None:
+    """The selected (or default) store for this instance, or None without a
+    root."""
+    if repo_root is None:
         return None
-    return defaults[0].build(repo_root, _provider_section(section, defaults[0]))
+    provider = resolve_provider(repo_root)
+    if provider is None:
+        return None
+    section = instance_section(repo_root, "secrets")
+    return provider.build(repo_root, _provider_section(section, provider))
 
 
 def _provider_section(

@@ -80,6 +80,15 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `plane secrets init`: the tool bootstraps its own store (age identity if
+  missing, the instance's creation rules, an empty encrypted store), with the
+  standard preview-and-confirm. Every underlying sops call passes `--config`
+  explicitly and the identity is created where sops itself looks on this OS,
+  so no command depends on the working directory and no environment variable
+  is needed for a fresh setup. A store kind opts in via the `BootstrapsStore`
+  protocol; re-initializing over an existing store is refused. (Walk two: a
+  cwd-sensitive manual `sops -e` left a store in plaintext; this removes the
+  manual step entirely.)
 - Entries can record where their asset logs (`logs:` list of paths or
   commands); `plane schedule` fills it in for the reconcile job it declares.
 

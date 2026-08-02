@@ -44,6 +44,27 @@ class SecretsStore(Protocol):
 
 
 @runtime_checkable
+class BootstrapsStore(Protocol):
+    """A provider that can create its own store from nothing (ISP: separate
+    from SecretsStoreProvider so a store kind without self-bootstrap is simply
+    not an instance of this). Both methods are cwd-proof by contract: any
+    tool the provider shells to receives explicit paths/config, never relying
+    on the working directory."""
+
+    def bootstrap_preview(
+        self, repo_root: Path, *, age_key_file: Path | None
+    ) -> list[str]:
+        """What bootstrap WOULD write, for the confirm prompt."""
+        ...
+
+    def bootstrap(self, repo_root: Path, *, age_key_file: Path | None) -> list[str]:
+        """Create identity (if missing), rules, and the encrypted store.
+        Returns the actions taken. Raises LookupError if a store already
+        exists (re-init must be a deliberate, manual act)."""
+        ...
+
+
+@runtime_checkable
 class SecretsStoreProvider(Protocol):
     """What a module under `planeops/secrets/stores/` exposes as `STORE`: enough
     for the resolution layer to select and construct the store without knowing
