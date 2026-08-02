@@ -53,7 +53,7 @@ planeops turns the pile into a registry: every asset declared in plain YAML with
 
 - **Catches what a package manager can't.** Ungoverned always-on services, an MCP server wired into one client but not the others, the same tool under different names across clients, a dead reconcile heartbeat, a model your tooling depends on being pruned out from under it (`needs:`).
 - **One loop, three verbs.** `observe` scans (read-only), `drift` diffs desired against observed, `apply` converges with a per-change confirmation. Exit codes are a contract: `0` clean, `1` operator error, `2` drift alerts, so your shell prompt and your cron both know the state.
-- **No daemon, no open ports.** Every command exits. The ambient loop is your OS scheduler (launchd or systemd) running `plane reconcile`, set up by `plane schedule` and then governed like any other entry.
+- **No daemon, no open ports.** Every command exits. The ambient loop is your OS scheduler (`launchd` or `systemd`) running `plane reconcile`, set up by `plane schedule` and then governed like any other entry.
 - **Writes are gated, always.** Only `apply` mutates, only after a rendered diff and a yes: per change, or pre-declared in the registry with `tolerance: auto` for the domains you trust. Everything else, including the MCP server your assistant talks to, is read-only by construction.
 - **Onboarding is pruning, not authoring.** `plane init --seed` scans the machine and proposes the registry; you delete what you refuse to govern instead of writing YAML from scratch.
 - **Typos are load errors, never silent no-ops.** `tolerence: alert` fails with "did you mean 'tolerance'?" instead of quietly not escalating. Every key in every file, same rule.
@@ -114,7 +114,7 @@ From there: `plane apply` walks the drift as one confirmed change at a time, `pl
   <img src="https://raw.githubusercontent.com/albertorsesc/planeops/main/docs/assets/observe-gated.png" alt="Observe eye and gated-write gauge" width="420">
 </p>
 
-The registry is desired state: one YAML entry per governed asset, carrying its adapter, lifecycle, and the intent sentence that says why it exists. `plane observe` asks each adapter to report what actually exists. `plane drift` triages the difference into alerts (a lifecycle violation, an ungoverned service), reports (worth a look), and auto-folded noise (an in-major version bump), written as `DRIFT.md` for you and `DRIFT.json` for machines.
+The registry is desired state: one YAML entry per governed asset, carrying its `adapter`, `lifecycle`, and the `intent` sentence that says why it exists. `plane observe` asks each adapter to report what actually exists. `plane drift` triages the difference into alerts (a lifecycle violation, an ungoverned service), reports (worth a look), and auto-folded noise (an in-major version bump), written as `DRIFT.md` for you and `DRIFT.json` for machines.
 
 Adapters teach the engine one kind of asset each: services (`launchd`, `systemd`), packages (`brew`, `npm`, `uv`, `nvm`), local models (`ollama`), config files (delegated to [chezmoi](https://github.com/twpayne/chezmoi)), MCP wiring, secrets. They are discovered by package scan, never registered in a central list, and the whole set is described in the [spec](https://github.com/albertorsesc/planeops/blob/main/SPEC.md).
 
