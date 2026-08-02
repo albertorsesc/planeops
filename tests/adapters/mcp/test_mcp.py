@@ -197,3 +197,31 @@ def test_an_absent_source_file_stays_quiet(tmp_path, fake_platform):
         "mcp:\n  sources:\n    - {label: harness, path: ~/.nope.json, format: json}\n"
     )
     assert McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path)) == []
+
+
+def test_a_source_log_template_lands_per_server(tmp_path, fake_platform):
+    # A client that keeps per-server logs declares WHERE as a template; the
+    # observation resolves it per server so the manifest can know.
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n"
+        "    - label: desktop\n"
+        "      path: ~/.desktop.json\n"
+        "      format: json\n"
+        "      logs: ~/Library/Logs/Desk/mcp-server-{name}.log\n"
+    )
+    (tmp_path / ".desktop.json").write_text(
+        json.dumps({"mcpServers": {"context7": {"command": "npx"}}})
+    )
+    out = McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path))
+    assert out[0].facts["logs"] == ["~/Library/Logs/Desk/mcp-server-context7.log"]
+
+
+def test_sources_without_a_log_template_carry_no_logs(tmp_path, fake_platform):
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n    - {label: a, path: ~/.a.json, format: json}\n"
+    )
+    (tmp_path / ".a.json").write_text(
+        json.dumps({"mcpServers": {"x": {"command": "npx"}}})
+    )
+    out = McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path))
+    assert "logs" not in out[0].facts

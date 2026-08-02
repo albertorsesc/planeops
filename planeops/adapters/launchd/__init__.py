@@ -52,6 +52,7 @@ def read_plist(path: Path) -> dict[str, Any]:
             "keepalive": False,
             "run_at_load": False,
             "scheduled": False,
+            "logs": [],
         }
     return {
         "label": data.get("Label", path.stem),
@@ -61,6 +62,13 @@ def read_plist(path: Path) -> dict[str, Any]:
         "scheduled": bool(
             data.get("StartInterval") or data.get("StartCalendarInterval")
         ),
+        # The plist declares where the service logs; carried so a seeded
+        # manifest knows without hand-hunting.
+        "logs": [
+            str(p)
+            for p in (data.get("StandardOutPath"), data.get("StandardErrorPath"))
+            if p
+        ],
     }
 
 
@@ -120,6 +128,7 @@ class LaunchdAdapter:
                         # retired+booted-out+file-on-disk reads as converged.
                         "present": is_loaded,
                         "plist_path": str(plist_path),
+                        **({"logs": meta["logs"]} if meta["logs"] else {}),
                     },
                 )
             )

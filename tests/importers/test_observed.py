@@ -171,3 +171,24 @@ def test_inactive_assets_seed_as_parked_not_active():
     entries = {e["id"]: e for e in propose_from_snapshot(snap, None)}
     assert entries["launchd/x.loaded"]["lifecycle"] == "active"
     assert entries["launchd/x.on-disk-only"]["lifecycle"] == "parked"
+
+
+def test_observed_logs_land_in_the_proposal():
+    # An adapter that reports where an asset logs (a plist's StandardOutPath,
+    # a journalctl command, a client's per-server log file) seeds the
+    # manifest's `logs:` field: the registry knows where to look from day one.
+    import json
+
+    snap = json.dumps(
+        {
+            "observed": [
+                {"adapter": "launchd", "native_id": "x.svc",
+                 "facts": {"present": True, "logs": ["/tmp/x/out.log"]}},
+                {"adapter": "launchd", "native_id": "y.svc",
+                 "facts": {"present": True}},
+            ]
+        }
+    )  # fmt: skip
+    entries = {e["id"]: e for e in propose_from_snapshot(snap, None)}
+    assert entries["launchd/x.svc"]["logs"] == ["/tmp/x/out.log"]
+    assert "logs" not in entries["launchd/y.svc"]
