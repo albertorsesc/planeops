@@ -50,7 +50,8 @@ def _cmd(args: argparse.Namespace) -> int:
         report = run_drift(repo)
         print(
             f"{report.alert_count} alert(s), {len(report.report)} report, "
-            f"{len(report.uncovered)} uncovered -> observed/{report.host}/DRIFT.md"
+            f"{len(report.uncovered)} uncovered "
+            f"-> {repo / 'observed' / report.host / 'DRIFT.md'}"
         )
     return 1 if failed else 0
 
