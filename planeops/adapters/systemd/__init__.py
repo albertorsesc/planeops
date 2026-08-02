@@ -53,10 +53,25 @@ class SystemdAdapter:
         units_dir = self._units_dir(ctx)
         if not units_dir.is_dir():
             return []
-        # No `systemd --user` session (macOS, or no user bus): report nothing rather
-        # than emitting false "disabled/inactive" facts for every unit file.
-        if self._run(["systemctl", "--user", "list-units", "--no-legend"]).code != 0:
-            return []
+        # systemctl absent entirely (macOS, a systemd-less box): not an error,
+        # nothing to observe. But systemctl PRESENT with unit files on disk and
+        # an unreachable user bus must be loud: observing zero units silently
+        # made the snapshot lie (the classic case is a container/CI/SSH session
+        # without XDG_RUNTIME_DIR).
+        probe = self._run(["systemctl", "--user", "list-units", "--no-legend"])
+        if probe.code != 0:
+            has_units = any(
+                unit_path.exists()
+                for t in self.UNIT_TYPES
+                for unit_path in units_dir.glob(f"*.{t}")
+            )
+            if probe.code == 127 or not has_units:
+                return []
+            raise ValueError(
+                f"systemctl --user is unreachable ({probe.err.strip()[:120]}) "
+                f"while user units exist in {units_dir}; no session bus? "
+                'try XDG_RUNTIME_DIR=/run/user/"$(id -u)"'
+            )
 
         out: list[Observed] = []
         paths = sorted(p for t in self.UNIT_TYPES for p in units_dir.glob(f"*.{t}"))

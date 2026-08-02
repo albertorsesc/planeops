@@ -7,6 +7,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from planeops.cli._text import n_entries
 from planeops.cli.instance import instance_root
 
 
@@ -56,14 +57,14 @@ def _cmd(args: argparse.Namespace) -> int:
     if not args.yes:  # show the proposal and confirm before mutating the registry
         print(render_proposal(entries), end="")
         try:
-            answer = input(f"write {len(entries)} entries to {target}? (y/N) ")
+            answer = input(f"write {n_entries(len(entries))} to {target}? (y/N) ")
         except (EOFError, OSError):
             answer = ""  # no readable stdin: never write without an explicit --yes
         if answer.strip().lower()[:1] != "y":
             print("not written (use --yes to write non-interactively)", file=sys.stderr)
             return 0
     written, total = write_proposal(entries, repo)
-    print(f"wrote {len(entries)} new entries to {written} ({total} total)")
+    print(f"added {n_entries(len(entries))} to {written} ({total} total)")
     print("prune registry/imported.yaml to taste, then `plane drift`")
     return 0
 
