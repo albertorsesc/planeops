@@ -8,6 +8,14 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **BREAKING (pre-1.0):** the YAML dependency is `ruamel.yaml` (was PyYAML),
+  introduced behind a new third-party ring: `planeops/providers/yaml` is the
+  port every load/dump goes through, the vendor lives in one leaf module, and
+  an architecture fitness test fails any third-party import outside its
+  sanctioned home. Chosen for round-trip editing: planeops modifies files
+  humans own and comment, and hand-rolled text surgery for that was a
+  recurring bug class. Dependency count stays at one.
+
 - **BREAKING (pre-1.0):** a secrets ref is `secret://<name>`: one name segment,
   strict charset. The old `secret://<store>/<name>` form bound a store kind into
   every consuming entry while the segment was never read by any code; which
@@ -79,6 +87,13 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (`init` first).
 
 ### Added
+
+- `plane mcp init`: detects known clients on this machine (claude-code,
+  claude-desktop, codex, cursor) and wires them as `mcp.sources`, including
+  the desktop's per-server log template, with the standard preview-and-confirm.
+  The client-conventions table lives in the mcp adapter (extensions may know
+  vendors; the core still cannot), and the write is a round-trip edit of
+  `instance.yaml`: your comments, order, and formatting survive.
 
 - `mcp.sources` reads TOML configs too (`format: toml`, stdlib parser), so
   codex-style `[mcp_servers.<name>]` tables are first-class sources; an

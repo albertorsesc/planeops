@@ -24,11 +24,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from planeops.config import section as instance_section
 from planeops.core.contracts import Ctx, Observed
 from planeops.core.schema import reject_unknown_keys
+from planeops.providers import yaml
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,7 +125,7 @@ def _read_source(source: McpSource, home: Path) -> dict[str, dict[str, Any]]:
     try:
         text = path.read_text()
         if source.format == "yaml":
-            data = yaml.safe_load(text)
+            data = yaml.load(text)
         elif source.format == "toml":
             data = tomllib.loads(text)
         else:
@@ -135,7 +134,7 @@ def _read_source(source: McpSource, home: Path) -> dict[str, dict[str, Any]]:
         json.JSONDecodeError,
         tomllib.TOMLDecodeError,
         ValueError,
-        yaml.YAMLError,
+        yaml.ParseError,
         OSError,
     ) as exc:
         # A file that EXISTS but cannot be read or parsed must not quietly

@@ -2,10 +2,10 @@
 post-write observe. Backend generation lives in tests/schedulers/."""
 
 import pytest
-import yaml
 
 from planeops.cli import main
 from planeops.cli.schedule import _parse_every
+from planeops.providers import yaml
 
 
 @pytest.mark.parametrize("s,secs", [("6h", 21600), ("30m", 1800), ("90s", 90)])
@@ -52,7 +52,7 @@ def sched(tmp_path, monkeypatch):
 def test_schedule_writes_files_and_declares_the_entry(sched):
     home, inst = sched
     assert main(["--repo", str(inst), "schedule", "--every", "6h", "--yes"]) == 0
-    doc = yaml.safe_load((inst / "registry" / "schedule.yaml").read_text())
+    doc = yaml.load((inst / "registry" / "schedule.yaml").read_text())
     assert doc["entries"][0]["lifecycle"] == "active"
     # exactly ONE backend's files land, never both (selection, not fallthrough)
     wrote_plist = bool(list(home.rglob("*.plist")))
@@ -63,7 +63,7 @@ def test_schedule_writes_files_and_declares_the_entry(sched):
 def test_schedule_off_declares_a_retired_entry(sched):
     home, inst = sched
     assert main(["--repo", str(inst), "schedule", "--off", "--yes"]) == 0
-    doc = yaml.safe_load((inst / "registry" / "schedule.yaml").read_text())
+    doc = yaml.load((inst / "registry" / "schedule.yaml").read_text())
     assert doc["entries"][0]["lifecycle"] == "retired"
 
 

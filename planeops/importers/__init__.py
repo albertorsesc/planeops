@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-import yaml
+from planeops.providers import yaml
 
 
 @runtime_checkable
@@ -31,7 +31,7 @@ class Importer(Protocol):
 
 def render_entry(entry: dict[str, Any]) -> str:
     """One entry as a document-style list item, indented under `entries:`."""
-    body = yaml.safe_dump([entry], sort_keys=False, allow_unicode=True)
+    body = yaml.dump([entry])
     return "\n".join(f"  {line}" if line else "" for line in body.rstrip().split("\n"))
 
 
@@ -61,7 +61,7 @@ def write_proposal(
     text = ""
     if target.is_file():
         text = target.read_text()
-        doc = yaml.safe_load(text) or {}
+        doc = yaml.load(text) or {}
         if isinstance(doc, dict) and isinstance(doc.get("entries"), list):
             existing = [e for e in doc["entries"] if isinstance(e, dict)]
     seen = {e.get("id") for e in existing}

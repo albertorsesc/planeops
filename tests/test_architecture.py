@@ -170,3 +170,29 @@ def test_no_unanchored_observed_paths_in_output():
         if "-> observed/" in p.read_text()
     ]
     assert not offenders, f"unanchored output paths in: {offenders}"
+
+
+def test_third_party_libraries_live_only_in_their_provider_ring():
+    # The providers ring: each third-party import name has ONE sanctioned home
+    # under planeops/providers/. An import anywhere else fails the suite, so
+    # "switching a library is one leaf file" is a proven property, not a hope.
+    import re
+    from pathlib import Path
+
+    ring = {
+        "ruamel": "planeops/providers/yaml",
+        "yaml": "planeops/providers/yaml",  # the old direct pyyaml habit
+    }
+    offenders = []
+    for p in Path("planeops").rglob("*.py"):
+        rel = str(p)
+        for lib, home in ring.items():
+            if rel.startswith(home):
+                continue
+            pattern = rf"^\s*(import {lib}\b|from {lib}[.\s])"
+            for i, line in enumerate(p.read_text().split("\n"), 1):
+                if re.match(pattern, line):
+                    offenders.append(f"{rel}:{i}: {line.strip()}")
+    assert not offenders, "third-party import outside its ring:\n" + "\n".join(
+        offenders
+    )

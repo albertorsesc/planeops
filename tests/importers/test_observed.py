@@ -1,10 +1,9 @@
 import json
 
-import yaml
-
 from planeops.cli import main
 from planeops.importers import discover_importers
 from planeops.importers.observed import ObservedImporter, propose_from_snapshot
+from planeops.providers import yaml
 
 
 def _snapshot(observed, host="testhost"):
@@ -148,7 +147,7 @@ def test_cli_adapter_filter_onboards_one_type_at_a_time(tmp_path, capsys):
         ]
     )
     assert code == 0
-    doc = yaml.safe_load(capsys.readouterr().out)  # the note line is a YAML comment
+    doc = yaml.load(capsys.readouterr().out)  # the note line is a YAML comment
     assert [e["id"] for e in doc["entries"]] == ["ollama/m1"]  # pkg-brew filtered out
 
 

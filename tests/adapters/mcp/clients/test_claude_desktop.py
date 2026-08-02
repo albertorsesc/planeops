@@ -1,0 +1,5 @@
+from planeops.adapters.mcp.clients.claude_desktop import CLIENT
+
+
+def test_declaration_is_complete():
+    assert CLIENT.config and CLIENT.format in ("json", "yaml", "toml") and CLIENT.key

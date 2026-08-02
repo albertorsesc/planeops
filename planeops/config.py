@@ -21,7 +21,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import yaml
+from planeops.providers import yaml
 
 INSTANCE_FILE = "instance.yaml"
 
@@ -35,8 +35,8 @@ def load_instance(repo_root: Path | None) -> dict[str, Any]:
     if not path.is_file():
         return {}
     try:
-        data = yaml.safe_load(path.read_text())
-    except (yaml.YAMLError, OSError):
+        data = yaml.load(path.read_text())
+    except (yaml.ParseError, OSError):
         return {}
     return data if isinstance(data, dict) else {}
 
