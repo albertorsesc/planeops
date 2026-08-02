@@ -50,12 +50,19 @@ def test_mcp_json_unseeded_emits_a_json_error_object(monkeypatch, capsys, inst):
 
 
 def _fake_home_with_clients(tmp_path, monkeypatch):
+    # The verb's flow is under test; detection has its own suite, so stub it.
     home = tmp_path / "home"
     home.mkdir()
-    (home / ".claude.json").write_text("{}")
-    (home / ".codex").mkdir()
-    (home / ".codex" / "config.toml").write_text("")
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    monkeypatch.setattr(
+        "planeops.adapters.mcp.detect.detect_sources",
+        lambda h, **kw: [
+            {"label": "claude-code", "path": "~/.claude.json",
+             "format": "json", "key": "mcpServers"},
+            {"label": "codex", "path": "~/.codex/config.toml",
+             "format": "toml", "key": "mcp_servers"},
+        ],
+    )  # fmt: skip
     return home
 
 
