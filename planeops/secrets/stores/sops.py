@@ -43,8 +43,26 @@ class SopsStore:
             return set()
         if not isinstance(data, dict):
             return set()
-        # `sops` is the encryption-metadata block, not a secret.
-        return {k for k in data if isinstance(k, str) and k != "sops"}
+        # A store that is not actually encrypted must be refused, never
+        # blessed: a failed `sops -e` leaves plaintext behind, and presence
+        # answering "configured" over cleartext would hide exactly the leak
+        # this store exists to prevent. The raise lands as a failed-scan
+        # alert. Every non-metadata value must be an ENC[...] string and the
+        # `sops` metadata block must exist.
+        secrets = {k: v for k, v in data.items() if k != "sops"}
+        plaintext = [
+            k
+            for k, v in secrets.items()
+            if not (isinstance(v, str) and v.startswith("ENC["))
+        ]
+        if secrets and ("sops" not in data or plaintext):
+            raise ValueError(
+                f"secrets store {self._store} is not encrypted "
+                f"(plaintext values: {sorted(plaintext) or 'missing sops metadata'}); "
+                "encrypt it: cd into the instance, then `sops -e -i "
+                f"{self._store.name}`"
+            )
+        return {k for k in secrets if isinstance(k, str)}
 
     def exists(self, name: str) -> bool:
         return name in self._keys()
@@ -73,10 +91,17 @@ class SopsStore:
         if res.code != 0:
             # Keep the TAIL of stderr: sops puts the actionable part (which
             # identity paths it searched) last, and the head is boilerplate.
+            # The identity hint only helps identity-shaped failures; on a
+            # malformed store it points the user away from the real problem.
+            err = res.err.strip()
+            hint = (
+                ""
+                if "metadata" in err
+                else " (if the age identity lives outside sops's default "
+                "path, set SOPS_AGE_KEY_FILE)"
+            )
             raise RuntimeError(
-                f"sops decrypt failed for {name!r}: ...{res.err.strip()[-300:]} "
-                "(if the age identity lives outside sops's default path, "
-                "set SOPS_AGE_KEY_FILE)"
+                f"sops decrypt failed for {name!r}: ...{err[-300:]}{hint}"
             )
         return res.out.rstrip("\n")
 

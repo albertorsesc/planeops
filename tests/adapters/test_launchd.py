@@ -311,3 +311,20 @@ def test_observe_present_means_loaded(tmp_path, fake_platform):
     facts = _observe_facts(tmp_path, fake_platform)
     assert facts["ai.example.running"]["present"] is True
     assert facts["ai.example.unloaded"]["present"] is False
+
+
+def test_parked_service_is_left_exactly_as_found():
+    # `parked` means keep-as-is: never bootstrap an unloaded parked agent
+    # (walk two: a seeded vendor updater got a bootstrap proposal), and never
+    # bootout a loaded one.
+    ctx = _ctx(_Plat())
+    assert (
+        ADAPTER.plan(_entry("launchd/idle", "parked"), _obs("idle", loaded=False), ctx)
+        == []
+    )
+    assert (
+        ADAPTER.plan(
+            _entry("launchd/run", "parked"), _obs("run", loaded=True, pid=7), ctx
+        )
+        == []
+    )

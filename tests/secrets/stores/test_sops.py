@@ -120,3 +120,49 @@ def test_provider_builds_from_the_instance_section(tmp_path):
     assert store._store == tmp_path / DEFAULT_PATH  # its own default path
     custom = STORE.build(tmp_path, {"path": "vault/other.yaml"})
     assert custom._store == tmp_path / "vault" / "other.yaml"
+
+
+def test_a_plaintext_store_is_refused_not_blessed(tmp_path):
+    # Walk two: a failed `sops -e` left the store plaintext and presence
+    # reported configured=true with zero alerts, a secret sitting in cleartext
+    # in a directory the docs say to git. A store without sops metadata (or
+    # with values that are not ENC[...]) is a loud error, landing as a
+    # failed-scan alert, never a quiet "configured".
+    p = tmp_path / "secrets.sops.yaml"
+    p.write_text("walk2-key: walk2-value\n")
+    store = SopsStore(p)
+    with pytest.raises(ValueError, match="not encrypted"):
+        store.exists("walk2-key")
+
+
+def test_a_partially_plaintext_store_is_refused(tmp_path):
+    p = tmp_path / "secrets.sops.yaml"
+    p.write_text("a: ENC[AES256_GCM,data:x]\nb: oops-plain\nsops:\n  version: '3'\n")
+    with pytest.raises(ValueError, match="not encrypted"):
+        SopsStore(p).exists("a")
+
+
+def test_metadata_failure_does_not_get_the_identity_hint(tmp_path):
+    # The SOPS_AGE_KEY_FILE hint on a "metadata not found" failure points the
+    # user away from the real problem (the file is not a sops file).
+    p = tmp_path / "secrets.sops.yaml"
+    p.write_text("k: ENC[AES256_GCM,data:x]\nsops:\n  version: '3'\n")
+
+    def run(cmd, timeout=None):
+        return RunResult(1, "", "Error getting data key: sops metadata not found")
+
+    store = SopsStore(p, run=run)
+    with pytest.raises(RuntimeError) as e:
+        store.get("k")
+    assert "SOPS_AGE_KEY_FILE" not in str(e.value)
+
+
+def test_identity_failure_keeps_the_hint(tmp_path):
+    p = tmp_path / "secrets.sops.yaml"
+    p.write_text("k: ENC[AES256_GCM,data:x]\nsops:\n  version: '3'\n")
+
+    def run(cmd, timeout=None):
+        return RunResult(1, "", "failed to load age identities")
+
+    with pytest.raises(RuntimeError, match="SOPS_AGE_KEY_FILE"):
+        SopsStore(p, run=run).get("k")
