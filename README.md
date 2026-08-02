@@ -13,6 +13,7 @@
   <a href="#install">Install</a> ·
   <a href="#quickstart">Quickstart</a> ·
   <a href="#how-it-works">How it works</a> ·
+  <a href="#secrets-without-values">Secrets</a> ·
   <a href="#let-your-assistant-read-the-plane">MCP</a> ·
   <a href="https://github.com/albertorsesc/planeops/blob/main/SPEC.md">Spec</a>
 </p>
@@ -26,7 +27,9 @@ drift:6
 $ plane drift
 6 alert(s), 0 report, 2 uncovered -> observed/mymac/DRIFT.md
 
-$ head observed/mymac/DRIFT.md
+$ cat observed/mymac/DRIFT.md
+# DRIFT
+...
 ## Alerts (6)
 - `launchd/ai.gateway` (unregistered): ungoverned always-on service;
   declare it or add an unmanaged glob
@@ -48,14 +51,14 @@ planeops turns the pile into a registry: every asset declared in plain YAML with
 
 ## Highlights
 
+- **Catches what a package manager can't.** Ungoverned always-on services, an MCP server wired into one client but not the others, the same tool under different names across clients, a dead reconcile heartbeat, a model your tooling depends on being pruned out from under it (`needs:`).
 - **One loop, three verbs.** `observe` scans (read-only), `drift` diffs desired against observed, `apply` converges with a per-change confirmation. Exit codes are a contract: `0` clean, `1` operator error, `2` drift alerts, so your shell prompt and your cron both know the state.
 - **No daemon, no open ports.** Every command exits. The ambient loop is your OS scheduler (launchd or systemd) running `plane reconcile`, set up by `plane schedule` and then governed like any other entry.
 - **Writes are gated, always.** Only `apply` mutates, only after a rendered diff and a yes: per change, or pre-declared in the registry with `tolerance: auto` for the domains you trust. Everything else, including the MCP server your assistant talks to, is read-only by construction.
-- **Catches what a package manager can't.** Ungoverned always-on services, an MCP server wired into one client but not the others, the same tool under different names across clients, a dead reconcile heartbeat, a model your tooling depends on being pruned out from under it (`needs:`).
+- **Onboarding is pruning, not authoring.** `plane init --seed` scans the machine and proposes the registry; you delete what you refuse to govern instead of writing YAML from scratch.
 - **Typos are load errors, never silent no-ops.** `tolerence: alert` fails with "did you mean 'tolerance'?" instead of quietly not escalating. Every key in every file, same rule.
 - **Secrets stay references.** Names and presence are tracked; values are decrypted only inside a confirmed materialization and land only in the declared target file. Snapshots, reports, and diffs never carry a value.
 - **Provider-neutral by architecture.** Adapters, importers, platforms, schedulers, and secrets stores are five discovery seams; the core names no vendor (a test enforces it). Swap your secrets store and zero registry entries change.
-- **Onboarding is pruning, not authoring.** `plane init --seed` scans the machine and proposes the registry; you delete what you refuse to govern instead of writing YAML from scratch.
 
 ## Install
 
@@ -96,14 +99,14 @@ $ plane drift
 
 # keep it fresh without thinking about it: an OS timer, previewed and confirmed
 $ plane schedule --every 6h
-$ plane apply --id launchd/ai.planeops.reconcile
+$ plane apply --id launchd/ai.planeops.reconcile   # systemd/... on Linux
 
 # one glance forever after (empty means clean; wire it into your prompt)
 $ plane status --short
 drift:3
 ```
 
-`plane import observed --write` re-seeds anytime; `plane mcp` shows every MCP server across all your clients and who has it wired; `plane apply` walks the drift as one confirmed change at a time.
+From there: `plane apply` walks the drift as one confirmed change at a time, `plane mcp` shows every MCP server across all your clients and who has it wired, and `plane import observed --write` re-seeds the registry anytime.
 
 ## How it works
 
@@ -115,7 +118,7 @@ The registry is desired state: one YAML entry per governed asset, carrying its a
 
 Adapters teach the engine one kind of asset each: services (`launchd`, `systemd`), packages (`brew`, `npm`, `uv`, `nvm`), local models (`ollama`), config files (delegated to [chezmoi](https://github.com/twpayne/chezmoi)), MCP wiring, secrets. They are discovered by package scan, never registered in a central list, and the whole set is described in the [spec](https://github.com/albertorsesc/planeops/blob/main/SPEC.md).
 
-### Secrets, without values
+## Secrets, without values
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/albertorsesc/planeops/main/docs/assets/secrets-vault.png" alt="A vault: keys visible, values sealed" width="360">
@@ -135,7 +138,7 @@ The shipped store is [sops](https://github.com/getsops/sops)+[age](https://githu
 
 ## Status
 
-Pre-1.0: the loop, eleven adapters, scheduling, secrets, importers, and the MCP server work on macOS and Linux and run this repo's own machines daily. Contracts may still move; a breaking change bumps the minor and lands in the [CHANGELOG](https://github.com/albertorsesc/planeops/blob/main/CHANGELOG.md) with its migration. The next acceptance gate is a clean-machine reproduction rehearsal.
+Pre-1.0: the loop, eleven adapters, scheduling, secrets, importers, and the MCP server work on macOS and Linux and govern this project's own machines daily. Contracts may still move; a breaking change bumps the minor and lands in the [CHANGELOG](https://github.com/albertorsesc/planeops/blob/main/CHANGELOG.md) with its migration. The next acceptance gate is a clean-machine reproduction rehearsal.
 
 ## Contributing, security, license
 
