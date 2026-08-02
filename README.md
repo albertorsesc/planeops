@@ -99,14 +99,14 @@ $ plane drift
 
 # keep it fresh without thinking about it: an OS timer, previewed and confirmed
 $ plane schedule --every 6h
-$ plane apply --id launchd/ai.planeops.reconcile   # systemd/... on Linux
+$ plane apply --id launchd/ai.planeops.reconcile   # Linux: systemd/planeops-reconcile.timer
 
 # one glance forever after (empty means clean; wire it into your prompt)
 $ plane status --short
 drift:3
 ```
 
-From there: `plane apply` walks the drift as one confirmed change at a time, `plane mcp` shows every MCP server across all your clients and who has it wired, and `plane import observed --write` re-seeds the registry anytime.
+From there: `plane apply` walks the drift as one confirmed change at a time, `plane mcp` shows every MCP server across all your clients and who has it wired, and `plane import observed --write` proposes anything on the machine the registry does not govern yet (a clean no-op right after `--seed`).
 
 ## How it works
 
@@ -124,7 +124,20 @@ Adapters teach the engine one kind of asset each: services (`launchd`, `systemd`
   <img src="https://raw.githubusercontent.com/albertorsesc/planeops/main/docs/assets/secrets-vault.png" alt="A vault: keys visible, values sealed" width="360">
 </p>
 
-The shipped store is [sops](https://github.com/getsops/sops)+[age](https://github.com/FiloSottile/age): key names stay readable, values stay encrypted, so `plane observe` can answer "is the OpenRouter key configured?" without decrypting anything. A registry entry references `secret://openrouter-api-key`; which store serves it is instance configuration, so swapping stores touches zero entries. A value is decrypted exactly once, inside a confirmed `apply`, into the one file the entry declares (`0600`, symlink-refusing, containment-checked).
+The shipped store is [sops](https://github.com/getsops/sops)+[age](https://github.com/FiloSottile/age): key names stay readable, values stay encrypted, so `plane observe` can answer "is the OpenRouter key configured?" without decrypting anything. A governed secret is one registry entry:
+
+```yaml
+- id: secrets/openrouter-api-key
+  adapter: secrets
+  domain: secret
+  lifecycle: active
+  intent: LLM gateway key for local tooling
+  secrets:
+    - ref: secret://openrouter-api-key
+      injected_as: file:~/.config/llm/env#OPENROUTER_API_KEY
+```
+
+Which store serves a ref is instance configuration, so swapping stores touches zero entries. A value is decrypted exactly once, inside a confirmed `apply`, into the one file the entry declares (`0600`, symlink-refusing, containment-checked).
 
 ## Let your assistant read the plane
 
