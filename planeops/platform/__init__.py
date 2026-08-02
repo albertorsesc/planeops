@@ -28,9 +28,9 @@ def discover_platforms() -> list[Platform]:
 
 
 def _serves(platform: Platform, host: str) -> bool:
-    # Each impl declares `sys_platforms`: the sys.platform prefixes it handles.
-    selectors: tuple[str, ...] = getattr(platform, "sys_platforms", ())
-    return any(host == s or host.startswith(s) for s in selectors)
+    # `sys_platforms` is required by the Platform contract; discovery already
+    # rejected any impl without it, so no default here.
+    return any(host == s or host.startswith(s) for s in platform.sys_platforms)
 
 
 def current_platform() -> Platform:

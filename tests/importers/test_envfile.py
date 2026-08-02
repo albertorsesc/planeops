@@ -50,7 +50,7 @@ def test_entries_are_names_only_interactive_secret_stubs():
             "lifecycle": "active",
             "auth": "interactive",
             "intent": (
-                "imported from env file; store the value in the sops store, then verify"
+                "imported from env file; store the value in the secrets store, then verify"
             ),
         }
     ]

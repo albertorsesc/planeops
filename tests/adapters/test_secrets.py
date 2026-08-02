@@ -47,7 +47,7 @@ def _consumer(name, injected_as):
             "domain": "service",
             "lifecycle": "active",
             "intent": "needs a secret injected",
-            "secrets": [{"ref": f"secret://sops/{name}", "injected_as": injected_as}],
+            "secrets": [{"ref": f"secret://{name}", "injected_as": injected_as}],
         }
     )
 
@@ -132,9 +132,10 @@ def test_default_store_resolves_at_the_instance_root(tmp_path):
 def test_store_path_is_overridable_via_instance_yaml(tmp_path):
     store = tmp_path / "vault.sops.yaml"
     store.write_text("k: ENC[data]\nsops: {}\n")
-    # `store` names the KIND (discovered); `path` is the sops store's own knob.
+    # `store` names the KIND (discovered); the store's own knobs nest under
+    # its name, so provider keys never collide with engine keys.
     (tmp_path / "instance.yaml").write_text(
-        "secrets:\n  store: sops\n  path: vault.sops.yaml\n"
+        "secrets:\n  store: sops\n  sops:\n    path: vault.sops.yaml\n"
     )
     out = SecretsAdapter().observe(_ctx([_entry("k")], repo_root=tmp_path))
     assert out[0].facts == {"configured": True}

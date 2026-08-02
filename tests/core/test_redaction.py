@@ -54,7 +54,7 @@ _CONSUMER = (
     "    phase: 6\n"
     "    intent: consumer\n"
     "    secrets:\n"
-    "      - ref: secret://sops/openrouter-api-key\n"
+    "      - ref: secret://openrouter-api-key\n"
     "        injected_as: file:{target}#OPENROUTER_API_KEY\n"
 )
 

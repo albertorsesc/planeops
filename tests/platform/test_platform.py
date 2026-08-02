@@ -32,3 +32,22 @@ def test_unknown_os_raises(monkeypatch):
     monkeypatch.setattr(sys, "platform", "sunos5")
     with pytest.raises(NotImplementedError):
         current_platform()
+
+
+def test_platform_contract_declares_sys_platforms():
+    # Selection reads sys_platforms; the published contract must require it
+    # rather than silently defaulting an undeclared attribute to ().
+    from planeops.core.contracts import Platform
+
+    class NoSelector:
+        name = "incomplete"
+
+        def hostname(self):
+            return "h"
+
+        def home(self):
+            from pathlib import Path
+
+            return Path("/")
+
+    assert not isinstance(NoSelector(), Platform)
