@@ -54,12 +54,19 @@ class LaunchdScheduler:
             # that to an alert rather than a quiet report.
             "tolerance": "alert",
             "intent": "planeops ambient reconcile, managed by `plane schedule`",
+            "logs": [
+                str(log_dir / "launchd.out.log"),
+                str(log_dir / "launchd.err.log"),
+            ],
         }
         verb = "unload" if off else "load"
         return ScheduledJob(
             files={plist_path: plistlib.dumps(plist).decode()},
             entries=[entry],
-            hint=f"scheduled {'off' if off else 'on'}; run `plane apply` to {verb} it",
+            hint=(
+                f"scheduled {'off' if off else 'on'}; run "
+                f"`plane apply --id {entry['id']}` to {verb} it"
+            ),
         )
 
 

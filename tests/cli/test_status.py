@@ -68,3 +68,23 @@ def test_status_tolerates_a_hand_edited_partial_report(monkeypatch, capsys, inst
     code = main(["--repo", inst, "status"])
     out = capsys.readouterr().out
     assert "0 alert(s)" in out and code == 0
+
+
+def test_full_status_names_the_instance(monkeypatch, capsys, tmp_path):
+    (tmp_path / ".planeops").write_text("")
+    monkeypatch.setattr(
+        "planeops.core.status.read_status",
+        lambda repo: {"alert_count": 0, "ts": "t", "summary": {}},
+    )
+    assert main(["--repo", str(tmp_path), "status"]) == 0
+    assert f"instance: {tmp_path}" in capsys.readouterr().out
+
+
+def test_short_status_stays_bare(monkeypatch, capsys, tmp_path):
+    (tmp_path / ".planeops").write_text("")
+    monkeypatch.setattr(
+        "planeops.core.status.read_status",
+        lambda repo: {"alert_count": 0, "ts": "t", "summary": {}},
+    )
+    assert main(["--repo", str(tmp_path), "status", "--short"]) == 0
+    assert capsys.readouterr().out == ""  # nothing but the token contract

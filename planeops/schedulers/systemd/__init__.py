@@ -76,7 +76,10 @@ class SystemdScheduler:
             },
             entries=[entry],
             globs=[{"glob": f"systemd/{UNIT}.service"}],  # timer-driven, ungoverned
-            hint=f"scheduled {'off' if off else 'on'}; run `plane apply` to {verb} it",
+            hint=(
+                f"scheduled {'off' if off else 'on'}; run "
+                f"`plane apply --id {entry['id']}` to {verb} it"
+            ),
         )
 
 

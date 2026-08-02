@@ -1,6 +1,8 @@
 """launchd scheduler backend: pure generation of the reconcile plist + its
 governed registry entry."""
 
+from pathlib import Path
+
 from planeops.schedulers.launchd import SCHEDULER as LAUNCHD
 
 
@@ -28,3 +30,13 @@ def test_off_retires_and_drops_run_at_load(tmp_path):
     )
     assert job.entries[0]["lifecycle"] == "retired"
     assert "RunAtLoad" not in next(iter(job.files.values()))
+
+
+def test_hint_names_the_exact_apply_command():
+    # A bare `plane apply` walks the whole queue; the hint must hand the user
+    # the precise per-entry form.
+    job = LAUNCHD.build(
+        Path("/tmp/h"), plane="/usr/local/bin/plane", path_env="/usr/bin",
+        interval=21600, login=True, off=False,
+    )  # fmt: skip
+    assert "--id launchd/ai.planeops.reconcile" in job.hint

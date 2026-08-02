@@ -280,3 +280,22 @@ def test_secret_ref_name_charset(tmp_path):
     for bad in ("secret://", "secret://a b", "secret://a/b/c"):
         with pytest.raises(SchemaError):
             entry_from_dict(_secret_entry([{"ref": bad}]))
+
+
+def test_logs_field_is_a_tuple_of_paths():
+    # An entry records where its asset logs, so the manifest answers "where do
+    # I look when this misbehaves" without hunting.
+    e = entry_from_dict(
+        {"id": "a/b", "adapter": "a", "domain": "d", "lifecycle": "active",
+         "intent": "i", "logs": ["~/Library/Logs/x/out.log", "journalctl --user -u x"]}
+    )  # fmt: skip
+    assert e.logs == ("~/Library/Logs/x/out.log", "journalctl --user -u x")
+
+
+def test_logs_items_must_be_non_empty_strings():
+    for bad in ([3], [""], "not-a-list"):
+        with pytest.raises(SchemaError, match="logs"):
+            entry_from_dict(
+                {"id": "a/b", "adapter": "a", "domain": "d",
+                 "lifecycle": "active", "intent": "i", "logs": bad}
+            )  # fmt: skip

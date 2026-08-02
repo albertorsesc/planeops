@@ -150,3 +150,24 @@ def test_cli_adapter_filter_onboards_one_type_at_a_time(tmp_path, capsys):
     assert code == 0
     doc = yaml.safe_load(capsys.readouterr().out)  # the note line is a YAML comment
     assert [e["id"] for e in doc["entries"]] == ["ollama/m1"]  # pkg-brew filtered out
+
+
+def test_inactive_assets_seed_as_parked_not_active():
+    # Seeding DESCRIBES the machine: an on-disk-but-not-active service (e.g. an
+    # unloaded updater agent) must not seed a lifecycle that makes `plane
+    # apply` propose bootstrapping it.
+    import json
+
+    snap = json.dumps(
+        {
+            "observed": [
+                {"adapter": "launchd", "native_id": "x.loaded",
+                 "facts": {"present": True}},
+                {"adapter": "launchd", "native_id": "x.on-disk-only",
+                 "facts": {"present": False}},
+            ]
+        }
+    )  # fmt: skip
+    entries = {e["id"]: e for e in propose_from_snapshot(snap, None)}
+    assert entries["launchd/x.loaded"]["lifecycle"] == "active"
+    assert entries["launchd/x.on-disk-only"]["lifecycle"] == "parked"

@@ -64,8 +64,35 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   previously missing mirrors exist, so "tests mirror engine" is now literally,
   mechanically true.
 
+- **BREAKING (pre-1.0):** `plane init` without a path ASKS where to create the
+  instance (suggested default `~/planeops`; any valid path is accepted,
+  hidden or nested included; `--yes` accepts the default non-interactively)
+  instead of silently claiming the current directory. Nothing is ever placed
+  unasked, the same confirm posture as every other write.
+
+- Registry files the tool writes read like documents: one blank line between
+  entries (`import --write`, `schedule`), and a re-import appends only NEW
+  entries as text, so comments and pruning marks a user adds to
+  `registry/imported.yaml` survive instead of being re-dumped away. Output
+  paths are anchored (`-> <instance>/observed/<host>/...`), `plane status`
+  names the instance that answered, and `--help` lists verbs in journey order
+  (`init` first).
+
+### Added
+
+- Entries can record where their asset logs (`logs:` list of paths or
+  commands); `plane schedule` fills it in for the reconcile job it declares.
+
 ### Fixed
 
+- Seeding describes the machine instead of proposing changes to it: an asset
+  on disk but not active (an unloaded agent, a disabled unit) seeds as
+  `parked`, so `plane apply` on a fresh registry no longer offers to bootstrap
+  things the user never chose (a swept-in vendor updater, live on the walk).
+  `plane schedule`'s hint names the exact `plane apply --id ...` command. The
+  sops decrypt error keeps the actionable tail of stderr and names
+  `SOPS_AGE_KEY_FILE`. The scaffolded `mcp.sources` example is commented out
+  instead of shipping live placeholder paths.
 - The sdist is an explicit allowlist. The default selection packed anything the
   repo `.gitignore` missed, including untracked local tooling state on the
   build machine; now only the intended tree ships.
