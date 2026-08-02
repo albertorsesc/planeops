@@ -173,9 +173,11 @@ def run_apply(
                 )
             )
             continue
-        # Only a secret-domain adapter's execute may obtain a value, and only if a
-        # store resolved. Every other execute keeps the presence-only handle.
-        may_materialize = store is not None and "secret" in adapter.domains
+        # The value-capable handle goes ONLY to the adapter registered under the
+        # reserved name "secrets", and only if a store resolved. A domain string
+        # is adapter-declared and open, so it grants nothing; every other
+        # execute keeps the presence-only handle.
+        may_materialize = store is not None and adapter is adapters.get("secrets")
         for change in changes:
             if entry.domain in auto_domains:
                 decision = "y"

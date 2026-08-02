@@ -8,6 +8,26 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **BREAKING (pre-1.0):** a secrets ref is `secret://<name>`: one name segment,
+  strict charset. The old `secret://<store>/<name>` form bound a store kind into
+  every consuming entry while the segment was never read by any code; which
+  store serves a ref is instance configuration (`secrets.store`), so swapping
+  stores touches zero entries. The old form fails at load with the rewritten
+  ref spelled out.
+- **BREAKING (pre-1.0):** a store's own settings nest under its name in
+  `instance.yaml` (`secrets: {store: sops, sops: {path: ...}}`), so engine keys
+  (`store`, `allow_targets`) and provider keys can never collide; a provider
+  sees only its own sub-mapping. The old flat `secrets.path` fails loudly with
+  the new shape spelled out, and an unknown key in the `secrets:` section is a
+  load error like any other typo.
+- The value-capable secrets handle goes only to the adapter registered under
+  the reserved name `secrets`; a domain string is adapter-declared and open, so
+  declaring `secret` grants nothing. Implementation names across every seam
+  must match `[a-z0-9_.-]+` (a slash would corrupt `<adapter>/<native_id>`
+  keys), and the `Platform` contract now declares `sys_platforms` instead of
+  selection silently defaulting an undeclared attribute. All three close gaps
+  that would have become breaking contract changes once third-party adapters
+  exist.
 - **BREAKING:** renamed the project and distribution from `tarmac` to `planeops`. The
   PyPI name `tarmac` was taken by an unrelated deployment tool, blocking a clean
   install; the MCP server's tools are now `planeops_observe`/`planeops_drift`. The CLI

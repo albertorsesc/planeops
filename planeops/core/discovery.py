@@ -12,10 +12,26 @@ from __future__ import annotations
 
 import importlib
 import pkgutil
+import re
 from types import ModuleType
 
 import planeops.adapters
 from planeops.core.contracts import Adapter
+
+# Implementation names feed `<adapter>/<native_id>` observation keys (split at
+# the FIRST slash; native_ids may themselves contain slashes) and unmanaged-glob
+# matching, so the grammar is load-bearing: enforced at the seam, before any
+# name can ship in an external package.
+_NAME_RE = re.compile(r"^[a-z0-9_.-]+$")
+
+
+def validate_seam_name(name: object, *, context: str) -> str:
+    if not isinstance(name, str) or not _NAME_RE.fullmatch(name):
+        raise TypeError(
+            f"{context}: implementation name {name!r} must match [a-z0-9_.-]+ "
+            "(no slashes: names prefix '<name>/<native_id>' keys)"
+        )
+    return name
 
 
 def discover[T](
@@ -41,7 +57,11 @@ def discover[T](
                 f"{package.__name__}.{info.name}.{attr} does not satisfy "
                 f"the {contract.__name__} contract"
             )
-        found[getattr(candidate, key)] = candidate
+        found[
+            validate_seam_name(
+                getattr(candidate, key), context=f"{package.__name__}.{info.name}"
+            )
+        ] = candidate
     return found
 
 

@@ -2,9 +2,10 @@
 
 Reads only the keys; VALUES are discarded and never printed, stored, or returned.
 Each key becomes a `secrets/<name>` stub (`auth: interactive`) for a human to store
-in the sops store and verify. Nothing is written; the CLI prints the proposal for
-review. This keeps the value-free discipline of the whole secrets path: a value
-from a `.env` cannot reach a snapshot, a report, or the proposed registry.
+in the configured secrets store and verify. Nothing is written; the CLI prints
+the proposal for review. This keeps the value-free discipline of the whole
+secrets path: a value from a `.env` cannot reach a snapshot, a report, or the
+proposed registry.
 """
 
 from __future__ import annotations
@@ -41,8 +42,8 @@ def _slug(name: str) -> str:
 
 
 def entries_from_names(names: list[str]) -> list[dict[str, Any]]:
-    """One `secrets/<slug>` stub per name. Interactive because the value must be
-    stored in the sops store by hand; the importer only records that it is needed."""
+    """One `secrets/<slug>` stub per name. Interactive because the value must
+    be stored in the secrets store by hand; the importer only records need."""
     return [
         {
             "id": f"secrets/{_slug(name)}",
@@ -51,7 +52,8 @@ def entries_from_names(names: list[str]) -> list[dict[str, Any]]:
             "lifecycle": "active",
             "auth": "interactive",
             "intent": (
-                "imported from env file; store the value in the sops store, then verify"
+                "imported from env file; store the value in the secrets "
+                "store, then verify"
             ),
         }
         for name in names
@@ -67,7 +69,7 @@ class EnvfileImporter:
     def note(self, path: Path, count: int) -> str:
         return (
             f"# proposed {count} secret name(s) from {path} (values discarded) "
-            "- store each in the sops store, then save into registry/"
+            "- store each in the secrets store, then save into registry/"
         )
 
 

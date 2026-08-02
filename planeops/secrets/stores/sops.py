@@ -8,8 +8,8 @@ never runs during observe.
 
 Selected as `secrets: {store: sops}` in `instance.yaml` (and by default: this
 module declares itself the default store, the resolution layer holds no such
-knowledge). Its one knob is `secrets.path`, the store file relative to the
-instance root.
+knowledge). Its one knob is `secrets.sops.path`, the store file relative to the
+instance root; a provider sees only its own `secrets.<name>` sub-mapping.
 """
 
 from __future__ import annotations

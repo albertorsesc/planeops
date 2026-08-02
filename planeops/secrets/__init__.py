@@ -54,8 +54,9 @@ class SecretsStoreProvider(Protocol):
     is_default: bool
 
     def build(self, repo_root: Path, section: dict[str, Any]) -> SecretsStore:
-        """Construct the store for this instance. `section` is the instance's
-        `secrets:` mapping; each provider documents its own keys."""
+        """Construct the store for this instance. `section` is this provider's
+        OWN sub-mapping (`secrets.<name>` in `instance.yaml`), never the whole
+        `secrets:` block, so provider keys cannot collide with engine keys."""
         ...
 
 

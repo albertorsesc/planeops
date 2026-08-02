@@ -138,10 +138,11 @@ def _targets_for(name: str, entries: tuple[Entry, ...]) -> list[tuple[str, str]]
 
 
 def _ref_name(ref: Any) -> str | None:
+    """`secret://<name>` -> name. Entries are load-validated; anything else
+    (a non-secrets dict in tests, a foreign shape) is simply not a ref."""
     if not isinstance(ref, str) or not ref.startswith("secret://"):
         return None
-    rest = ref[len("secret://") :]
-    return rest.split("/", 1)[1] if "/" in rest else rest
+    return ref[len("secret://") :]
 
 
 def _resolve(path_str: str, home: Path) -> Path:

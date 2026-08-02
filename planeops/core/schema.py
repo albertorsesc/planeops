@@ -7,6 +7,7 @@ adapters.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
@@ -98,6 +99,34 @@ def _enum[E: StrEnum](cls: type[E], value: Any, field_name: str, entry_id: str) 
 
 _SECRET_REF_KEYS = frozenset({"ref", "injected_as"})
 
+# One name segment, no slashes: which STORE serves a ref is instance
+# configuration (`instance.yaml`'s `secrets.store`), never part of the ref, so
+# swapping stores touches zero entries.
+_SECRET_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+
+
+def secret_ref_name(uri: Any, entry_id: Any) -> str:
+    """Validate `secret://<name>` and return the name. The retired two-segment
+    form (`secret://<store>/<name>`) gets the migration hint: its store segment
+    was never read by any code, only carried."""
+    if not isinstance(uri, str) or not uri.startswith("secret://"):
+        raise SchemaError(
+            f"entry {entry_id!r}: secrets ref={uri!r} must be a "
+            "'secret://<name>' string"
+        )
+    name = uri[len("secret://") :]
+    if "/" in name:
+        raise SchemaError(
+            f"entry {entry_id!r}: secrets ref={uri!r} carries a store segment; "
+            f"the store is configured in instance.yaml, write "
+            f"'secret://{name.rsplit('/', 1)[-1]}'"
+        )
+    if not _SECRET_NAME_RE.fullmatch(name):
+        raise SchemaError(
+            f"entry {entry_id!r}: secret name {name!r} must match [A-Za-z0-9_.-]+"
+        )
+    return name
+
 
 def parse_injected_as(value: Any) -> tuple[str, str]:
     """The ONE parser for a secrets injection target. `file:<path>#KEY` (the
@@ -120,19 +149,14 @@ def parse_injected_as(value: Any) -> tuple[str, str]:
 
 
 def _validate_secret_ref(ref: Any, entry_id: Any) -> None:
-    """One `secrets` item: `{ref: secret://<backend>/<name>, injected_as:
+    """One `secrets` item: `{ref: secret://<name>, injected_as:
     file:<path>#KEY}`. Checked at load, so a typo'd ref fails with the entry
     named instead of being silently skipped when the secrets adapter later
     scans for consumers."""
     if not isinstance(ref, dict):
         raise SchemaError(f"entry {entry_id!r}: each secrets item must be a mapping")
     reject_unknown_keys(ref, _SECRET_REF_KEYS, f"entry {entry_id!r} secrets item")
-    uri = ref.get("ref")
-    if not isinstance(uri, str) or not uri.startswith("secret://"):
-        raise SchemaError(
-            f"entry {entry_id!r}: secrets ref={uri!r} must be a "
-            "'secret://<backend>/<name>' string"
-        )
+    secret_ref_name(ref.get("ref"), entry_id)
     injected = ref.get("injected_as")
     if injected is None:
         return
@@ -195,6 +219,12 @@ def entry_from_dict(raw: dict[str, Any]) -> Entry:
     assert entry_id is not None  # guaranteed by the required-field check above
     for field_name in ("id", "adapter", "domain", "intent"):
         _require_str(raw[field_name], field_name, entry_id)
+    if "/" in raw["adapter"]:
+        # `<adapter>/<native_id>` keys split at the FIRST slash (native_ids may
+        # contain slashes); a slash in the adapter name makes keys ambiguous.
+        raise SchemaError(
+            f"entry {entry_id!r}: adapter={raw['adapter']!r} must not contain '/'"
+        )
 
     scope = raw.get("scope", "machine")
     if not isinstance(scope, str) or (

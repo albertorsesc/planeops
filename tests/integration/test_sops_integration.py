@@ -67,7 +67,7 @@ def test_materialize_from_a_real_store_redacts_everywhere(tmp_path, monkeypatch)
             "intent": "i",
             "secrets": [
                 {
-                    "ref": "secret://sops/api-key",
+                    "ref": "secret://api-key",
                     "injected_as": f"file:{target}#API_KEY",
                 }
             ],

@@ -87,7 +87,7 @@ entries:
     secrets:
       # The secrets adapter writes this key's value into the file below at apply
       # time; the value is read from the sops store only inside execute.
-      - ref: secret://sops/openrouter-api-key
+      - ref: secret://openrouter-api-key
         injected_as: "file:~/.example-gateway/env#OPENROUTER_API_KEY"
 
   - id: launchd/com.example.weekly-maintenance

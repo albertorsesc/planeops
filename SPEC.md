@@ -44,7 +44,7 @@ One entry = one managed asset. Registry files contain `entries: [...]`.
 | `phase` | int | no | adapter default | Converge ordering (section 5) |
 | `pin` | str | no | | Exact version pin. Only pinned entries get version-drift triage (same-major drift is tolerance-routed); with no pin, versions are recorded but not compared |
 | `needs` | list[str] | no | `[]` | Ids of entries this one depends on; drift alerts when an active entry's dependency is retired/purged or absent |
-| `secrets` | list | no | `[]` | Items: `{ref: secret://<backend>/<name>, injected_as: file:<path>#KEY}`. Validated at registry load; `env:NAME` is rejected as not yet supported, and unknown item keys are rejected like any other typo |
+| `secrets` | list | no | `[]` | Items: `{ref: secret://<name>, injected_as: file:<path>#KEY}`; which store serves a ref is instance config (`secrets.store`), never part of the ref. Validated at registry load; `env:NAME` is rejected as not yet supported, and unknown item keys are rejected like any other typo |
 | `desired` | map | no | `{}` | Adapter-specific shape |
 | `data` | map | `class: data` only | | `{location: <path>, sync: git \| none \| <backend>}` |
 

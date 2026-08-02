@@ -122,15 +122,15 @@ def _secret_entry(secrets):
 def test_valid_secret_ref_passes():
     e = entry_from_dict(
         _secret_entry(
-            [{"ref": "secret://sops/openrouter", "injected_as": "file:~/.env#KEY"}]
+            [{"ref": "secret://openrouter", "injected_as": "file:~/.env#KEY"}]
         )
     )
-    assert e.secrets[0]["ref"] == "secret://sops/openrouter"
+    assert e.secrets[0]["ref"] == "secret://openrouter"
 
 
 def test_secret_ref_must_be_a_mapping():
     with pytest.raises(SchemaError, match="secrets"):
-        entry_from_dict(_secret_entry(["secret://sops/x"]))
+        entry_from_dict(_secret_entry(["secret://x"]))
 
 
 def test_secret_ref_must_carry_a_secret_uri():
@@ -140,7 +140,7 @@ def test_secret_ref_must_carry_a_secret_uri():
 
 def test_secret_injected_as_shape_is_checked():
     with pytest.raises(SchemaError, match="injected_as"):
-        entry_from_dict(_secret_entry([{"ref": "secret://sops/x", "injected_as": 42}]))
+        entry_from_dict(_secret_entry([{"ref": "secret://x", "injected_as": 42}]))
 
 
 def test_env_injection_is_rejected_as_unsupported():
@@ -149,16 +149,14 @@ def test_env_injection_is_rejected_as_unsupported():
     # words got a no-op. Unsupported must say so at load.
     with pytest.raises(SchemaError, match="not supported"):
         entry_from_dict(
-            _secret_entry([{"ref": "secret://sops/x", "injected_as": "env:KEY"}])
+            _secret_entry([{"ref": "secret://x", "injected_as": "env:KEY"}])
         )
 
 
 def test_injected_as_must_be_a_file_target_with_a_key():
     for bad in ("file:~/.env", "file:#KEY", "file:~/.env#", "somewhere"):
         with pytest.raises(SchemaError, match=r"file:<path>#KEY"):
-            entry_from_dict(
-                _secret_entry([{"ref": "secret://sops/x", "injected_as": bad}])
-            )
+            entry_from_dict(_secret_entry([{"ref": "secret://x", "injected_as": bad}]))
 
 
 def test_unknown_key_in_a_secrets_item_is_rejected():
@@ -166,7 +164,7 @@ def test_unknown_key_in_a_secrets_item_is_rejected():
     # never materialized anywhere.
     with pytest.raises(SchemaError, match="injected_as"):
         entry_from_dict(
-            _secret_entry([{"ref": "secret://sops/x", "injectd_as": "file:~/.e#K"}])
+            _secret_entry([{"ref": "secret://x", "injectd_as": "file:~/.e#K"}])
         )
 
 
@@ -249,3 +247,36 @@ def test_hosts_items_must_be_strings():
             {"id": "a/b", "adapter": "a", "domain": "d", "lifecycle": "active",
              "intent": "i", "hosts": [1]}
         )  # fmt: skip
+
+
+def test_adapter_name_charset_is_enforced_on_entries():
+    # `adapter` feeds `<adapter>/<native_id>` keys split at the FIRST slash;
+    # a slash in the adapter name makes keys unrecoverably ambiguous.
+    with pytest.raises(SchemaError, match="adapter"):
+        entry_from_dict(
+            {"id": "x/y", "adapter": "bad/name", "domain": "d",
+             "lifecycle": "active", "intent": "i"}
+        )  # fmt: skip
+
+
+def test_secret_ref_is_a_single_name_segment():
+    # The store is instance configuration, never part of the ref: swapping
+    # stores must touch zero entries.
+    e = entry_from_dict(_secret_entry([{"ref": "secret://openrouter-api-key"}]))
+    assert e.secrets[0]["ref"] == "secret://openrouter-api-key"
+
+
+def test_secret_ref_with_a_store_segment_is_rejected_with_the_migration_hint():
+    # The old two-segment form bound a store kind into every entry; the
+    # segment was validated in the error text and then DISCARDED by the only
+    # consumer. Rejected loudly with the fix spelled out.
+    with pytest.raises(SchemaError, match="instance.yaml"):
+        entry_from_dict(
+            _secret_entry([{"ref": "secret://sops/openrouter", "injected_as": None}])
+        )
+
+
+def test_secret_ref_name_charset(tmp_path):
+    for bad in ("secret://", "secret://a b", "secret://a/b/c"):
+        with pytest.raises(SchemaError):
+            entry_from_dict(_secret_entry([{"ref": bad}]))

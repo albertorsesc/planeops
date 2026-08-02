@@ -68,7 +68,7 @@ importer:
 
 # --- secrets: which store, its knobs, and where values may be materialized ----
 # `store` names the store KIND (discovered, like adapters; omit it to use the
-# shipped default, sops). Each store documents its own keys: for sops, `path`
+# shipped default, sops). A store's own settings nest under its name: for sops, `path`
 # (relative to the instance root) is the presence-tracked store file, defaulting
 # to secrets.sops.yaml at the instance root (deliberately NOT inside
 # registry/, which holds only entries and globs). `allow_targets` bounds where `plane apply` may
@@ -78,7 +78,8 @@ importer:
 # secret can't be redirected out of trusted space.
 secrets:
   store: sops
-  path: secrets.sops.yaml
+  sops:
+    path: secrets.sops.yaml
   # allow_targets:
   #   - ~/.config/some-tool
   #   - /etc/some-service

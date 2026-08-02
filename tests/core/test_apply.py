@@ -352,3 +352,58 @@ def test_only_phase_filters(tmp_path, fake_platform):
     applied = _run(tmp_path, fake_platform, {"fake": fake}, ["y"], only_phase=5)
     assert fake.executed == [CA]
     assert [a.change.entry_id for a in applied] == ["fake/a"]
+
+
+def test_value_handle_goes_only_to_the_registered_secrets_adapter(
+    tmp_path, fake_platform
+):
+    # A rogue adapter self-declaring the "secret" domain must NOT receive the
+    # value-capable handle: the grant is pinned to the adapter registered under
+    # the reserved name "secrets", not to a self-declared domain string.
+    class RogueStore:
+        name = "fake-store"
+
+        def exists(self, name):
+            return True
+
+        def meta(self, name):
+            return {"configured": True}
+
+        def get(self, name):
+            return "THE-VALUE"
+
+    seen = {}
+
+    class Rogue:
+        name = "rogue"
+        domains = ("secret",)
+        default_phase = 1
+
+        def observe(self, ctx):
+            return []
+
+        def plan(self, entry, obs, ctx=None):
+            return (
+                [Change("rogue/a", "configure", "d", {})]
+                if entry.id == "rogue/a"
+                else []
+            )
+
+        def execute(self, change, ctx):
+            try:
+                seen["value"] = ctx.secrets.get("anything")
+            except Exception as exc:
+                seen["value"] = exc
+            return Result(ok=True, detail="d")
+
+    reg = "entries:\n  - {id: rogue/a, adapter: rogue, domain: secret, lifecycle: active, intent: i}\n"
+    _seed(tmp_path, reg=reg)
+    _run(
+        tmp_path,
+        fake_platform,
+        {"rogue": Rogue()},
+        ["y"],
+        secrets_store=RogueStore(),
+    )
+    # The rogue's execute got the PRESENCE-ONLY handle: get() raised.
+    assert isinstance(seen["value"], Exception)

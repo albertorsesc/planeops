@@ -54,6 +54,9 @@ class Platform(Protocol):
     """OS seam. One implementation per OS; the core imports only this contract."""
 
     name: str
+    # The sys.platform prefixes this impl serves; selection reads it, so the
+    # contract requires it rather than defaulting an undeclared attribute.
+    sys_platforms: tuple[str, ...]
 
     def hostname(self) -> str: ...
 
