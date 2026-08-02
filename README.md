@@ -1,215 +1,142 @@
-# planeops
+<p align="center">
+  <img src="https://raw.githubusercontent.com/albertorsesc/planeops/main/docs/assets/banner.png" alt="planeops: a control plane for a personal AI setup" width="720">
+</p>
 
-Reproduce, observe, and govern a personal AI setup as three planes.
+<p align="center">
+  <a href="https://github.com/albertorsesc/planeops/actions/workflows/ci.yml"><img src="https://github.com/albertorsesc/planeops/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://pypi.org/project/planeops/"><img src="https://img.shields.io/pypi/v/planeops.svg" alt="PyPI"></a>
+  <a href="https://github.com/albertorsesc/planeops/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License: Apache-2.0"></a>
+  <img src="https://img.shields.io/badge/python-3.12%2B-blue.svg" alt="Python 3.12+">
+</p>
 
-[![CI](https://github.com/albertorsesc/planeops/actions/workflows/ci.yml/badge.svg)](https://github.com/albertorsesc/planeops/actions/workflows/ci.yml)
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#quickstart">Quickstart</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#let-your-assistant-read-the-plane">MCP</a> ·
+  <a href="https://github.com/albertorsesc/planeops/blob/main/SPEC.md">Spec</a>
+</p>
 
-A single machine accretes AI tools over time: coding harnesses, local models, MCP
-servers, background services, API keys. Nobody writes down what is installed, how
-it is wired, or why. `planeops` makes that setup explicit and reproducible.
-You declare what should exist in a registry, and the `plane` CLI observes what
-actually exists, reports where the two disagree, and converges the difference one
-confirmed change at a time.
+**planeops** keeps the AI tooling on your machine declared, observed, and drift-free. No daemon, no agent, no background anything: short-lived commands that read your machine, tell you what changed, and never write without showing the diff and asking first.
 
-It is a control plane, not a runtime. It reads state, renders diffs, and records
-outcomes. It never sits in the request path of any agent, and it starts no
-long-running process.
+```console
+$ plane status --short
+drift:6
 
-## The three planes
+$ plane drift
+6 alert(s), 0 report, 2 uncovered -> observed/mymac/DRIFT.md
 
-- **Control plane** decides what runs, where, and under which policy.
-- **Data plane** is the executors that do the work: coding harnesses, agents, MCP
-  servers, local models.
-- **Management plane** is the single place the whole setup is configured,
-  versioned, and observed. That is this repo.
-
-## How it works
-
-One loop, a human in the reconcile seat:
-
+$ head observed/mymac/DRIFT.md
+## Alerts (6)
+- `launchd/ai.gateway` (unregistered): ungoverned always-on service;
+  declare it or add an unmanaged glob
+- `ollama/qwen3:8b` (active): expected present, not observed
+...
 ```
-observe  ->  drift  ->  apply
- (read)     (report)   (converge, per-change confirm)
-```
 
-- `plane init [path]` scaffolds an instance (registry + a starter `instance.yaml`)
-  and registers it in `~/.config/planeops/config.toml`, so the installed `plane` finds
-  it from any directory. `--seed` then observes the machine and seeds the registry, so
-  one command lands a governed registry to prune (`--no-seed` scaffolds only).
-- `plane observe` scans the machine and writes a snapshot. Read-only, safe to run
-  on a schedule.
-- `plane drift` diffs the registry (desired) against the snapshot (observed) and
-  writes `DRIFT.md` (the human pane) and `DRIFT.json` (the machine pane): alerts
-  (including ungoverned always-on services and failed adapter scans), report,
-  auto-folded version drift, uncovered entries, ungoverned observations, and a
-  re-auth checklist. Exits non-zero when alerts exist. `--json` prints the
-  report to stdout.
-- `plane status` prints the last report without rescanning: instant and read-only.
-  `--short` gives a shell-prompt indicator (the alert count, empty when clean).
-- `plane reconcile` runs `observe` then `drift` in one pass (exit 2 on alerts). This
-  is the one command a scheduler (a launchd agent or systemd timer) runs to keep drift
-  current, so a `status --short` prompt stays fresh without you rescanning by hand.
-- `plane schedule` sets that up: it previews and (after confirmation, `--yes`
-  for scripts) writes an OS-native timer (launchd on macOS, systemd on Linux)
-  that runs `plane reconcile` at login and on an interval (`--every 6h`,
-  `--no-login`, `--off`), and declares it as a registry entry, so `plane apply`
-  loads it through the confirm gate and `plane drift` then governs the schedule
-  itself. The per-OS backends are discovered, not branched.
-- `plane mcp` gives a cross-client view of MCP servers from the last snapshot: each
-  server and the clients it is wired into, flagging servers wired into only one client
-  (reuse candidates), the same tool under different names across clients (naming
-  drift), and servers observed but not in the registry (ungoverned). Read-only;
-  `--json` emits it structured.
-- `plane apply` plans changes, renders each as a diff, and asks before every
-  mutation. Nothing changes the machine without an explicit confirmation.
-- `plane import <kind> [path]` proposes registry entries:
-  `stackfile` from a hand-written manifest, `envfile` from a `.env` (key names only,
-  values discarded), and `observed` from the machine's own snapshot, so onboarding
-  is prune-a-list rather than author-from-blank. It prints by default; `--write` lands
-  the proposal in `registry/imported.yaml` (de-duped, confirmed) for you to prune.
-  `--adapter <type>` scopes a proposal to one kind.
+*A machine with six things running that nobody wrote down, caught by one read-only scan.*
 
-Adapters teach the engine about one kind of asset each (a service manager, a model
-runner, a package manager). They are packages under `planeops/adapters/`, discovered
-by a package scan, so adding one never edits a central list. An entry can also
-declare `needs: [id, ...]`; drift alerts when an active entry's dependency is being
-retired or is absent, so a model or package a tool relies on can't be pruned out
-from under it.
+## Why
 
-Assistants can read the plane over an optional MCP server (`plane-mcp`, install the
-`mcp` extra): `planeops_observe` inventories the machine, and the pure-read
-`planeops_drift`, `planeops_status`, and `planeops_mcp` answer "what has drifted?",
-"is there drift right now?" (no rescan), and "how are my MCP servers wired?", without
-ever converging anything. Mutation stays behind the CLI's confirmation gate.
+Your machine accretes AI tooling: coding harnesses, MCP servers wired into three different clients, local models, background services, API keys in dotfiles. Nobody writes down what is installed, how it is wired, or why it is there. Six months later, something is listening on a port and you cannot say what put it there.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/albertorsesc/planeops/main/docs/assets/drift-to-governed.png" alt="An ungoverned pile of tools on the left; the same tools declared and connected on the right" width="720">
+</p>
+
+planeops turns the pile into a registry: every asset declared in plain YAML with its reason for existing, every scan diffed against that intent, every fix a rendered change you confirm one at a time.
+
+## Highlights
+
+- **One loop, three verbs.** `observe` scans (read-only), `drift` diffs desired against observed, `apply` converges with a per-change confirmation. Exit codes are a contract: `0` clean, `1` operator error, `2` drift alerts, so your shell prompt and your cron both know the state.
+- **No daemon, no open ports.** Every command exits. The ambient loop is your OS scheduler (launchd or systemd) running `plane reconcile`, set up by `plane schedule` and then governed like any other entry.
+- **Writes are gated, always.** Only `apply` mutates, only after a rendered diff and a yes: per change, or pre-declared in the registry with `tolerance: auto` for the domains you trust. Everything else, including the MCP server your assistant talks to, is read-only by construction.
+- **Catches what a package manager can't.** Ungoverned always-on services, an MCP server wired into one client but not the others, the same tool under different names across clients, a dead reconcile heartbeat, a model your tooling depends on being pruned out from under it (`needs:`).
+- **Typos are load errors, never silent no-ops.** `tolerence: alert` fails with "did you mean 'tolerance'?" instead of quietly not escalating. Every key in every file, same rule.
+- **Secrets stay references.** Names and presence are tracked; values are decrypted only inside a confirmed materialization and land only in the declared target file. Snapshots, reports, and diffs never carry a value.
+- **Provider-neutral by architecture.** Adapters, importers, platforms, schedulers, and secrets stores are five discovery seams; the core names no vendor (a test enforces it). Swap your secrets store and zero registry entries change.
+- **Onboarding is pruning, not authoring.** `plane init --seed` scans the machine and proposes the registry; you delete what you refuse to govern instead of writing YAML from scratch.
 
 ## Install
 
-Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
-
-```bash
-git clone https://github.com/albertorsesc/planeops
-cd planeops
-uv sync                 # core engine + the `plane` CLI
-uv sync --extra mcp     # optional: also install the `plane-mcp` assistant server
+```console
+$ uv tool install planeops        # or: pipx install planeops / pip install planeops
 ```
 
-The distribution is named `planeops`; it installs the `plane` command (and
-`plane-mcp` with the `mcp` extra).
+Installs the `plane` command. Python 3.12+, macOS and Linux.
 
-`make test` runs the full gate (lint, format, type-check, tests); `make observe`,
-`make drift`, and `make status` (with `REPO=<your-instance>`) wrap the common
-commands so you don't retype `uv run plane --repo ...`.
+Want your AI assistant to query the plane over MCP? Install the extra: `uv tool install "planeops[mcp]"` (adds `plane-mcp`).
 
-### Finding your instance
+<details>
+<summary>From source (development)</summary>
 
-`plane` locates the instance root (where `registry/` and `observed/` live) by
-precedence: `--repo <path>`, else `$PLANEOPS_INSTANCE`, else
-`~/.config/planeops/config.toml` (`instance = "/path/to/instance"`, honoring
-`$XDG_CONFIG_HOME`), else the current directory walking up to a `.planeops` marker.
-Drop a `.planeops` file at your instance root and point `config.toml` at it once, and
-`plane` works from any directory. That home file holds only the pointer; state stays
-under the instance.
-
-## Usage
-
-```bash
-# one-time: scaffold an instance, register it, and seed the registry from the machine
-uv run plane init ~/planeops-instance --seed
-
-# scan the machine and write observed/<host>/snapshot.json
-uv run plane observe
-
-# report where desired and observed disagree (writes DRIFT.md + DRIFT.json)
-uv run plane drift
-
-# observe + drift in one pass (what a scheduler runs to keep drift current)
-uv run plane reconcile
-
-# set up the ambient reconcile timer (login + every 6h); `plane apply` then loads it
-uv run plane schedule --every 6h
-
-# show the last report without rescanning; --short drives a shell prompt
-uv run plane status
-uv run plane status --short          # e.g. "drift:3", prints nothing when clean
-
-# cross-client view of MCP servers: which clients each is wired into, plus flags
-uv run plane mcp
-
-# seed the registry from what's already on the machine, then prune imported.yaml
-# (the path defaults to this host's own snapshot)
-uv run plane import observed --write
-
-# converge confirmed changes, one at a time
-uv run plane apply --id launchd/com.example.agent-gateway
+```console
+$ git clone https://github.com/albertorsesc/planeops
+$ cd planeops
+$ uv sync            # engine + plane CLI
+$ make check         # the full gate: lint, format, types, tests
 ```
 
-`registry/example.yaml` shows the entry shape and the common drift situations
-without assuming any particular tool. Copy it and describe your own machine.
+</details>
 
-## Governing your own scheduled script
+## Quickstart
 
-A personal maintenance routine (a weekly updater, a backup job) is just a service,
-so planeops governs it without ever containing it:
+```console
+# scaffold an instance and seed the registry from what's already installed
+$ plane init ~/plane --seed
+instance ready at /Users/you/plane
+seeding the registry from this machine (observe -> import)...
+  wrote 73 entries to /Users/you/plane/registry/imported.yaml; prune, then `plane drift`
 
-1. Keep the script in your own instance, in a stable location that is **not** cloud-
-   synced (a synced directory means anything that writes there silently changes code
-   that later runs as you). `~/.local/libexec/` is a good home.
-2. Point your scheduler at it (a `launchd` plist on macOS, a systemd timer on Linux).
-   The plist/unit is machine state; it is never committed here.
-3. Declare it as one `launchd/<label>` entry in your registry (see
-   `com.example.weekly-maintenance` in the example). `plane drift` then tells you if
-   the service goes missing or stops matching desired state.
-4. Have the script end with `plane observe && plane drift`, so every run lands
-   already observed and drift-checked.
+# scan the machine, diff it against the registry
+$ plane observe
+observed 73 fact(s), 0 uncovered adapter(s) -> observed/mymac/snapshot.json
+$ plane drift
+0 alert(s), 3 report, 0 uncovered -> observed/mymac/DRIFT.md
 
-The engine ships the adapter and this pattern; your actual script stays yours.
+# keep it fresh without thinking about it: an OS timer, previewed and confirmed
+$ plane schedule --every 6h
+$ plane apply --id launchd/ai.planeops.reconcile
 
-## Design principles
+# one glance forever after (empty means clean; wire it into your prompt)
+$ plane status --short
+drift:3
+```
 
-- **No daemon, no open ports.** Every verb is a short-lived command that exits.
-- **Read by default.** Only `apply` writes, and only after a rendered diff and a
-  per-change confirmation.
-- **Secrets are references, never values.** The engine core, the repo, snapshots,
-  and reports record references and metadata only.
-- **Provider-neutral.** Nothing binds to one vendor. Adapters shell out to local
-  tools through a single injected seam, with no network calls of their own.
+`plane import observed --write` re-seeds anytime; `plane mcp` shows every MCP server across all your clients and who has it wired; `plane apply` walks the drift as one confirmed change at a time.
 
-`SPEC.md` is the authoritative build specification.
+## How it works
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/albertorsesc/planeops/main/docs/assets/observe-gated.png" alt="Observe eye and gated-write gauge" width="420">
+</p>
+
+The registry is desired state: one YAML entry per governed asset, carrying its adapter, lifecycle, and the intent sentence that says why it exists. `plane observe` asks each adapter to report what actually exists. `plane drift` triages the difference into alerts (a lifecycle violation, an ungoverned service), reports (worth a look), and auto-folded noise (an in-major version bump), written as `DRIFT.md` for you and `DRIFT.json` for machines.
+
+Adapters teach the engine one kind of asset each: services (`launchd`, `systemd`), packages (`brew`, `npm`, `uv`, `nvm`), local models (`ollama`), config files (delegated to [chezmoi](https://github.com/twpayne/chezmoi)), MCP wiring, secrets. They are discovered by package scan, never registered in a central list, and the whole set is described in the [spec](https://github.com/albertorsesc/planeops/blob/main/SPEC.md).
+
+### Secrets, without values
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/albertorsesc/planeops/main/docs/assets/secrets-vault.png" alt="A vault: keys visible, values sealed" width="360">
+</p>
+
+The shipped store is [sops](https://github.com/getsops/sops)+[age](https://github.com/FiloSottile/age): key names stay readable, values stay encrypted, so `plane observe` can answer "is the OpenRouter key configured?" without decrypting anything. A registry entry references `secret://openrouter-api-key`; which store serves it is instance configuration, so swapping stores touches zero entries. A value is decrypted exactly once, inside a confirmed `apply`, into the one file the entry declares (`0600`, symlink-refusing, containment-checked).
+
+## Let your assistant read the plane
+
+`plane-mcp` exposes four read-only tools over stdio: `planeops_observe`, `planeops_drift`, `planeops_status`, `planeops_mcp`. Your assistant can answer "what drifted on my machine this week?" and "which clients have the context7 server wired?" from real state instead of guessing. There are deliberately no mutation tools: converging stays behind the CLI's confirmation gate, in your terminal, under your fingers.
+
+## What planeops is not
+
+- **Not a runtime.** It never sits in any request path and starts no long-running process.
+- **Not an installer.** Adapters shell out to the tools you already trust (`brew`, `systemctl`, `ollama`); planeops decides *whether*, they do *how*.
+- **Not a fleet manager.** One human, their machines, their intent. Multi-host is on the [roadmap](https://github.com/albertorsesc/planeops/blob/main/CHANGELOG.md) as bundles of the same registry, not an agent mesh.
 
 ## Status
 
-The observe/drift/apply loop runs on macOS and Linux, with adapters for services
-(`launchd`, `systemd`), packages (`brew`, `npm`, `uv`), node runtimes (`nvm`), local
-models (`ollama`), config files (delegated to `chezmoi`), MCP-server wiring
-(read-only), and a `sops`+`age` secrets store (presence is tracked without
-decrypting; a value is decrypted only inside a confirmed materialization and
-lands only in its declared target file). One-command onboarding (`plane init` + instance resolution via
-`~/.config/planeops`, `plane import observed --write` to seed the registry from the
-machine), the `plane reconcile` ambient loop, structured `DRIFT.json`, `plane status`,
-the cross-client `plane mcp` view, entry `needs` dependencies, and the optional MCP
-server are all in place. See `CHANGELOG.md` for the full history.
-
-Not yet: a tagged release / installable package, and a holistic clean-account
-reproduction rehearsal as the end-to-end acceptance test.
-
-## Repository layout
-
-This is the public **engine** repo: the reusable engine, spec, example registry,
-tests, and CI, with no machine-specific data. Real registry entries, generated
-`observed/` snapshots, and secrets belong in a separate private instance.
-
-```
-planeops/      core loop, schema, contracts, adapters, platform seam
-registry/    example entries and unmanaged-glob rules
-tests/       mirror planeops/ one-to-one
-SPEC.md      authoritative build spec
-```
+Pre-1.0: the loop, eleven adapters, scheduling, secrets, importers, and the MCP server work on macOS and Linux and run this repo's own machines daily. Contracts may still move; a breaking change bumps the minor and lands in the [CHANGELOG](https://github.com/albertorsesc/planeops/blob/main/CHANGELOG.md) with its migration. The next acceptance gate is a clean-machine reproduction rehearsal.
 
 ## Contributing, security, license
 
-- [`CONTRIBUTING.md`](CONTRIBUTING.md): dev setup, the quality gate, and how to
-  author an adapter.
-- [`SECURITY.md`](SECURITY.md): reporting a vulnerability and the design posture.
-- Licensed under [Apache-2.0](LICENSE).
+[`CONTRIBUTING.md`](https://github.com/albertorsesc/planeops/blob/main/CONTRIBUTING.md) has the dev setup, the quality gate, and how to write an adapter. Security posture and reporting: [`SECURITY.md`](https://github.com/albertorsesc/planeops/blob/main/SECURITY.md). Licensed [Apache-2.0](https://github.com/albertorsesc/planeops/blob/main/LICENSE).
