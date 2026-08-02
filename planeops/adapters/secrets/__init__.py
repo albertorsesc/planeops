@@ -19,7 +19,7 @@ from typing import Any, Protocol
 
 from planeops.config import section as instance_section
 from planeops.core.contracts import Change, Ctx, Observed, Result
-from planeops.core.schema import Entry
+from planeops.core.schema import Entry, parse_injected_as
 from planeops.secrets import SecretsStore
 from planeops.secrets.resolve import build_handle
 
@@ -123,15 +123,17 @@ class SecretsAdapter:
 
 def _targets_for(name: str, entries: tuple[Entry, ...]) -> list[tuple[str, str]]:
     """(path, key) targets declared by any entry whose `secrets` refs point at
-    this secret with an `injected_as: file:<path>#KEY`."""
+    this secret with an `injected_as: file:<path>#KEY`. Entries were validated
+    at registry load, so a present target always parses; there is no silent
+    drop path here."""
     out: list[tuple[str, str]] = []
     for e in entries:
         for ref in e.secrets:
             if not isinstance(ref, dict) or _ref_name(ref.get("ref")) != name:
                 continue
-            target = _file_target(ref.get("injected_as"))
-            if target is not None:
-                out.append(target)
+            injected = ref.get("injected_as")
+            if injected is not None:
+                out.append(parse_injected_as(injected))
     return out
 
 
@@ -140,16 +142,6 @@ def _ref_name(ref: Any) -> str | None:
         return None
     rest = ref[len("secret://") :]
     return rest.split("/", 1)[1] if "/" in rest else rest
-
-
-def _file_target(injected_as: Any) -> tuple[str, str] | None:
-    if not isinstance(injected_as, str) or not injected_as.startswith("file:"):
-        return None  # only file targets in this slice; env: is deferred
-    body = injected_as[len("file:") :]
-    if "#" not in body:
-        return None
-    path, key = body.rsplit("#", 1)
-    return (path, key) if path and key else None
 
 
 def _resolve(path_str: str, home: Path) -> Path:

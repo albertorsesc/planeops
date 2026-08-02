@@ -99,15 +99,34 @@ def _enum[E: StrEnum](cls: type[E], value: Any, field_name: str, entry_id: str) 
 _SECRET_REF_KEYS = frozenset({"ref", "injected_as"})
 
 
+def parse_injected_as(value: Any) -> tuple[str, str]:
+    """The ONE parser for a secrets injection target. `file:<path>#KEY` (the
+    last `#` splits path from key) is the whole grammar; both the load-time
+    validation and the secrets adapter's materialization call this, so the two
+    can never drift apart. Raises SchemaError on anything else."""
+    if isinstance(value, str) and value.startswith("env:"):
+        raise SchemaError(
+            f"injected_as={value!r}: env: injection is not supported yet; "
+            "use 'file:<path>#KEY'"
+        )
+    path, sep, key = (
+        value[len("file:") :].rpartition("#")
+        if isinstance(value, str) and value.startswith("file:")
+        else ("", "", "")
+    )
+    if not (sep and path and key):
+        raise SchemaError(f"injected_as={value!r} must be 'file:<path>#KEY'")
+    return path, key
+
+
 def _validate_secret_ref(ref: Any, entry_id: Any) -> None:
     """One `secrets` item: `{ref: secret://<backend>/<name>, injected_as:
     file:<path>#KEY}`. Checked at load, so a typo'd ref fails with the entry
     named instead of being silently skipped when the secrets adapter later
-    scans for consumers. Only the file form exists; an env: target is rejected
-    as unsupported rather than advertised and then silently dropped."""
+    scans for consumers."""
     if not isinstance(ref, dict):
         raise SchemaError(f"entry {entry_id!r}: each secrets item must be a mapping")
-    _reject_unknown_keys(ref, _SECRET_REF_KEYS, f"entry {entry_id!r} secrets item")
+    reject_unknown_keys(ref, _SECRET_REF_KEYS, f"entry {entry_id!r} secrets item")
     uri = ref.get("ref")
     if not isinstance(uri, str) or not uri.startswith("secret://"):
         raise SchemaError(
@@ -117,20 +136,10 @@ def _validate_secret_ref(ref: Any, entry_id: Any) -> None:
     injected = ref.get("injected_as")
     if injected is None:
         return
-    if isinstance(injected, str) and injected.startswith("env:"):
-        raise SchemaError(
-            f"entry {entry_id!r}: injected_as={injected!r}: env: injection is "
-            "not supported yet; use 'file:<path>#KEY'"
-        )
-    path, sep, key = (
-        injected[len("file:") :].rpartition("#")
-        if isinstance(injected, str) and injected.startswith("file:")
-        else ("", "", "")
-    )
-    if not (sep and path and key):
-        raise SchemaError(
-            f"entry {entry_id!r}: injected_as={injected!r} must be 'file:<path>#KEY'"
-        )
+    try:
+        parse_injected_as(injected)
+    except SchemaError as exc:
+        raise SchemaError(f"entry {entry_id!r}: {exc}") from None
 
 
 # The complete key set an entry may carry. A key outside it is a typo, and a
@@ -145,7 +154,7 @@ _ENTRY_KEYS = frozenset(
 )  # fmt: skip
 
 
-def _reject_unknown_keys(
+def reject_unknown_keys(
     raw: dict[str, Any], allowed: frozenset[str], context: str
 ) -> None:
     """Unknown keys fail loudly: a did-you-mean when one is close, the allowed
@@ -177,7 +186,7 @@ def entry_from_dict(raw: dict[str, Any]) -> Entry:
         raise SchemaError(f"entry must be a mapping, got {type(raw).__name__}")
 
     entry_id = raw.get("id")
-    _reject_unknown_keys(raw, _ENTRY_KEYS, f"entry {entry_id or '<no id>'!r}")
+    reject_unknown_keys(raw, _ENTRY_KEYS, f"entry {entry_id or '<no id>'!r}")
     for required in ("id", "adapter", "domain", "lifecycle", "intent"):
         if not raw.get(required):
             raise SchemaError(

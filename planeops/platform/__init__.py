@@ -1,6 +1,6 @@
 """Platform seam: one implementation per OS behind the Platform contract.
 
-Each OS module under `engine/platform/` exposes a module-level `PLATFORM` (an impl
+Each OS module under `planeops/platform/` exposes a module-level `PLATFORM` (an impl
 of the `Platform` contract) that declares the `sys.platform` prefixes it serves.
 `current_platform()` selects the one matching the host by scanning, the same
 package-scan/no-central-list discipline adapters and importers use, so adding an

@@ -7,9 +7,9 @@ no method on it that yields a value or a value-capable handle. The engine builds
 value-capable handle itself, from the store, only for the secrets adapter's
 execute (`materialization_handle`).
 
-Store implementations live under `engine/secrets/stores/`, one module per kind,
+Store implementations live under `planeops/secrets/stores/`, one module per kind,
 each exposing a module-level `STORE` provider, discovered by package scan like
-every other seam: the resolution layer (`engine/secrets/resolve.py`) knows no
+every other seam: the resolution layer (`planeops/secrets/resolve.py`) knows no
 concrete store, so swapping or adding one never touches it.
 
 This is a guard-rail: a secret value cannot reach a snapshot, a report, or the
@@ -45,7 +45,7 @@ class SecretsStore(Protocol):
 
 @runtime_checkable
 class SecretsStoreProvider(Protocol):
-    """What a module under `engine/secrets/stores/` exposes as `STORE`: enough
+    """What a module under `planeops/secrets/stores/` exposes as `STORE`: enough
     for the resolution layer to select and construct the store without knowing
     what it is. `is_default` lives on the leaf, so even the default choice is
     the provider's own declaration, not resolution-layer knowledge."""

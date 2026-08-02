@@ -12,8 +12,8 @@ import yaml
 from planeops.core.schema import (
     Entry,
     SchemaError,
-    _reject_unknown_keys,
     entry_from_dict,
+    reject_unknown_keys,
 )
 
 _DOC_KEYS = frozenset({"entries", "globs"})
@@ -56,7 +56,7 @@ def load_registry(registry_dir: Path) -> Registry:
                 raise SchemaError(f"{path.name}: top-level document must be a mapping")
             # A typo'd top-level key (`entrys:`) used to make the whole file
             # silently contribute nothing.
-            _reject_unknown_keys(doc, _DOC_KEYS, path.name)
+            reject_unknown_keys(doc, _DOC_KEYS, path.name)
 
             for raw in doc.get("entries", []) or []:
                 entry = entry_from_dict(raw)

@@ -102,20 +102,6 @@ def test_missing_sources_are_empty_not_error(tmp_path, fake_platform):
     assert McpAdapter(sources=_sources()).observe(_ctx(fake_platform(tmp_path))) == []
 
 
-def test_one_broken_source_does_not_sink_the_others(tmp_path, fake_platform):
-    (tmp_path / ".harness.json").write_text("{ not json")
-    d = tmp_path / "Library" / "App"
-    d.mkdir(parents=True)
-    (d / "desktop.json").write_text(
-        json.dumps({"mcpServers": {"memory": {"command": "npx"}}})
-    )
-    out = {
-        o.native_id: o
-        for o in McpAdapter(sources=_sources()).observe(_ctx(fake_platform(tmp_path)))
-    }
-    assert set(out) == {"memory"}
-
-
 def test_mcp_is_observe_only():
     # wiring an MCP into a tool means writing its config; deferred past v1.
     assert not can_apply(ADAPTER)
@@ -173,3 +159,41 @@ def test_a_non_mapping_source_is_loud(tmp_path):
     (tmp_path / "instance.yaml").write_text("mcp:\n  sources:\n    - just-a-string\n")
     with pytest.raises(ValueError, match="mapping"):
         load_sources(tmp_path)
+
+
+def test_a_typod_optional_key_field_is_loud(tmp_path):
+    # `kye:` used to be ignored and `key` defaulted to mcpServers: a source
+    # whose servers live under another key silently observed nothing.
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n"
+        "    - {label: a, path: ~/x.yaml, format: yaml, kye: servers}\n"
+    )
+    with pytest.raises(ValueError, match="key"):
+        load_sources(tmp_path)
+
+
+def test_key_must_be_a_string_not_coerced(tmp_path):
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n    - {label: a, path: ~/x.json, format: json, key: 3}\n"
+    )
+    with pytest.raises(ValueError, match="key"):
+        load_sources(tmp_path)
+
+
+def test_a_corrupt_source_file_is_loud_not_an_empty_scan(tmp_path, fake_platform):
+    # A source file that EXISTS but cannot be parsed used to read as {} (its
+    # servers just vanished from the snapshot). An absent file stays quiet:
+    # the tool may simply not be installed.
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n    - {label: harness, path: ~/.harness.json, format: json}\n"
+    )
+    (tmp_path / ".harness.json").write_text("{not valid json")
+    with pytest.raises(ValueError, match="harness"):
+        McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path))
+
+
+def test_an_absent_source_file_stays_quiet(tmp_path, fake_platform):
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n    - {label: harness, path: ~/.nope.json, format: json}\n"
+    )
+    assert McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path)) == []
