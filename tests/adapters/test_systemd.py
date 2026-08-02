@@ -31,7 +31,15 @@ class Fake:
 
     def _handlers(self):
         return {
-            "list-units": lambda _u: RunResult(0 if self.session else 1),
+            "list-units": lambda _u: (
+                RunResult(0)
+                if self.session
+                else (
+                    RunResult(127, "", "systemctl: command not found")
+                    if self.session is None
+                    else RunResult(1, "", "Failed to connect to bus")
+                )
+            ),
             "is-enabled": self._is_enabled,
             "is-active": lambda u: (
                 RunResult(0, "active") if u in self.active else RunResult(3, "inactive")
@@ -148,8 +156,27 @@ def test_observe_no_drift_when_enabled_and_active(tmp_path):
     assert obs.facts["drifted"] is False
 
 
-def test_observe_degrades_without_a_user_session(tmp_path):
+def test_observe_quiet_when_systemctl_is_absent(tmp_path):
+    # macOS or a systemd-less box: the tool not existing is not an error.
     d = _units(tmp_path, "x.service")
+    assert SystemdAdapter(run=Fake(session=None), units_dir=d).observe(_ctx()) == []
+
+
+def test_observe_raises_when_the_bus_is_unreachable_but_units_exist(tmp_path):
+    # A container/CI/SSH session without XDG_RUNTIME_DIR: systemctl exists,
+    # unit files exist, but the user bus is unreachable. Observing zero units
+    # silently made the snapshot lie; now it lands as a failed-scan alert.
+    import pytest
+
+    d = _units(tmp_path, "x.service")
+    with pytest.raises(ValueError, match="XDG_RUNTIME_DIR"):
+        SystemdAdapter(run=Fake(session=False), units_dir=d).observe(_ctx())
+
+
+def test_observe_quiet_when_bus_unreachable_and_no_units(tmp_path):
+    # Nothing to observe and nothing to miss: stay quiet.
+    d = tmp_path / "units"
+    d.mkdir()
     assert SystemdAdapter(run=Fake(session=False), units_dir=d).observe(_ctx()) == []
 
 

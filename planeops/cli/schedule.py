@@ -99,8 +99,24 @@ def _cmd(args: argparse.Namespace) -> int:
     from planeops.core.observe import run_observe
 
     snap = run_observe(repo)
-    print(f"observed {len(snap['observed'])} fact(s); the new job is in the snapshot")
-    print(job.hint)
+    observed_keys = {
+        f"{o.get('adapter')}/{o.get('native_id')}" for o in snap["observed"]
+    }
+    job_ids = {e.get("id") for e in job.entries if isinstance(e, dict)}
+    if job_ids & observed_keys:
+        print(
+            f"observed {len(snap['observed'])} fact(s); the new job is in the snapshot"
+        )
+        print(job.hint)
+    else:
+        # Claiming presence here used to be a lie whenever the scan silently
+        # failed (e.g. no user session bus). Say what actually happened.
+        print(
+            "warning: the new job did not appear in the snapshot (adapter scan "
+            "failed? see `plane drift` alerts); fix that, then `plane observe` "
+            "and `plane apply`",
+            file=sys.stderr,
+        )
     return 0
 
 
