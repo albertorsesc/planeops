@@ -1,11 +1,10 @@
-import yaml
-
 from planeops.importers.stackfile import (
     HeaderRule,
     load_rules,
     parse_stackfile,
     render_proposal,
 )
+from planeops.providers import yaml
 
 STACK = """
 # My Stack
@@ -65,7 +64,7 @@ def test_every_entry_marked_for_verification():
 
 def test_proposal_is_valid_yaml_roundtrip():
     entries = parse_stackfile(STACK, RULES)
-    loaded = yaml.safe_load(render_proposal(entries))
+    loaded = yaml.load(render_proposal(entries))
     assert loaded["entries"] == entries
 
 

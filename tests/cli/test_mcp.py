@@ -1,6 +1,7 @@
 """`plane mcp` wiring: human view, --json contract, unseeded behavior."""
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -43,3 +44,82 @@ def test_mcp_json_unseeded_emits_a_json_error_object(monkeypatch, capsys, inst):
     code = main(["--repo", inst, "mcp", "--json"])
     data = json.loads(capsys.readouterr().out)
     assert "error" in data and code == 0
+
+
+# ---- plane mcp init: the tool wires its own sources ----------------------
+
+
+def _fake_home_with_clients(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".claude.json").write_text("{}")
+    (home / ".codex").mkdir()
+    (home / ".codex" / "config.toml").write_text("")
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    return home
+
+
+def test_mcp_init_previews_and_appends_sources(tmp_path, monkeypatch, capsys):
+    _fake_home_with_clients(tmp_path, monkeypatch)
+    inst = tmp_path / "inst"
+    (inst / "registry").mkdir(parents=True)
+    (inst / ".planeops").write_text("")
+    (inst / "instance.yaml").write_text("# my precious comment\n")
+    assert main(["--repo", str(inst), "mcp", "init", "--yes"]) == 0
+    text = (inst / "instance.yaml").read_text()
+    assert "# my precious comment" in text  # user content untouched
+    assert "label: claude-code" in text and "label: codex" in text
+    # and the tool can now read what it wrote
+    from planeops.adapters.mcp import load_sources
+
+    labels = [s.label for s in load_sources(inst)]
+    assert labels == ["claude-code", "codex"]
+
+
+def test_mcp_init_skips_sources_already_wired(tmp_path, monkeypatch, capsys):
+    _fake_home_with_clients(tmp_path, monkeypatch)
+    inst = tmp_path / "inst"
+    (inst / "registry").mkdir(parents=True)
+    (inst / ".planeops").write_text("")
+    (inst / "instance.yaml").write_text(
+        "mcp:\n  sources:\n"
+        "    - {label: claude-code, path: ~/.claude.json, format: json}\n"
+    )
+    assert main(["--repo", str(inst), "mcp", "init", "--yes"]) == 0
+    from planeops.adapters.mcp import load_sources
+
+    labels = [s.label for s in load_sources(inst)]
+    assert labels == ["claude-code", "codex"]  # appended, not duplicated
+
+
+def test_mcp_init_refuses_without_confirmation(tmp_path, monkeypatch, capsys):
+    _fake_home_with_clients(tmp_path, monkeypatch)
+    inst = tmp_path / "inst"
+    (inst / "registry").mkdir(parents=True)
+    (inst / ".planeops").write_text("")
+    (inst / "instance.yaml").write_text("x: 1\n")
+    monkeypatch.setattr("builtins.input", lambda *a: (_ for _ in ()).throw(EOFError()))
+    assert main(["--repo", str(inst), "mcp", "init"]) == 0
+    assert "label:" not in (inst / "instance.yaml").read_text()
+
+
+def test_mcp_init_appends_inside_the_sources_block_not_at_eof(tmp_path, monkeypatch):
+    # Real instance files have sections AFTER mcp:; appending at EOF would
+    # nest new sources under the wrong block.
+    _fake_home_with_clients(tmp_path, monkeypatch)
+    inst = tmp_path / "inst"
+    (inst / "registry").mkdir(parents=True)
+    (inst / ".planeops").write_text("")
+    (inst / "instance.yaml").write_text(
+        "mcp:\n  sources:\n"
+        "    - {label: claude-code, path: ~/.claude.json, format: json}\n"
+        "\n"
+        "# secrets config lives below\n"
+        "secrets:\n  store: sops\n"
+    )
+    assert main(["--repo", str(inst), "mcp", "init", "--yes"]) == 0
+    from planeops.adapters.mcp import load_sources
+    from planeops.config import section
+
+    assert [s.label for s in load_sources(inst)] == ["claude-code", "codex"]
+    assert section(inst, "secrets") == {"store": "sops"}  # untouched

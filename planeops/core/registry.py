@@ -7,14 +7,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import yaml
-
 from planeops.core.schema import (
     Entry,
     SchemaError,
     entry_from_dict,
     reject_unknown_keys,
 )
+from planeops.providers import yaml
 
 _DOC_KEYS = frozenset({"entries", "globs"})
 
@@ -48,7 +47,7 @@ def load_registry(registry_dir: Path) -> Registry:
         return Registry()
 
     for path in sorted(registry_dir.glob("*.yaml")):
-        docs = list(yaml.safe_load_all(path.read_text())) or []
+        docs = yaml.load_all(path.read_text()) or []
         for doc in docs:
             if not doc:
                 continue
