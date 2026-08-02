@@ -163,7 +163,7 @@ The shipped store is [sops](https://github.com/getsops/sops)+[age](https://githu
 ```console
 $ plane secrets init
 secrets init will write:
-  /Users/you/.config/sops/age/keys.txt (new age identity via age-keygen)
+  /Users/you/Library/Application Support/sops/age/keys.txt (new age identity via age-keygen)
   /Users/you/planeops/.sops.yaml (sops creation rule for this store)
   /Users/you/planeops/secrets.sops.yaml (empty encrypted store)
 proceed? (y/N) y
