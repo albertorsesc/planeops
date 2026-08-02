@@ -19,6 +19,7 @@ are never recorded, they can hold secrets.
 from __future__ import annotations
 
 import json
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -34,7 +35,7 @@ from planeops.core.schema import reject_unknown_keys
 class McpSource:
     label: str
     path: str
-    format: str  # "json" or "yaml"
+    format: str  # "json", "yaml", or "toml"
     key: str  # the mapping key holding the servers, e.g. "mcpServers"
     # Optional template for this client's per-server log location, with {name}
     # standing for the server name (e.g. "~/Library/Logs/X/mcp-{name}.log").
@@ -86,6 +87,11 @@ def load_sources(repo_root: Path | None) -> list[McpSource]:
         if not isinstance(item, dict):
             raise ValueError(f"mcp.sources[{i}] must be a mapping, got {item!r}")
         reject_unknown_keys(item, _SOURCE_KEYS, f"mcp.sources[{i}]")
+        fmt_val = item.get("format")
+        if fmt_val not in ("json", "yaml", "toml"):
+            raise ValueError(
+                f"mcp.sources[{i}] format must be json, yaml, or toml (got {fmt_val!r})"
+            )
         logs_t = item.get("logs")
         if logs_t is not None and (not isinstance(logs_t, str) or not logs_t):
             raise ValueError(
@@ -119,8 +125,19 @@ def _read_source(source: McpSource, home: Path) -> dict[str, dict[str, Any]]:
         return {}
     try:
         text = path.read_text()
-        data = yaml.safe_load(text) if source.format == "yaml" else json.loads(text)
-    except (json.JSONDecodeError, ValueError, yaml.YAMLError, OSError) as exc:
+        if source.format == "yaml":
+            data = yaml.safe_load(text)
+        elif source.format == "toml":
+            data = tomllib.loads(text)
+        else:
+            data = json.loads(text)
+    except (
+        json.JSONDecodeError,
+        tomllib.TOMLDecodeError,
+        ValueError,
+        yaml.YAMLError,
+        OSError,
+    ) as exc:
         # A file that EXISTS but cannot be read or parsed must not quietly
         # observe as "no servers": raise into the failed-scan alert.
         raise ValueError(

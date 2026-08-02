@@ -80,6 +80,9 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `mcp.sources` reads TOML configs too (`format: toml`, stdlib parser), so
+  codex-style `[mcp_servers.<name>]` tables are first-class sources; an
+  unknown format is a load error instead of being silently parsed as JSON.
 - Log locations are observed, not hand-hunted: the `launchd` adapter reads a
   plist's own `StandardOutPath`/`StandardErrorPath`, the `systemd` adapter
   reports the unit's `journalctl` invocation, and an `mcp` source may declare
