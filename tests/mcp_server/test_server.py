@@ -41,14 +41,26 @@ def test_no_tool_is_destructive_and_the_reads_are_pure():
 
 
 def test_drift_tool_call_returns_structured_content(tmp_path):
-    # A real call over the MCP boundary. A repo with no snapshot gives the structured
-    # "observe first" error: proves the tool is wired, returns structured_content,
-    # and never raises across the boundary.
+    # A real call over the MCP boundary. An instance with no snapshot gives the
+    # structured "observe first" error: proves the tool is wired, returns
+    # structured_content, and never raises across the boundary.
+    (tmp_path / ".planeops").write_text("")
     res = asyncio.run(
         build_server().call_tool("planeops_drift", {"repo": str(tmp_path)})
     )
     assert res.is_error is False
     assert "error" in res.structured_content
+
+
+def test_an_unmarked_repo_is_a_tool_error_not_a_write(tmp_path):
+    # Same refusal rule as the CLI: a directory that is not an instance must
+    # error across the boundary (the SDK maps the raise to a protocol-level
+    # tool error), never adopt the directory and write state.
+    with pytest.raises(Exception, match="not a planeops instance"):
+        asyncio.run(
+            build_server().call_tool("planeops_observe", {"repo": str(tmp_path)})
+        )
+    assert not (tmp_path / "observed").exists()
 
 
 def test_default_repo_resolves_like_the_cli(tmp_path, monkeypatch):
