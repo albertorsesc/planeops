@@ -80,11 +80,29 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `plane secrets init`: the tool bootstraps its own store (age identity if
+  missing, the instance's creation rules, an empty encrypted store), with the
+  standard preview-and-confirm. Every underlying sops call passes `--config`
+  explicitly and the identity is created where sops itself looks on this OS,
+  so no command depends on the working directory and no environment variable
+  is needed for a fresh setup. A store kind opts in via the `BootstrapsStore`
+  protocol; re-initializing over an existing store is refused. (Walk two: a
+  cwd-sensitive manual `sops -e` left a store in plaintext; this removes the
+  manual step entirely.)
 - Entries can record where their asset logs (`logs:` list of paths or
   commands); `plane schedule` fills it in for the reconcile job it declares.
 
 ### Fixed
 
+- A store file that is NOT actually encrypted (a failed `sops -e` leaves
+  plaintext behind) is refused loudly as a failed scan with the fix spelled
+  out, instead of presence blessing cleartext with `configured: true` and
+  zero alerts. The decrypt-failure hint about `SOPS_AGE_KEY_FILE` appends
+  only on identity-shaped failures. `parked` now means keep-as-is in both
+  service adapters: a parked unit is never bootstrapped or booted out, so a
+  freshly seeded registry plans nothing. Every output path is
+  instance-anchored (apply and reconcile had two remaining bare
+  `observed/...` lines; a fitness test now bans the pattern).
 - Seeding describes the machine instead of proposing changes to it: an asset
   on disk but not active (an unloaded agent, a disabled unit) seeds as
   `parked`, so `plane apply` on a fresh registry no longer offers to bootstrap

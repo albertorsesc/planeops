@@ -144,6 +144,10 @@ class SystemdAdapter:
                 )
             ]
 
+        if entry.lifecycle is Lifecycle.parked:
+            # Parked means keep-as-is: on disk is enough, enabled or not.
+            return []
+
         if not (enabled and active):
             return [
                 Change(

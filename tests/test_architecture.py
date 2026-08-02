@@ -156,3 +156,17 @@ def test_every_engine_module_has_its_mirror_test():
         if not expected.exists() and rel_expected not in sanctioned_missing:
             missing.append(f"{src.relative_to(ROOT)} -> {rel_expected}")
     assert not missing, "modules without a mirror test:\n" + "\n".join(missing)
+
+
+def test_no_unanchored_observed_paths_in_output():
+    # Output lines anchor state paths to the instance; a bare "-> observed/..."
+    # sent a user hunting for a directory that is not where they stand
+    # (found twice on live walks after a file-scoped fix missed siblings).
+    from pathlib import Path
+
+    offenders = [
+        str(p)
+        for p in Path("planeops").rglob("*.py")
+        if "-> observed/" in p.read_text()
+    ]
+    assert not offenders, f"unanchored output paths in: {offenders}"

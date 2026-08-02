@@ -347,3 +347,26 @@ def test_observe_present_means_enabled_or_active(tmp_path):
     assert out["on.service"].facts["present"] is True  # enabled, not started
     assert out["running.service"].facts["present"] is True  # active only
     assert out["off.service"].facts["present"] is False
+
+
+def test_parked_unit_is_left_exactly_as_found():
+    # `parked` means keep-as-is: never enable a disabled parked unit, never
+    # disable an enabled one.
+    from planeops.core.contracts import Observed
+
+    d = Fake(session=True)
+    from pathlib import Path
+
+    a = SystemdAdapter(run=d, units_dir=Path("/tmp/units"))
+    off = Observed(
+        "systemd",
+        "x.timer",
+        {"enabled": False, "active": False, "unit_path": "/tmp/units/x.timer"},
+    )
+    on = Observed(
+        "systemd",
+        "y.timer",
+        {"enabled": True, "active": True, "unit_path": "/tmp/units/y.timer"},
+    )
+    assert a.plan(_entry("systemd/x.timer", "parked"), off, _ctx()) == []
+    assert a.plan(_entry("systemd/y.timer", "parked"), on, _ctx()) == []

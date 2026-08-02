@@ -153,6 +153,10 @@ class LaunchdAdapter:
                 )
             ]
 
+        if entry.lifecycle is Lifecycle.parked:
+            # Parked means keep-as-is: on disk is enough, loaded or not.
+            return []
+
         if not facts.get("loaded"):
             return [
                 Change(

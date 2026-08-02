@@ -15,7 +15,7 @@ def _cmd(args: argparse.Namespace) -> int:
     snap = run_observe(repo)  # scan + write the snapshot
     print(
         f"observed {len(snap['observed'])} fact(s) "
-        f"-> observed/{snap['host']}/snapshot.json"
+        f"-> {repo / 'observed' / snap['host'] / 'snapshot.json'}"
     )
     report = run_drift(repo)  # diff the fresh snapshot, write DRIFT.md + DRIFT.json
     print(
