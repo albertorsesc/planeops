@@ -251,3 +251,33 @@ def test_unknown_format_is_loud(tmp_path):
     )
     with pytest.raises(ValueError, match="format"):
         load_sources(tmp_path)
+
+
+def test_known_client_log_template_is_derived_not_copied(tmp_path, fake_platform):
+    # A source labeled as a discovered known client inherits that client's
+    # conventions at observe time: config stays minimal, templates upgrade
+    # with the tool, and observe never writes anything.
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n"
+        "    - {label: claude-desktop, path: ~/.d.json, format: json}\n"
+    )
+    (tmp_path / ".d.json").write_text(
+        json.dumps({"mcpServers": {"context7": {"command": "npx"}}})
+    )
+    out = McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path))
+    assert out[0].facts["logs"] == ["~/Library/Logs/Claude/mcp-server-context7.log"]
+
+
+def test_an_explicit_config_template_beats_the_derived_default(tmp_path, fake_platform):
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n"
+        "    - label: claude-desktop\n"
+        "      path: ~/.d.json\n"
+        "      format: json\n"
+        "      logs: ~/my/own/{name}.log\n"
+    )
+    (tmp_path / ".d.json").write_text(
+        json.dumps({"mcpServers": {"context7": {"command": "npx"}}})
+    )
+    out = McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path))
+    assert out[0].facts["logs"] == ["~/my/own/context7.log"]

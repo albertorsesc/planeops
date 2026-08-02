@@ -60,6 +60,16 @@ def servers_from_mapping(servers: object) -> dict[str, dict[str, Any]]:
 _SOURCE_KEYS = frozenset({"label", "path", "format", "key", "logs"})
 
 
+def _known_client_logs(label: str) -> str | None:
+    """The log template of the discovered known client with this label, if
+    any. Lazy import: the clients seam pulls in discovery machinery this
+    module should not load unless a source actually needs a default."""
+    from planeops.adapters.mcp.clients import discover_clients
+
+    client = discover_clients().get(label)
+    return client.logs if client else None
+
+
 def _source_str(
     item: dict[str, Any], field_name: str, i: int, default: str | None = None
 ) -> str:
@@ -97,13 +107,18 @@ def load_sources(repo_root: Path | None) -> list[McpSource]:
                 f"mcp.sources[{i}] logs must be a non-empty string template "
                 f"(got {logs_t!r})"
             )
+        label = _source_str(item, "label", i)
         sources.append(
             McpSource(
-                label=_source_str(item, "label", i),
+                label=label,
                 path=_source_str(item, "path", i),
                 format=_source_str(item, "format", i),
                 key=_source_str(item, "key", i, default="mcpServers"),
-                logs=logs_t,
+                # Derived default: a source labeled as a discovered known
+                # client inherits that client's conventions at read time, so
+                # templates upgrade with the tool and config stays minimal.
+                # An explicit value in instance.yaml always wins.
+                logs=logs_t if logs_t is not None else _known_client_logs(label),
             )
         )
     return sources

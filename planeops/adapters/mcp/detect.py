@@ -34,13 +34,14 @@ def detect_sources(
         )
         if not installed:
             continue
-        source: dict[str, Any] = {
-            "label": c.label,
-            "path": f"~/{c.config}",
-            "format": c.format,
-            "key": c.key,
-        }
-        if c.logs:
-            source["logs"] = c.logs
-        found.append(source)
+        # No `logs` in the proposal: a known-client label derives its log
+        # template at read time, so the config never goes stale.
+        found.append(
+            {
+                "label": c.label,
+                "path": f"~/{c.config}",
+                "format": c.format,
+                "key": c.key,
+            }
+        )
     return found

@@ -88,6 +88,11 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Known-client conventions are DERIVED at read time, never copied into
+  config: a source labeled as a discovered client inherits that client's log
+  template unless `instance.yaml` overrides it. Tool upgrades reach existing
+  instances through plain `observe` with no config edit, no `--update` verb,
+  and no write: observe stays read-only.
 - `plane mcp init`: detects known clients on this machine (claude-code,
   claude-desktop, codex, cursor) and wires them as `mcp.sources`, including
   the desktop's per-server log template, with the standard preview-and-confirm.
