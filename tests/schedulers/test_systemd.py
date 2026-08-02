@@ -1,6 +1,8 @@
 """systemd scheduler backend: pure generation of the reconcile timer + oneshot
 service pair, the governed entry, and its refusal of unsafe values."""
 
+from pathlib import Path
+
 import pytest
 
 from planeops.schedulers.systemd import SCHEDULER as SYSTEMD
@@ -55,3 +57,11 @@ def test_build_refuses_directive_injection_via_values(tmp_path):
             tmp_path, plane="/bin/pl\nane", path_env="/usr/bin",
             interval=60, login=True, off=False,
         )  # fmt: skip
+
+
+def test_hint_names_the_exact_apply_command():
+    job = SYSTEMD.build(
+        Path("/tmp/h"), plane="/usr/bin/plane", path_env="/usr/bin",
+        interval=21600, login=True, off=False,
+    )  # fmt: skip
+    assert "--id systemd/planeops-reconcile.timer" in job.hint

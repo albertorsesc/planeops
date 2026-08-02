@@ -25,6 +25,7 @@ def _cmd(args: argparse.Namespace) -> int:
 
     from planeops.cli.instance import instance_root
     from planeops.core.statefile import atomic_write
+    from planeops.importers import render_proposal
     from planeops.platform import current_platform
     from planeops.schedulers import current_scheduler
 
@@ -88,10 +89,10 @@ def _cmd(args: argparse.Namespace) -> int:
 
     schedule_yaml = repo / "registry" / "schedule.yaml"
     schedule_yaml.parent.mkdir(parents=True, exist_ok=True)
-    doc: dict[str, object] = {"entries": job.entries}
+    text = render_proposal(list(job.entries))
     if job.globs:
-        doc["globs"] = job.globs
-    atomic_write(schedule_yaml, yaml.safe_dump(doc, sort_keys=False))
+        text += "\n" + yaml.safe_dump({"globs": job.globs}, sort_keys=False)
+    atomic_write(schedule_yaml, text)
     print(f"declared {schedule_yaml}")
 
     # `plane apply` plans from the snapshot; without this refresh the just-written

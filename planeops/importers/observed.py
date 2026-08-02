@@ -63,14 +63,23 @@ def propose_from_snapshot(text: str, repo_root: Path | None) -> list[dict[str, A
         if entry_id in declared or entry_id in seen:
             continue
         seen.add(entry_id)
+        # Seeding must DESCRIBE the machine, never propose changes to it: an
+        # asset that is on disk but not active (facts.present False, e.g. an
+        # unloaded agent) seeds as `parked`, so a fresh registry plans nothing.
+        facts = obs.get("facts")
+        inactive = isinstance(facts, dict) and facts.get("present") is False
         entries.append(
             {
                 "id": entry_id,
                 "adapter": adapter,
                 "domain": domains.get(adapter, "unknown"),
-                "lifecycle": "active",
+                "lifecycle": "parked" if inactive else "active",
                 "tolerance": "report",
-                "intent": "imported from observed snapshot, verify",
+                "intent": (
+                    "imported from observed snapshot (on disk, not active); verify"
+                    if inactive
+                    else "imported from observed snapshot, verify"
+                ),
             }
         )
     # Grouped by adapter (type) so the proposal reads by type, not as one flat wall.

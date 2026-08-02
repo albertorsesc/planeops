@@ -29,9 +29,18 @@ class Importer(Protocol):
     def note(self, path: Path, count: int) -> str: ...
 
 
+def render_entry(entry: dict[str, Any]) -> str:
+    """One entry as a document-style list item, indented under `entries:`."""
+    body = yaml.safe_dump([entry], sort_keys=False, allow_unicode=True)
+    return "\n".join(f"  {line}" if line else "" for line in body.rstrip().split("\n"))
+
+
 def render_proposal(entries: list[dict[str, Any]]) -> str:
-    """The shared YAML rendering of proposed entries (one place, all importers)."""
-    return yaml.safe_dump({"entries": entries}, sort_keys=False, allow_unicode=True)
+    """The shared YAML rendering of proposed entries (one place, all importers).
+    Registry files are documents humans edit: one blank line between entries."""
+    if not entries:
+        return "entries: []\n"
+    return "entries:\n" + "\n\n".join(render_entry(e) for e in entries) + "\n"
 
 
 def write_proposal(
@@ -49,15 +58,23 @@ def write_proposal(
 
     target = repo_root / "registry" / filename
     existing: list[dict[str, Any]] = []
+    text = ""
     if target.is_file():
-        doc = yaml.safe_load(target.read_text()) or {}
+        text = target.read_text()
+        doc = yaml.safe_load(text) or {}
         if isinstance(doc, dict) and isinstance(doc.get("entries"), list):
             existing = [e for e in doc["entries"] if isinstance(e, dict)]
     seen = {e.get("id") for e in existing}
-    merged = existing + [e for e in entries if e.get("id") not in seen]
+    fresh = [e for e in entries if e.get("id") not in seen]
     target.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write(target, render_proposal(merged))
-    return target, len(merged)
+    if not text.strip():
+        atomic_write(target, render_proposal(fresh))
+    elif fresh:
+        # Append ONLY the new entries as text: the existing body (and any
+        # comments or pruning marks the user added) is never re-dumped.
+        appended = "\n\n".join(render_entry(e) for e in fresh)
+        atomic_write(target, text.rstrip("\n") + "\n\n" + appended + "\n")
+    return target, len(existing) + len(fresh)
 
 
 def discover_importers() -> dict[str, Importer]:

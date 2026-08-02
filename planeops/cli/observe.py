@@ -16,7 +16,7 @@ def _cmd(args: argparse.Namespace) -> int:
     print(
         f"observed {len(snap['observed'])} fact(s), "
         f"{len(snap['uncovered'])} uncovered adapter(s) "
-        f"-> observed/{snap['host']}/snapshot.json"
+        f"-> {repo / 'observed' / snap['host'] / 'snapshot.json'}"
     )
     # A crashed adapter produced no observations; silence here would let its
     # entries misreport downstream. Name it so the user sees the scan was partial.
