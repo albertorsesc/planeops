@@ -1,6 +1,7 @@
 """`plane init` wiring: the seed decision branches and the scaffold flow."""
 
 import argparse
+from pathlib import Path
 
 import pytest
 
@@ -65,3 +66,67 @@ def test_init_interactive_yes_triggers_the_seed(tmp_path, monkeypatch, answer):
     )
     assert main(["init", str(tmp_path / "inst")]) == 0
     assert seeded == [(tmp_path / "inst").resolve()]
+
+
+# ---- location: asked, never guessed --------------------------------------
+
+
+def _no_seed_env(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "planeops.core.locate.config_home", lambda *a, **k: tmp_path / "cfg"
+    )
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path / "home"))
+
+
+def test_no_path_prompts_and_enter_accepts_the_default(tmp_path, monkeypatch):
+    _no_seed_env(monkeypatch, tmp_path)
+    prompts = []
+
+    def fake_input(prompt):
+        prompts.append(prompt)
+        return ""
+
+    monkeypatch.setattr("builtins.input", fake_input)
+    assert main(["init", "--no-seed"]) == 0
+    assert (tmp_path / "home" / "planeops" / ".planeops").exists()
+    assert "create the instance at" in prompts[0]
+
+
+def test_no_path_prompt_accepts_any_typed_path(tmp_path, monkeypatch):
+    # Hidden directories and nested paths are first-class answers.
+    _no_seed_env(monkeypatch, tmp_path)
+    target = tmp_path / "home" / ".hidden" / "deep" / "inst"
+    monkeypatch.setattr("builtins.input", lambda prompt: str(target))
+    assert main(["init", "--no-seed"]) == 0
+    assert (target / ".planeops").exists()
+
+
+def test_no_path_without_stdin_refuses_to_guess(tmp_path, monkeypatch, capsys):
+    _no_seed_env(monkeypatch, tmp_path)
+
+    def no_stdin(prompt):
+        raise EOFError
+
+    monkeypatch.setattr("builtins.input", no_stdin)
+    assert main(["init", "--no-seed"]) == 1
+    assert not (tmp_path / "home" / "planeops").exists()
+    err = capsys.readouterr().err
+    assert "--yes" in err and "path" in err
+
+
+def test_no_path_with_yes_takes_the_default_without_asking(tmp_path, monkeypatch):
+    _no_seed_env(monkeypatch, tmp_path)
+
+    def boom(prompt):
+        raise AssertionError("must not prompt with --yes")
+
+    monkeypatch.setattr("builtins.input", boom)
+    assert main(["init", "--no-seed", "--yes"]) == 0
+    assert (tmp_path / "home" / "planeops" / ".planeops").exists()
+
+
+def test_explicit_hidden_nested_path_works(tmp_path, monkeypatch):
+    _no_seed_env(monkeypatch, tmp_path)
+    target = tmp_path / "home" / ".config" / "custom" / "spot"
+    assert main(["init", str(target), "--no-seed"]) == 0
+    assert (target / ".planeops").exists()
