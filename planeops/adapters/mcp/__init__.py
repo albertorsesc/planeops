@@ -36,6 +36,9 @@ class McpSource:
     path: str
     format: str  # "json" or "yaml"
     key: str  # the mapping key holding the servers, e.g. "mcpServers"
+    # Optional template for this client's per-server log location, with {name}
+    # standing for the server name (e.g. "~/Library/Logs/X/mcp-{name}.log").
+    logs: str | None = None
 
 
 def servers_from_mapping(servers: object) -> dict[str, dict[str, Any]]:
@@ -54,7 +57,7 @@ def servers_from_mapping(servers: object) -> dict[str, dict[str, Any]]:
     return out
 
 
-_SOURCE_KEYS = frozenset({"label", "path", "format", "key"})
+_SOURCE_KEYS = frozenset({"label", "path", "format", "key", "logs"})
 
 
 def _source_str(
@@ -83,12 +86,19 @@ def load_sources(repo_root: Path | None) -> list[McpSource]:
         if not isinstance(item, dict):
             raise ValueError(f"mcp.sources[{i}] must be a mapping, got {item!r}")
         reject_unknown_keys(item, _SOURCE_KEYS, f"mcp.sources[{i}]")
+        logs_t = item.get("logs")
+        if logs_t is not None and (not isinstance(logs_t, str) or not logs_t):
+            raise ValueError(
+                f"mcp.sources[{i}] logs must be a non-empty string template "
+                f"(got {logs_t!r})"
+            )
         sources.append(
             McpSource(
                 label=_source_str(item, "label", i),
                 path=_source_str(item, "path", i),
                 format=_source_str(item, "format", i),
                 key=_source_str(item, "key", i, default="mcpServers"),
+                logs=logs_t,
             )
         )
     return sources
@@ -136,10 +146,14 @@ class McpAdapter:
         merged: dict[str, dict[str, Any]] = {}
         for source in sources:
             for server_name, meta in _read_source(source, home).items():
-                entry = merged.setdefault(server_name, {"sources": [], "command": ""})
+                entry = merged.setdefault(
+                    server_name, {"sources": [], "command": "", "logs": []}
+                )
                 entry["sources"].append(source.label)
                 if not entry["command"] and meta["command"]:
                     entry["command"] = meta["command"]
+                if source.logs:
+                    entry["logs"].append(source.logs.format(name=server_name))
 
         return [
             Observed(
@@ -148,6 +162,11 @@ class McpAdapter:
                 facts={
                     "sources": sorted(merged[server_name]["sources"]),
                     "command": merged[server_name]["command"],
+                    **(
+                        {"logs": sorted(merged[server_name]["logs"])}
+                        if merged[server_name]["logs"]
+                        else {}
+                    ),
                 },
                 version=None,
             )

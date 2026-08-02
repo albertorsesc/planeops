@@ -328,3 +328,26 @@ def test_parked_service_is_left_exactly_as_found():
         )
         == []
     )
+
+
+def test_observe_reports_the_plists_log_paths(tmp_path, fake_platform):
+    # The plist itself declares where the service logs; the observation carries
+    # it so seeding can land `logs:` in the manifest without hand-hunting.
+    d = tmp_path / "Library" / "LaunchAgents"
+    d.mkdir(parents=True)
+    payload = {
+        "Label": "com.x.logged",
+        "ProgramArguments": ["/bin/echo"],
+        "StandardOutPath": "/tmp/x/out.log",
+        "StandardErrorPath": "/tmp/x/err.log",
+    }
+    with (d / "com.x.logged.plist").open("wb") as fh:
+        plistlib.dump(payload, fh)
+    facts = _observe_facts(tmp_path, fake_platform)
+    assert facts["com.x.logged"]["logs"] == ["/tmp/x/out.log", "/tmp/x/err.log"]
+
+
+def test_observe_omits_logs_when_the_plist_declares_none(tmp_path, fake_platform):
+    _write_plist(tmp_path, "com.x.quiet")
+    facts = _observe_facts(tmp_path, fake_platform)
+    assert "logs" not in facts["com.x.quiet"]

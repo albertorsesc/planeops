@@ -103,6 +103,9 @@ class SystemdAdapter:
                         # "present" when it will run or is running, not when its
                         # file exists on disk.
                         "present": enabled or active,
+                        # Where the unit's output goes; carried so a seeded
+                        # manifest knows without hand-hunting.
+                        "logs": [f"journalctl --user -u {unit}"],
                         "unit_path": str(unit_path),
                     },
                 )

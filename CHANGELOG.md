@@ -80,6 +80,13 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Log locations are observed, not hand-hunted: the `launchd` adapter reads a
+  plist's own `StandardOutPath`/`StandardErrorPath`, the `systemd` adapter
+  reports the unit's `journalctl` invocation, and an `mcp` source may declare
+  a per-server log template (`logs: .../mcp-{name}.log` in `instance.yaml`;
+  client knowledge stays instance data, never adapter code). Seeding copies
+  observed log locations into each proposed entry's `logs:`, so a fresh
+  manifest knows where everything writes from day one.
 - `plane secrets init`: the tool bootstraps its own store (age identity if
   missing, the instance's creation rules, an empty encrypted store), with the
   standard preview-and-confirm. Every underlying sops call passes `--config`
