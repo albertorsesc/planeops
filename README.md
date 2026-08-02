@@ -140,6 +140,10 @@ The shipped store is [sops](https://github.com/getsops/sops)+[age](https://githu
 
 Pre-1.0: the loop, eleven adapters, scheduling, secrets, importers, and the MCP server work on macOS and Linux and govern this project's own machines daily. Contracts may still move; a breaking change bumps the minor and lands in the [CHANGELOG](https://github.com/albertorsesc/planeops/blob/main/CHANGELOG.md) with its migration. The next acceptance gate is a clean-machine reproduction rehearsal.
 
+## Built on
+
+planeops delegates instead of reinventing: [sops](https://github.com/getsops/sops) and [age](https://github.com/FiloSottile/age) hold the secrets, [chezmoi](https://github.com/twpayne/chezmoi) reproduces config files, your OS's own scheduler runs the ambient loop, and the package managers you already use keep doing the installing. The engine itself rides on [PyYAML](https://github.com/yaml/pyyaml) (its one runtime dependency) and the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) for the optional server, and is built with [uv](https://github.com/astral-sh/uv), [ruff](https://github.com/astral-sh/ruff), [mypy](https://github.com/python/mypy), and [pytest](https://github.com/pytest-dev/pytest). Thanks to all of them.
+
 ## Contributing, security, license
 
 [`CONTRIBUTING.md`](https://github.com/albertorsesc/planeops/blob/main/CONTRIBUTING.md) has the dev setup, the quality gate, and how to write an adapter. Security posture and reporting: [`SECURITY.md`](https://github.com/albertorsesc/planeops/blob/main/SECURITY.md). Licensed [Apache-2.0](https://github.com/albertorsesc/planeops/blob/main/LICENSE).
