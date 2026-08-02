@@ -225,3 +225,29 @@ def test_sources_without_a_log_template_carry_no_logs(tmp_path, fake_platform):
     )
     out = McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path))
     assert "logs" not in out[0].facts
+
+
+def test_toml_sources_read_nested_server_tables(tmp_path, fake_platform):
+    # codex-style config: [mcp_servers.<name>] tables in TOML. Same source
+    # contract, third format, stdlib parser.
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n"
+        "    - {label: codex, path: ~/.codex/config.toml, format: toml,"
+        " key: mcp_servers}\n"
+    )
+    (tmp_path / ".codex").mkdir()
+    (tmp_path / ".codex" / "config.toml").write_text(
+        '[mcp_servers.gitnexus]\ncommand = "npx"\nargs = ["mcp"]\n'
+    )
+    out = McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path))
+    assert [o.native_id for o in out] == ["gitnexus"]
+    assert out[0].facts["sources"] == ["codex"]
+    assert out[0].facts["command"] == "npx"
+
+
+def test_unknown_format_is_loud(tmp_path):
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n    - {label: a, path: ~/.x.ini, format: ini}\n"
+    )
+    with pytest.raises(ValueError, match="format"):
+        load_sources(tmp_path)
