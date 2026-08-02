@@ -74,6 +74,11 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   that exists but cannot be parsed surfaces as a failed scan instead of
   quietly observing no servers (an absent file stays quiet: the tool may
   simply not be installed).
+- A directory without the `.planeops` marker is refused by every verb (and by
+  the MCP server's tools) with "run `plane init <path>` first", instead of
+  being adopted with a warning and having `observed/` state scattered into
+  whatever directory the command ran from. Only `plane init` creates
+  instances.
 - `plane-mcp` on an install without the `mcp` extra prints
   "pip install 'planeops[mcp]'" and exits 1 instead of a raw import traceback.
 - `injected_as` on a secrets item must be `file:<path>#KEY`. The `env:NAME`
