@@ -64,6 +64,12 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   previously missing mirrors exist, so "tests mirror engine" is now literally,
   mechanically true.
 
+- **BREAKING (pre-1.0):** `plane init` without a path ASKS where to create the
+  instance (suggested default `~/planeops`; any valid path is accepted,
+  hidden or nested included; `--yes` accepts the default non-interactively)
+  instead of silently claiming the current directory. Nothing is ever placed
+  unasked, the same confirm posture as every other write.
+
 ### Fixed
 
 - The sdist is an explicit allowlist. The default selection packed anything the
