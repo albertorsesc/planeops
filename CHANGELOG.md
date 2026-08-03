@@ -6,6 +6,25 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-03
+
+### Added
+
+- `plane secrets add <name>`: put one value into the store safely. Prompted
+  twice blind on a terminal (or piped with `--yes` for scripting); the value
+  never appears on a command line, in the environment, or in any output.
+  Rotating an existing value requires `--force`. Store-side, the write goes
+  through a transient owner-only file beside the store, is verified encrypted
+  before it atomically replaces the store, and is zeroed on every path out.
+  A store kind opts in via the `AcceptsValues` protocol.
+
+### Changed
+
+- README restructured around a plain-language purpose statement and one-line
+  feature bullets; the instance, secrets, and MCP deep-dives moved to
+  `docs/instance.md`, `docs/secrets.md`, and `docs/mcp.md`. Corrects the
+  runtime-dependency name (ruamel.yaml) and the discovery-seam count.
+
 ## [0.1.0] - 2026-08-02
 
 ### Changed
@@ -428,5 +447,6 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   shell prompt kept showing stale state, the exact failure the ambient loop exists to
   prevent; `plane apply` already treated it as a change, so drift and apply now agree.
 
-[Unreleased]: https://github.com/albertorsesc/planeops/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/albertorsesc/planeops/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/albertorsesc/planeops/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/albertorsesc/planeops/releases/tag/v0.1.0
