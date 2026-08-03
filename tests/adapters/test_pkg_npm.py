@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 
 from planeops._run import RunResult
@@ -154,3 +155,20 @@ def test_execute_failure_and_unknown_op():
     assert not PkgNpmAdapter(run=rec).execute(bad, _ctx()).ok
     unknown = Change("pkg-npm/x", "install", "d", {"op": "bogus", "package": "x"})
     assert not PkgNpmAdapter(run=RecordingRun()).execute(unknown, _ctx()).ok
+
+
+def test_versionless_globals_are_observed_not_dropped():
+    # npm reports some installs without a version key (a linked or broken
+    # global, e.g. a real machine's tree-sitter-dart). Dropping them made the
+    # snapshot lie: the package IS installed. Observe it, version unknown.
+    text = json.dumps(
+        {
+            "dependencies": {
+                "good": {"version": "1.0.0"},
+                "linked": {"overridden": False},
+            }
+        }
+    )
+    out = parse_npm_globals(text)
+    assert out["good"] == "1.0.0"
+    assert "linked" in out and out["linked"] is None
