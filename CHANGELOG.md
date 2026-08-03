@@ -6,6 +6,8 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-08-02
+
 ### Changed
 
 - **BREAKING (pre-1.0):** the YAML dependency is `ruamel.yaml` (was PyYAML),
@@ -427,4 +429,5 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   shell prompt kept showing stale state, the exact failure the ambient loop exists to
   prevent; `plane apply` already treated it as a change, so drift and apply now agree.
 
-[Unreleased]: https://github.com/albertorsesc/planeops/commits/main
+[Unreleased]: https://github.com/albertorsesc/planeops/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/albertorsesc/planeops/releases/tag/v0.1.0

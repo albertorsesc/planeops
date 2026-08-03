@@ -22,3 +22,5 @@ __pycache__/
 .claude/
 .playwright-mcp/
 .DS_Store
+
+dist/
