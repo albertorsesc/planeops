@@ -6,6 +6,13 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- README restructured around a plain-language purpose statement and one-line
+  feature bullets; the instance, secrets, and MCP deep-dives moved to
+  `docs/instance.md`, `docs/secrets.md`, and `docs/mcp.md`. Corrects the
+  runtime-dependency name (ruamel.yaml) and the discovery-seam count.
+
 ## [0.1.0] - 2026-08-02
 
 ### Changed
