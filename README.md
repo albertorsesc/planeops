@@ -136,7 +136,7 @@ footprint: [docs/instance.md](https://github.com/albertorsesc/planeops/blob/main
 
 - [SPEC.md](https://github.com/albertorsesc/planeops/blob/main/SPEC.md): the architecture, entry schema, adapter contracts, and exit codes.
 - [docs/instance.md](https://github.com/albertorsesc/planeops/blob/main/docs/instance.md): your instance directory, several machines on one registry, the tool's footprint.
-- [docs/secrets.md](https://github.com/albertorsesc/planeops/blob/main/docs/secrets.md): the sops+age store, the one-command bootstrap, how values stay sealed.
+- [docs/secrets.md](https://github.com/albertorsesc/planeops/blob/main/docs/secrets.md): the four-step secrets flow (declare, `secrets init` once per machine, `secrets add` per value, `apply` materializes) and how values stay sealed.
 - [docs/mcp.md](https://github.com/albertorsesc/planeops/blob/main/docs/mcp.md): every MCP server across every client in one view, and the read-only server your assistant can query.
 - [CHANGELOG.md](https://github.com/albertorsesc/planeops/blob/main/CHANGELOG.md): releases and what is coming.
 
