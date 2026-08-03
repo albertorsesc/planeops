@@ -106,3 +106,32 @@ def test_materialize_from_a_real_store_redacts_everywhere(tmp_path, monkeypatch)
     assert res.ok and VALUE not in res.detail
     assert target.read_text() == f"API_KEY={VALUE}\n"  # decrypted value only here
     assert target.stat().st_mode & 0o777 == 0o600
+
+
+def test_add_value_round_trips_through_real_sops(tmp_path, monkeypatch):
+    # Bootstrap-shaped setup: rules beside the store, then add through the
+    # store and read back with the real `sops -d --extract`.
+    store = _encrypted_store(tmp_path, monkeypatch)
+    recipient = subprocess.run(
+        ["age-keygen", "-y", tmp_path / "age.key"],
+        check=True, capture_output=True, text=True,
+    ).stdout.strip()  # fmt: skip
+    (tmp_path / ".sops.yaml").write_text(
+        "creation_rules:\n"
+        "  - path_regex: secrets\\.sops\\.yaml$\n"
+        f"    age: {recipient}\n"
+    )
+    backend = SopsStore(store)
+    out = backend.add_value("added-key", "added-REAL-value-42", force=False)
+    assert "added" in out and "added-REAL-value-42" not in out
+    text = store.read_text()
+    assert "added-key" in text and "added-REAL-value-42" not in text
+    assert backend.get("added-key") == "added-REAL-value-42"
+    assert backend.get("api-key") == VALUE  # the pre-existing value survived
+
+    with pytest.raises(LookupError, match="--force"):
+        backend.add_value("added-key", "next", force=False)
+    backend.add_value("added-key", "rotated-REAL-value-43", force=True)
+    assert backend.get("added-key") == "rotated-REAL-value-43"
+    leftovers = [p for p in tmp_path.iterdir() if p.name.startswith(".plane-secrets-")]
+    assert leftovers == []

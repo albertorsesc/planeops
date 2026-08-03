@@ -87,3 +87,121 @@ def test_secrets_init_never_overwrites_an_existing_store(tmp_path, monkeypatch):
     assert main(["--repo", str(inst), "secrets", "init", "--yes",
                  "--age-key", str(tmp_path / "k.txt")]) == 1  # fmt: skip
     assert (inst / "secrets.sops.yaml").read_text() == "k: ENC[x]\nsops: {}\n"
+
+
+# ---- `plane secrets add`: value entry that never touches argv ----
+
+
+class _AddRecorder:
+    """Fake sops for the add flow: decrypt returns an empty mapping, encrypt
+    rewrites the target with ENC[...] values plus the metadata block."""
+
+    def __init__(self, decrypt_out="{}\n"):
+        self.calls: list[list[str]] = []
+        self._decrypt_out = decrypt_out
+
+    def __call__(self, cmd, timeout=None):
+        self.calls.append(list(cmd))
+        if cmd[:2] == ["sops", "-d"]:
+            return RunResult(0, self._decrypt_out, "")
+        if cmd[0] == "sops" and "-e" in cmd:
+            from planeops.providers import yaml
+
+            target = Path(cmd[-1])
+            data = yaml.load(target.read_text()) or {}
+            enc = {k: f"ENC[AES256_GCM,data:{k}]" for k in data}
+            enc["sops"] = {"version": "3"}
+            target.write_text(yaml.dump(enc))
+            return RunResult(0)
+        return RunResult(127, "", f"{cmd[0]}: not found")
+
+
+def _bootstrapped(tmp_path):
+    inst = _inst(tmp_path)
+    (inst / ".sops.yaml").write_text(
+        "creation_rules:\n  - path_regex: secrets\\.sops\\.yaml$\n    age: age1x\n"
+    )
+    (inst / "secrets.sops.yaml").write_text("{}\nsops:\n  version: '3'\n")
+    return inst
+
+
+class _Pipe:
+    """Non-tty stdin carrying one piped value."""
+
+    def __init__(self, line):
+        self._line = line
+
+    def isatty(self):
+        return False
+
+    def readline(self):
+        return self._line
+
+
+def test_secrets_add_piped_value_stays_off_argv(tmp_path, monkeypatch):
+    inst = _bootstrapped(tmp_path)
+    rec = _AddRecorder()
+    monkeypatch.setattr("planeops.secrets.stores.sops.default_run", rec)
+    monkeypatch.setattr("sys.stdin", _Pipe("hunter2\n"))
+    assert main(["--repo", str(inst), "secrets", "add", "tg-token", "--yes"]) == 0
+    text = (inst / "secrets.sops.yaml").read_text()
+    assert "tg-token" in text and "hunter2" not in text
+    for cmd in rec.calls:
+        assert all("hunter2" not in arg for arg in cmd), cmd
+
+
+def test_secrets_add_piped_without_yes_is_refused(tmp_path, monkeypatch):
+    inst = _bootstrapped(tmp_path)
+    before = (inst / "secrets.sops.yaml").read_text()
+    monkeypatch.setattr("planeops.secrets.stores.sops.default_run", _AddRecorder())
+    monkeypatch.setattr("sys.stdin", _Pipe("v\n"))
+    assert main(["--repo", str(inst), "secrets", "add", "k"]) == 1
+    assert (inst / "secrets.sops.yaml").read_text() == before
+
+
+class _Tty(_Pipe):
+    def isatty(self):
+        return True
+
+
+def test_secrets_add_interactive_requires_matching_blind_entries(
+    tmp_path, monkeypatch, capsys
+):
+    inst = _bootstrapped(tmp_path)
+    monkeypatch.setattr("planeops.secrets.stores.sops.default_run", _AddRecorder())
+    monkeypatch.setattr("sys.stdin", _Tty(""))
+    prompts = iter(["value-1", "value-2"])
+    monkeypatch.setattr("getpass.getpass", lambda *a: next(prompts))
+    assert main(["--repo", str(inst), "secrets", "add", "k"]) == 1
+    assert "did not match" in capsys.readouterr().err
+    prompts = iter(["same", "same"])
+    monkeypatch.setattr("getpass.getpass", lambda *a: next(prompts))
+    assert main(["--repo", str(inst), "secrets", "add", "k"]) == 0
+    assert "k" in (inst / "secrets.sops.yaml").read_text()
+
+
+def test_secrets_add_empty_value_is_refused(tmp_path, monkeypatch):
+    inst = _bootstrapped(tmp_path)
+    monkeypatch.setattr("planeops.secrets.stores.sops.default_run", _AddRecorder())
+    monkeypatch.setattr("sys.stdin", _Pipe("\n"))
+    assert main(["--repo", str(inst), "secrets", "add", "k", "--yes"]) == 1
+
+
+def test_secrets_add_rejects_a_name_outside_the_ref_grammar(tmp_path, monkeypatch):
+    inst = _bootstrapped(tmp_path)
+    monkeypatch.setattr("planeops.secrets.stores.sops.default_run", _AddRecorder())
+    monkeypatch.setattr("sys.stdin", _Pipe("v\n"))
+    assert main(["--repo", str(inst), "secrets", "add", "bad name", "--yes"]) == 1
+
+
+def test_secrets_add_existing_name_needs_force(tmp_path, monkeypatch, capsys):
+    inst = _bootstrapped(tmp_path)
+    (inst / "secrets.sops.yaml").write_text(
+        "k: ENC[AES256_GCM,data:x]\nsops:\n  version: '3'\n"
+    )
+    rec = _AddRecorder(decrypt_out="k: old\n")
+    monkeypatch.setattr("planeops.secrets.stores.sops.default_run", rec)
+    monkeypatch.setattr("sys.stdin", _Pipe("new\n"))
+    assert main(["--repo", str(inst), "secrets", "add", "k", "--yes"]) == 1
+    assert "--force" in capsys.readouterr().err
+    assert main(["--repo", str(inst), "secrets", "add", "k", "--yes", "--force"]) == 0

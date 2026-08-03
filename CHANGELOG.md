@@ -6,6 +6,16 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `plane secrets add <name>`: put one value into the store safely. Prompted
+  twice blind on a terminal (or piped with `--yes` for scripting); the value
+  never appears on a command line, in the environment, or in any output.
+  Rotating an existing value requires `--force`. Store-side, the write goes
+  through a transient owner-only file beside the store, is verified encrypted
+  before it atomically replaces the store, and is zeroed on every path out.
+  A store kind opts in via the `AcceptsValues` protocol.
+
 ### Changed
 
 - README restructured around a plain-language purpose statement and one-line

@@ -14,6 +14,9 @@ instance root; a provider sees only its own `secrets.<name>` sub-mapping.
 
 from __future__ import annotations
 
+import contextlib
+import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -29,9 +32,11 @@ DEFAULT_PATH = "secrets.sops.yaml"
 class SopsStore:
     name = "sops"
 
-    def __init__(self, store_path: Path, run: Runner = default_run):
+    def __init__(self, store_path: Path, run: Runner | None = None):
         self._store = store_path
-        self._run = run
+        # Late-bound so a test that patches this module's `default_run` also
+        # reaches stores built by the provider (a def-time default would not).
+        self._run = run if run is not None else default_run
 
     def _keys(self) -> set[str]:
         if not self._store.is_file():
@@ -103,6 +108,100 @@ class SopsStore:
                 f"sops decrypt failed for {name!r}: ...{err[-300:]}{hint}"
             )
         return res.out.rstrip("\n")
+
+    def add_preview(self, name: str) -> list[str]:
+        verb = "rotate the value of" if self.exists(name) else "add"
+        return [f"{verb} {name!r} in {self._store}"]
+
+    def add_value(self, name: str, value: str, *, force: bool = False) -> str:
+        """Write one value: decrypt the store in memory, set the key, re-encrypt
+        through a transient owner-only file beside the store (same filesystem,
+        so the final swap is atomic), verify the result is fully encrypted, then
+        replace. The value never rides an argv or the environment; the plaintext
+        file is zeroed and removed on every path out. Raises LookupError for
+        anything the operator can act on; the store is untouched on failure."""
+        if any(c in name for c in '"\\') or not name.isprintable():
+            # Same rule as get(): a name that cannot be safely quoted for
+            # `--extract` must never enter the store, or it becomes readable
+            # only by decrypting everything.
+            raise LookupError(
+                f"secret name {name!r} cannot be safely quoted for extraction"
+            )
+        rules = self._store.parent / ".sops.yaml"
+        if not self._store.is_file():
+            raise LookupError(
+                f"no store at {self._store}; run `plane secrets init` first"
+            )
+        if not rules.is_file():
+            raise LookupError(
+                f"no sops rules at {rules}; run `plane secrets init` first"
+            )
+        rotating = name in self._keys()  # raises on a plaintext store
+        if rotating and not force:
+            raise LookupError(
+                f"secret {name!r} is already configured in {self._store}; "
+                "pass --force to rotate its value"
+            )
+        res = self._run(
+            ["sops", "-d", "--config", str(rules), str(self._store)], timeout=60
+        )
+        if res.code != 0:
+            err = res.err.strip()
+            hint = (
+                ""
+                if "metadata" in err
+                else " (if the age identity lives outside sops's default "
+                "path, set SOPS_AGE_KEY_FILE)"
+            )
+            raise LookupError(f"sops decrypt failed: ...{err[-300:]}{hint}")
+        data = yaml.load(res.out) or {}
+        if not isinstance(data, dict):
+            raise LookupError(f"decrypted store {self._store} is not a mapping")
+        data.pop("sops", None)
+        data[name] = value
+        tmp_dir = Path(
+            tempfile.mkdtemp(prefix=".plane-secrets-", dir=self._store.parent)
+        )
+        # Same basename as the store, so the .sops.yaml creation rule that
+        # matches the store also matches this file; a rule anchored to the full
+        # path fails the encrypt loudly and the store stays untouched.
+        tmp = tmp_dir / self._store.name
+        try:
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "w") as fh:
+                fh.write(yaml.dump(data))
+            enc = self._run(
+                ["sops", "--config", str(rules), "-e", "-i", str(tmp)], timeout=30
+            )
+            if enc.code != 0:
+                raise LookupError(
+                    "sops encrypt failed: "
+                    f"{enc.err.strip()[-200:] or 'is sops installed?'}"
+                )
+            out = yaml.load(tmp.read_text())
+            sealed = (
+                isinstance(out, dict)
+                and "sops" in out
+                and isinstance(out.get(name), str)
+                and out[name].startswith("ENC[")
+            )
+            if not sealed:
+                raise LookupError(
+                    "encrypt verification failed: refusing to replace the store "
+                    "with a file that is not fully encrypted"
+                )
+            os.replace(tmp, self._store)
+        finally:
+            if tmp.exists():
+                try:
+                    with open(tmp, "r+b") as fh:
+                        fh.write(b"\0" * tmp.stat().st_size)
+                except OSError:
+                    pass
+                tmp.unlink(missing_ok=True)
+            with contextlib.suppress(OSError):
+                tmp_dir.rmdir()
+        return f"{'rotated' if rotating else 'added'} {name!r} in {self._store}"
 
 
 def _sops_default_key_file(home: Path) -> Path:
