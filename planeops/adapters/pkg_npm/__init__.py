@@ -17,9 +17,12 @@ from planeops.core.contracts import Change, Ctx, Observed, Result
 from planeops.core.schema import ABSENT_LIFECYCLES, Entry
 
 
-def parse_npm_globals(text: str) -> dict[str, str]:
+def parse_npm_globals(text: str) -> dict[str, str | None]:
     """Map package -> version from `npm ls -g --json`. Tolerant of the empty or
-    non-JSON output npm emits when it is absent or unhappy."""
+    non-JSON output npm emits when it is absent or unhappy. A dependency entry
+    without a version (a linked or broken global) is still INSTALLED: it maps
+    to None rather than being dropped, so the snapshot never omits a real
+    package."""
     try:
         data = json.loads(text)
     except (json.JSONDecodeError, ValueError):
@@ -27,12 +30,11 @@ def parse_npm_globals(text: str) -> dict[str, str]:
     if not isinstance(data, dict):
         return {}
     deps = data.get("dependencies", {})
-    out: dict[str, str] = {}
+    out: dict[str, str | None] = {}
     if isinstance(deps, dict):
         for name, meta in deps.items():
             version = meta.get("version") if isinstance(meta, dict) else None
-            if isinstance(version, str):
-                out[name] = version
+            out[name] = version if isinstance(version, str) else None
     return out
 
 
