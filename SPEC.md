@@ -1,16 +1,15 @@
 # SPEC v0.1: authoritative build specification
 
 Status: current-state spec, kept in lockstep with the code. Where this file and
-the implementation disagree, one of them is a bug to fix in the same change; the
-docs wave of the 2026-07 audit reset them to agreement. Distilled from a private
-design evidence trail kept outside this public repo; where that trail conflicts
-with this file, this file wins.
+the implementation disagree, one of them is a bug to fix in the same change.
+This file is the authoritative record of the design; it wins over any other
+design note.
 
 Date: 2026-07-31.
 
 ## 1. Locked decisions
 
-| Decision | Choice | Rationale trail |
+| Decision | Choice | Rationale |
 |---|---|---|
 | Repo shape | Public engine repo (this repo: engine, spec, example registry, tests); machine-specific data (real registry, snapshots, secrets) lives in a separate private instance | planeops/instance split |
 | Language | Python >= 3.12, uv-managed, `src`-less flat `planeops/` package, pytest | Matches the target machine's tooling; the workload is subprocess-bound, so a systems language buys nothing (evaluated 2026-07) |
@@ -201,7 +200,7 @@ an intent marking it for human verification, and `--write` lands proposals in
   (`init --seed`, instance resolution, `import observed --write`); the ambient
   loop (`reconcile`, `schedule`, dead-heartbeat detection); shadow detection
   (ungoverned + always-on alerts); structured `DRIFT.json`; `status`; `mcp`
-  view; the optional read-only MCP server; the 2026-07 audit-debt program.
+  view; the optional read-only MCP server.
 - **Next**: a tagged, installable release with signed artifacts, then the
   holistic clean-account reproduction rehearsal as the end-to-end acceptance
   test. The forward roadmap (adapter surfaces, transitions journal, reproduce,

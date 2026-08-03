@@ -118,9 +118,9 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   explicitly and the identity is created where sops itself looks on this OS,
   so no command depends on the working directory and no environment variable
   is needed for a fresh setup. A store kind opts in via the `BootstrapsStore`
-  protocol; re-initializing over an existing store is refused. (Walk two: a
-  cwd-sensitive manual `sops -e` left a store in plaintext; this removes the
-  manual step entirely.)
+  protocol; re-initializing over an existing store is refused. (A cwd-sensitive
+  manual `sops -e` could leave a store in plaintext; this removes the manual
+  step entirely.)
 - Entries can record where their asset logs (`logs:` list of paths or
   commands); `plane schedule` fills it in for the reconcile job it declares.
 
@@ -278,8 +278,7 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - An npm global installed without a version (a linked or broken package) is
   observed with an unknown version instead of being silently dropped from the
-  snapshot (found by the full-machine audit: a real `tree-sitter-dart` was
-  invisible).
+  snapshot, which made such a package invisible.
 
 
 - A store file that is NOT actually encrypted (a failed `sops -e` leaves
@@ -294,7 +293,7 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Seeding describes the machine instead of proposing changes to it: an asset
   on disk but not active (an unloaded agent, a disabled unit) seeds as
   `parked`, so `plane apply` on a fresh registry no longer offers to bootstrap
-  things the user never chose (a swept-in vendor updater, live on the walk).
+  things the user never chose (such as a swept-in vendor updater).
   `plane schedule`'s hint names the exact `plane apply --id ...` command. The
   sops decrypt error keeps the actionable tail of stderr and names
   `SOPS_AGE_KEY_FILE`. The scaffolded `mcp.sources` example is commented out
@@ -338,7 +337,7 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   notes a resolution landing on a directory without the `.planeops` marker (the
   skipped-init trap), and `plane schedule` warns when the plane binary it bakes
   into the job does not exist yet.
-- Hardening follow-ups from the audit: parents created for a materialized secret
+- Hardening follow-ups: parents created for a materialized secret
   are 0700 (not the process umask, which undermined the 0600 file inside a
   listable directory); the systemd scheduler refuses a newline in the plane path
   or PATH (plain-text unit concatenation would have turned it into an injected

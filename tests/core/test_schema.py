@@ -144,9 +144,9 @@ def test_secret_injected_as_shape_is_checked():
 
 
 def test_env_injection_is_rejected_as_unsupported():
-    # The old error message advertised env:NAME as a valid form while
-    # materialization silently dropped it: a user following the tool's own
-    # words got a no-op. Unsupported must say so at load.
+    # Advertising env:NAME as a valid form while materialization silently
+    # drops it hands a user following the tool's own words a no-op.
+    # Unsupported must say so at load.
     with pytest.raises(SchemaError, match="not supported"):
         entry_from_dict(
             _secret_entry([{"ref": "secret://x", "injected_as": "env:KEY"}])
@@ -160,8 +160,8 @@ def test_injected_as_must_be_a_file_target_with_a_key():
 
 
 def test_unknown_key_in_a_secrets_item_is_rejected():
-    # `injectd_as:` used to be silently dropped -> the secret was declared but
-    # never materialized anywhere.
+    # A silently dropped `injectd_as:` typo would leave the secret declared
+    # but never materialized anywhere.
     with pytest.raises(SchemaError, match="injected_as"):
         entry_from_dict(
             _secret_entry([{"ref": "secret://x", "injectd_as": "file:~/.e#K"}])
@@ -172,8 +172,8 @@ def test_unknown_key_in_a_secrets_item_is_rejected():
 
 
 def test_phase_must_be_an_integer():
-    # YAML `phase: "3"` used to load fine and then crash apply's phase sort
-    # with a TypeError; the schema now rejects it at load with the entry named.
+    # YAML `phase: "3"` would load fine and then crash apply's phase sort
+    # with a TypeError; the schema rejects it at load with the entry named.
     with pytest.raises(SchemaError, match="phase"):
         entry_from_dict(
             {"id": "a/b", "adapter": "a", "domain": "d", "lifecycle": "active",
@@ -203,8 +203,8 @@ def test_pin_must_be_a_string():
 
 
 def test_unknown_entry_key_is_rejected_with_a_suggestion():
-    # `tolerence: alert` used to be silently dropped -> tolerance defaulted to
-    # report and the escalation the user wrote never happened.
+    # A silently dropped `tolerence: alert` typo would default tolerance to
+    # report, and the escalation the user wrote would never happen.
     with pytest.raises(SchemaError, match="tolerance"):
         entry_from_dict(
             {"id": "a/b", "adapter": "a", "domain": "d", "lifecycle": "active",

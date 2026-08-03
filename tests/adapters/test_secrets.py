@@ -290,7 +290,7 @@ def test_execute_refuses_a_target_outside_the_allowed_bases(tmp_path):
 
 
 def test_execute_refuses_an_ancestor_symlink_that_escapes_the_bases(tmp_path):
-    # Bypass B: a symlinked ancestor inside the repo pointing OUT of it must not
+    # A symlinked ancestor inside the repo pointing OUT of it must not
     # redirect the secret into the attacker directory.
     repo = tmp_path / "repo"
     repo.mkdir()

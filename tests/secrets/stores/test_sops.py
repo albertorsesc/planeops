@@ -123,16 +123,16 @@ def test_provider_builds_from_the_instance_section(tmp_path):
 
 
 def test_a_plaintext_store_is_refused_not_blessed(tmp_path):
-    # Walk two: a failed `sops -e` left the store plaintext and presence
-    # reported configured=true with zero alerts, a secret sitting in cleartext
-    # in a directory the docs say to git. A store without sops metadata (or
-    # with values that are not ENC[...]) is a loud error, landing as a
-    # failed-scan alert, never a quiet "configured".
+    # A failed `sops -e` can leave the store plaintext; presence must not
+    # report configured=true with zero alerts over a secret sitting in
+    # cleartext in a directory the docs say to git. A store without sops
+    # metadata (or with values that are not ENC[...]) is a loud error, landing
+    # as a failed-scan alert, never a quiet "configured".
     p = tmp_path / "secrets.sops.yaml"
-    p.write_text("walk2-key: walk2-value\n")
+    p.write_text("plain-key: plain-value\n")
     store = SopsStore(p)
     with pytest.raises(ValueError, match="not encrypted"):
-        store.exists("walk2-key")
+        store.exists("plain-key")
 
 
 def test_a_partially_plaintext_store_is_refused(tmp_path):

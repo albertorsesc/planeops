@@ -53,7 +53,7 @@ def load_registry(registry_dir: Path) -> Registry:
                 continue
             if not isinstance(doc, dict):
                 raise SchemaError(f"{path.name}: top-level document must be a mapping")
-            # A typo'd top-level key (`entrys:`) used to make the whole file
+            # A typo'd top-level key (`entrys:`) must not make the whole file
             # silently contribute nothing.
             reject_unknown_keys(doc, _DOC_KEYS, path.name)
 

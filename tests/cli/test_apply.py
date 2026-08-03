@@ -43,8 +43,8 @@ def test_apply_no_changes_reports_remaining_drift(monkeypatch, capsys, inst):
 
 
 def test_apply_refreshes_drift_after_execute(monkeypatch, inst):
-    # After a converge, DRIFT.json used to stay stale (only observe re-ran), so the
-    # shell prompt kept the pre-apply alert count for up to a scheduler interval.
+    # After a converge, a stale DRIFT.json (only observe re-run) would keep the
+    # shell prompt on the pre-apply alert count for up to a scheduler interval.
     calls = []
     done = Applied(
         Change("x/y", "configure", "d", {}), True, Result(ok=True, detail="ok")

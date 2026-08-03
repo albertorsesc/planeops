@@ -66,8 +66,8 @@ def test_an_unmarked_repo_is_a_tool_error_not_a_write(tmp_path):
 def test_default_repo_resolves_like_the_cli(tmp_path, monkeypatch):
     # An MCP client launches the server from an arbitrary cwd (often "/" or $HOME).
     # With no repo argument, the instance must resolve by the same precedence the
-    # CLI uses ($PLANEOPS_INSTANCE here), not by walking up from the client's cwd:
-    # before the fix this read the wrong directory and answered "no drift report".
+    # CLI uses ($PLANEOPS_INSTANCE here), not by walking up from the client's cwd,
+    # which would read the wrong directory and answer "no drift report".
     import json as _json
 
     inst = tmp_path / "inst"

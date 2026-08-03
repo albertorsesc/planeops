@@ -25,8 +25,7 @@ class DriftItem:
 class DriftReport:
     """The pane model: triage (`planeops.core.drift`) fills it, this module
     renders it. The types live with the renderers so the dependency points one
-    way (drift -> report), instead of the old cycle hidden behind a
-    function-local import."""
+    way (drift -> report)."""
 
     host: str
     ts: str

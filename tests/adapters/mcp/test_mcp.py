@@ -146,8 +146,8 @@ def test_default_adapter_loads_sources_from_config(tmp_path, fake_platform):
 
 
 def test_a_malformed_source_is_loud_not_silently_skipped(tmp_path):
-    # A typo'd key in one source used to mean "observe nothing" with no signal;
-    # raising here lands in the snapshot's failed-scan alert instead.
+    # A typo'd key in one source must not mean "observe nothing" with no
+    # signal; raising here lands in the snapshot's failed-scan alert instead.
     (tmp_path / "instance.yaml").write_text(
         "mcp:\n  sources:\n    - {label: a, paht: ~/x.json, format: json}\n"
     )
@@ -162,8 +162,8 @@ def test_a_non_mapping_source_is_loud(tmp_path):
 
 
 def test_a_typod_optional_key_field_is_loud(tmp_path):
-    # `kye:` used to be ignored and `key` defaulted to mcpServers: a source
-    # whose servers live under another key silently observed nothing.
+    # If `kye:` were ignored, `key` would default to mcpServers and a source
+    # whose servers live under another key would silently observe nothing.
     (tmp_path / "instance.yaml").write_text(
         "mcp:\n  sources:\n"
         "    - {label: a, path: ~/x.yaml, format: yaml, kye: servers}\n"
@@ -181,8 +181,8 @@ def test_key_must_be_a_string_not_coerced(tmp_path):
 
 
 def test_a_corrupt_source_file_is_loud_not_an_empty_scan(tmp_path, fake_platform):
-    # A source file that EXISTS but cannot be parsed used to read as {} (its
-    # servers just vanished from the snapshot). An absent file stays quiet:
+    # A source file that EXISTS but cannot be parsed must not read as {} (its
+    # servers would just vanish from the snapshot). An absent file stays quiet:
     # the tool may simply not be installed.
     (tmp_path / "instance.yaml").write_text(
         "mcp:\n  sources:\n    - {label: harness, path: ~/.harness.json, format: json}\n"

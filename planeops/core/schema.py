@@ -273,7 +273,7 @@ def entry_from_dict(raw: dict[str, Any]) -> Entry:
 
     phase = raw.get("phase")
     # bool is an int subclass; `phase: true` is a typo, not phase 1. A string
-    # phase used to load fine and then crash apply's phase sort.
+    # phase would load fine and then crash apply's phase sort.
     if phase is not None and (isinstance(phase, bool) or not isinstance(phase, int)):
         raise SchemaError(f"entry {entry_id!r}: phase={phase!r} must be an integer")
 
