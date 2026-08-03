@@ -10,7 +10,33 @@ encrypted. `plane observe` can answer "is the OpenRouter key configured?"
 without decrypting anything, and snapshots, reports, and diffs never carry a
 value.
 
-## Bootstrap: one command
+The whole flow is four steps, in order:
+
+1. **Declare** the secret as a registry entry (what exists and where it goes).
+2. **`plane secrets init`**, once per machine: identity, rules, empty store.
+3. **`plane secrets add <name>`**, once per secret: the value goes in encrypted.
+4. **`plane apply`** materializes it into the file the entry declares.
+
+Until step 3, `plane drift` flags the declared secret as "not configured";
+after it, presence is green and only step 4 ever decrypts.
+
+## 1. Declare: a governed secret is one registry entry
+
+```yaml
+- id: secrets/openrouter-api-key
+  adapter: secrets
+  domain: secret
+  lifecycle: active
+  intent: LLM gateway key for local tooling
+  secrets:
+    - ref: secret://openrouter-api-key
+      injected_as: file:~/.config/llm/env#OPENROUTER_API_KEY
+```
+
+Which store serves a ref is instance configuration, so swapping stores touches
+zero entries.
+
+## 2. Bootstrap the store, once per machine
 
 Runnable from anywhere; nothing depends on the working directory:
 
@@ -29,7 +55,7 @@ environment setup. Re-initializing over an existing store is refused, and a
 store that turns out to hold plaintext is a loud failed-scan alert, never a
 quiet "configured".
 
-## Putting a value in
+## 3. Put each value in
 
 ```console
 $ plane secrets add openrouter-api-key
@@ -44,23 +70,7 @@ command line, in the environment, or in any output. Piping works for password
 managers: `op read op://vault/key | plane secrets add openrouter-api-key --yes`.
 Rotating an existing value requires `--force`.
 
-## A governed secret is one registry entry
-
-```yaml
-- id: secrets/openrouter-api-key
-  adapter: secrets
-  domain: secret
-  lifecycle: active
-  intent: LLM gateway key for local tooling
-  secrets:
-    - ref: secret://openrouter-api-key
-      injected_as: file:~/.config/llm/env#OPENROUTER_API_KEY
-```
-
-Which store serves a ref is instance configuration, so swapping stores touches
-zero entries.
-
-## When a value moves
+## 4. When a value moves
 
 A value is decrypted exactly once, inside a confirmed `apply`, into the one file
 the entry declares. The write is `0600`, refuses symlinks, and is
