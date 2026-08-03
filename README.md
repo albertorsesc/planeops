@@ -149,8 +149,10 @@ Adapters teach the engine one kind of asset each: services (`launchd`, `systemd`
 Two discovery styles, deliberately: most adapters interrogate the machine's own
 managers directly (`brew list`, `ollama list`, the service manager), so they need
 zero configuration. MCP wiring is the exception: servers exist only inside each AI
-app's own config file, and the engine hardcodes no vendor's paths, so you point
-`instance.yaml` at your apps' config files once and every scan reads them all.
+app's own config file, and the engine hardcodes no vendor's paths. `plane mcp init`
+detects installed known clients (claude-code, claude-desktop, codex, cursor) and
+wires their config files as sources for you; anything custom is one block in
+`instance.yaml`, and every scan reads them all.
 
 ## Secrets, without values
 
