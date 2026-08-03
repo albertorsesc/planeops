@@ -68,20 +68,22 @@ def propose_from_snapshot(text: str, repo_root: Path | None) -> list[dict[str, A
         # unloaded agent) seeds as `parked`, so a fresh registry plans nothing.
         facts = obs.get("facts")
         inactive = isinstance(facts, dict) and facts.get("present") is False
-        entries.append(
-            {
-                "id": entry_id,
-                "adapter": adapter,
-                "domain": domains.get(adapter, "unknown"),
-                "lifecycle": "parked" if inactive else "active",
-                "tolerance": "report",
-                "intent": (
-                    "imported from observed snapshot (on disk, not active); verify"
-                    if inactive
-                    else "imported from observed snapshot, verify"
-                ),
-            }
-        )
+        entry: dict[str, Any] = {
+            "id": entry_id,
+            "adapter": adapter,
+            "domain": domains.get(adapter, "unknown"),
+            "lifecycle": "parked" if inactive else "active",
+            "tolerance": "report",
+            "intent": (
+                "imported from observed snapshot (on disk, not active); verify"
+                if inactive
+                else "imported from observed snapshot, verify"
+            ),
+        }
+        logs = facts.get("logs") if isinstance(facts, dict) else None
+        if isinstance(logs, list) and logs:
+            entry["logs"] = [str(x) for x in logs]
+        entries.append(entry)
     # Grouped by adapter (type) so the proposal reads by type, not as one flat wall.
     entries.sort(key=lambda e: (e["adapter"], e["id"]))
     return entries

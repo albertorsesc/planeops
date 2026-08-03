@@ -13,7 +13,9 @@
 
 # --- mcp adapter: where MCP servers are wired on this machine ----------------
 # Each source: label (shown as the source), path (`~` expands to home), format
-# (`json` or `yaml`), key (the mapping holding the servers; default mcpServers).
+# (`json` or `yaml`), key (the mapping holding the servers; default mcpServers),
+# and optionally logs: a template for that client's per-server log file, with
+# {name} standing for the server name, so seeded entries know where to look.
 # mcp:
 #   sources:
 #     - label: coding-harness

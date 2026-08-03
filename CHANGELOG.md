@@ -8,6 +8,14 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **BREAKING (pre-1.0):** the YAML dependency is `ruamel.yaml` (was PyYAML),
+  introduced behind a new third-party ring: `planeops/providers/yaml` is the
+  port every load/dump goes through, the vendor lives in one leaf module, and
+  an architecture fitness test fails any third-party import outside its
+  sanctioned home. Chosen for round-trip editing: planeops modifies files
+  humans own and comment, and hand-rolled text surgery for that was a
+  recurring bug class. Dependency count stays at one.
+
 - **BREAKING (pre-1.0):** a secrets ref is `secret://<name>`: one name segment,
   strict charset. The old `secret://<store>/<name>` form bound a store kind into
   every consuming entry while the segment was never read by any code; which
@@ -80,6 +88,28 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Known-client conventions are DERIVED at read time, never copied into
+  config: a source labeled as a discovered client inherits that client's log
+  template unless `instance.yaml` overrides it. Tool upgrades reach existing
+  instances through plain `observe` with no config edit, no `--update` verb,
+  and no write: observe stays read-only.
+- `plane mcp init`: detects known clients on this machine (claude-code,
+  claude-desktop, codex, cursor) and wires them as `mcp.sources`, including
+  the desktop's per-server log template, with the standard preview-and-confirm.
+  The client-conventions table lives in the mcp adapter (extensions may know
+  vendors; the core still cannot), and the write is a round-trip edit of
+  `instance.yaml`: your comments, order, and formatting survive.
+
+- `mcp.sources` reads TOML configs too (`format: toml`, stdlib parser), so
+  codex-style `[mcp_servers.<name>]` tables are first-class sources; an
+  unknown format is a load error instead of being silently parsed as JSON.
+- Log locations are observed, not hand-hunted: the `launchd` adapter reads a
+  plist's own `StandardOutPath`/`StandardErrorPath`, the `systemd` adapter
+  reports the unit's `journalctl` invocation, and an `mcp` source may declare
+  a per-server log template (`logs: .../mcp-{name}.log` in `instance.yaml`;
+  client knowledge stays instance data, never adapter code). Seeding copies
+  observed log locations into each proposed entry's `logs:`, so a fresh
+  manifest knows where everything writes from day one.
 - `plane secrets init`: the tool bootstraps its own store (age identity if
   missing, the instance's creation rules, an empty encrypted store), with the
   standard preview-and-confirm. Every underlying sops call passes `--config`
@@ -91,157 +121,6 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   manual step entirely.)
 - Entries can record where their asset logs (`logs:` list of paths or
   commands); `plane schedule` fills it in for the reconcile job it declares.
-
-### Fixed
-
-- A store file that is NOT actually encrypted (a failed `sops -e` leaves
-  plaintext behind) is refused loudly as a failed scan with the fix spelled
-  out, instead of presence blessing cleartext with `configured: true` and
-  zero alerts. The decrypt-failure hint about `SOPS_AGE_KEY_FILE` appends
-  only on identity-shaped failures. `parked` now means keep-as-is in both
-  service adapters: a parked unit is never bootstrapped or booted out, so a
-  freshly seeded registry plans nothing. Every output path is
-  instance-anchored (apply and reconcile had two remaining bare
-  `observed/...` lines; a fitness test now bans the pattern).
-- Seeding describes the machine instead of proposing changes to it: an asset
-  on disk but not active (an unloaded agent, a disabled unit) seeds as
-  `parked`, so `plane apply` on a fresh registry no longer offers to bootstrap
-  things the user never chose (a swept-in vendor updater, live on the walk).
-  `plane schedule`'s hint names the exact `plane apply --id ...` command. The
-  sops decrypt error keeps the actionable tail of stderr and names
-  `SOPS_AGE_KEY_FILE`. The scaffolded `mcp.sources` example is commented out
-  instead of shipping live placeholder paths.
-- The sdist is an explicit allowlist. The default selection packed anything the
-  repo `.gitignore` missed, including untracked local tooling state on the
-  build machine; now only the intended tree ships.
-- `mcp.sources` items are fully strict: an unknown field (`kye:`) and a
-  non-string `key` are load errors like every other typo, and a source FILE
-  that exists but cannot be parsed surfaces as a failed scan instead of
-  quietly observing no servers (an absent file stays quiet: the tool may
-  simply not be installed).
-- A reachability failure of `systemctl --user` while user units exist on disk
-  is a failed-scan alert naming the likely fix (`XDG_RUNTIME_DIR`), instead of
-  silently observing zero units; an absent `systemctl` (macOS) stays quiet.
-  `plane schedule` only claims "the new job is in the snapshot" when it
-  actually is, and warns otherwise. The `plane-mcp` missing-extra hint no
-  longer assumes pip. Count messages pluralize ("wrote 1 entry").
-- A directory without the `.planeops` marker is refused by every verb (and by
-  the MCP server's tools) with "run `plane init <path>` first", instead of
-  being adopted with a warning and having `observed/` state scattered into
-  whatever directory the command ran from. Only `plane init` creates
-  instances.
-- `plane-mcp` on an install without the `mcp` extra prints
-  "pip install 'planeops[mcp]'" and exits 1 instead of a raw import traceback.
-- `injected_as` on a secrets item must be `file:<path>#KEY`. The `env:NAME`
-  form the old error message advertised was silently dropped at
-  materialization; it is now rejected at load as not yet supported, and a
-  typo'd key inside a secrets item (`injectd_as:`) fails like any other
-  unknown key instead of quietly meaning "never materialize this secret".
-- A typo'd YAML key is a loud error, never a silent no-op. Unknown keys on a
-  registry entry (`tolerence:`, `need:`), on a top-level registry document
-  (`entrys:`), and malformed items in `mcp.sources` (`pth:`) are rejected with
-  a did-you-mean suggestion, or the allowed key set when nothing is close.
-  Previously each was silently ignored, so the escalation, the whole file, or
-  the entire source list quietly contributed nothing. `id`/`adapter`/`domain`/
-  `intent` must be strings, `hosts` a non-empty list of non-empty strings, and
-  a glob's value a non-empty string, all enforced at load with the entry named.
-- `phase` must be an integer and `pin` a string at registry load (a YAML
-  `phase: "3"` used to load fine and then crash apply's phase sort). Every verb
-  notes a resolution landing on a directory without the `.planeops` marker (the
-  skipped-init trap), and `plane schedule` warns when the plane binary it bakes
-  into the job does not exist yet.
-- Hardening follow-ups from the audit: parents created for a materialized secret
-  are 0700 (not the process umask, which undermined the 0600 file inside a
-  listable directory); the systemd scheduler refuses a newline in the plane path
-  or PATH (plain-text unit concatenation would have turned it into an injected
-  directive); a secret name that cannot be safely quoted for `sops --extract` is
-  refused before any shell-out; and `plane import observed` defaults to the
-  host's own snapshot path instead of making the user retype a path the CLI
-  already computes (other import kinds still require one). The home-directory
-  containment base and the no-rotation-refresh behavior are now documented
-  decisions in the code, not silences.
-- The adapter contract is honestly typed: `plan(entry, obs, ctx)` requires its
-  ctx (the engine always provides one; the optional-`None` form only invited
-  None-guards for a case production never produces), and the platform None-guards
-  in the chezmoi and secrets adapters are gone. Tests exercise the same contract
-  production runs.
-- Operator errors are handled once, uniformly. A bad registry edit (the most
-  common newcomer mistake) now exits 1 with the schema message from every verb
-  instead of tracebacking from `observe`/`drift`/`apply`; the handling lives at
-  the CLI dispatch point, so every future verb inherits it. A torn or corrupt
-  snapshot reads as one clean "no readable snapshot; run `plane observe` first"
-  from `drift`/`apply` (shared torn-safe loader, same as the read verbs), and
-  snapshot items missing their identifying keys are skipped instead of poisoning
-  the run. `--json` is now a machine contract on every verb, `drift --json`
-  included (a JSON error object on stdout, drift still exiting 1):
-  `status --json` and `mcp --json`
-  emit a JSON error object on stdout when unseeded instead of nothing. `plane
-  status` degrades on a hand-edited or older-schema report instead of crashing.
-  Malformed `secrets` refs on an entry fail at registry load with the entry
-  named, instead of being silently skipped at materialization time.
-- `plane schedule --no-login` now actually fires on Linux. The generated timer
-  had only `OnUnitActiveSec`, which is relative to the service's last activation
-  and so never elapses on a fresh enable (verified live: `NEXT` stayed empty
-  forever); the timer now also carries `OnActiveSec`, so enabling it schedules
-  the first run. The no-op `Persistent=` (calendar timers only) is dropped. And
-  `plane schedule` now shows what it will write and asks before writing (job
-  files + the registry entry), with `--yes` for scripts, the same confirm posture
-  as `import --write`: no readable stdin and no `--yes` writes nothing.
-- The apply journal is crash-safe: each record is appended the moment its change
-  is decided, not batched at the end of the run, so a crash mid-apply still
-  leaves every already-executed mutation on the record (previously such a crash
-  left zero journal entries, exactly when the audit trail mattered most). And the
-  documented converge order is now encoded: every mutating adapter declares its
-  `default_phase` (packages 2, config 3, models 4, secrets 5, services 6), so
-  unphased entries converge packages-first and load services last against
-  complete config, instead of everything landing in one unordered bucket.
-- Subprocess timeouts now match the operation instead of one global 30s ceiling.
-  Confirmed converge operations that legitimately run long (`brew`/`npm`/`uv`
-  installs, `ollama pull`) are unbounded, the human just confirmed the change and
-  owns the wait; service and config operations (`launchctl`, `systemctl`,
-  `chezmoi apply`) get a 300s ceiling so a hung tool can't wedge an apply run;
-  `sops -d` gets 60s. A timeout is now distinct from a missing binary (exit 124
-  vs 127) and says the underlying command may still be running, instead of both
-  collapsing into the same failure. Observe probes keep the fast 30s default.
-- A retired service now converges without `purge`. Drift treated "observed at all"
-  as present, but the launchd/systemd adapters observe every service file on disk
-  regardless of state, so a retired, booted-out service whose file remained alerted
-  forever while `plane apply` had nothing left to do. Adapters now declare semantic
-  presence (a `present` fact: loaded for launchd, enabled-or-active for systemd) and
-  drift's retired check consumes it, so retired means "not running" and `purge`
-  keeps meaning "file removed too". Package adapters are unchanged (installed is
-  present).
-- `plane drift` no longer stays silent about things it can see. A new **Ungoverned**
-  section lists everything observed on the machine that is neither declared nor
-  excluded by an unmanaged glob, and an ungoverned item whose own facts say it is
-  always-on (a login/keepalive/interval launchd agent, an enabled systemd unit)
-  raises an alert: software that installed itself into the boot path is the one
-  thing a control plane must never miss. Adapters expose this as a general
-  `always_on` fact. The JSON pane's `schema_version` bumps to 2 for the new
-  section. Also, entries whose adapter crashed during observe now alert as
-  "adapter scan failed; state unknown" instead of the false "expected present,
-  not observed", and `plane observe` prints a warning per failed adapter.
-- `plane apply` and `plane schedule` report the truth. A typo'd `--id` is a loud
-  error instead of a false "machine matches desired state"; the no-changes message
-  is now neutral and surfaces any standing drift alerts (services and config can't
-  be planned from nothing, so "planned nothing" never meant "no drift"); a
-  successful apply recomputes DRIFT.md/DRIFT.json so a shell prompt reflects the
-  converge immediately instead of at the next scheduled reconcile; and
-  `plane schedule` ends with its own observe, so the hinted `plane apply` sees the
-  just-written job on first use.
-- The MCP server resolves the instance the same way the CLI does
-  ($PLANEOPS_INSTANCE, then the `~/.config/planeops` pointer, then the marker
-  walk). It previously resolved from the client's working directory only, which for
-  a stdio MCP client is arbitrary, so it answered from the wrong instance.
-- `plane drift` now catches a dead reconcile heartbeat. The `launchd`/`systemd`
-  adapters set the general `drifted` fact when a service whose own definition means it
-  to run (a load-at-login or interval launchd agent, an installable systemd unit) is
-  present on disk but not loaded/enabled, and `plane schedule` marks its entry
-  `tolerance: alert`. Before, an agent that silently unloaded left drift green while the
-  shell prompt kept showing stale state, the exact failure the ambient loop exists to
-  prevent; `plane apply` already treated it as a change, so drift and apply now agree.
-
-### Added
 
 - `plane schedule`: set up the ambient reconcile as an OS-native timer (launchd on
   macOS, systemd on Linux) running `plane reconcile` at login and on an interval
@@ -392,5 +271,160 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Drift alerts when an `active` entry needs something that is being retired/purged or
   is observed absent, so a resource a consumer depends on (e.g. an embedding model a
   tool uses) can't be pruned out from under it.
+
+### Fixed
+
+- An npm global installed without a version (a linked or broken package) is
+  observed with an unknown version instead of being silently dropped from the
+  snapshot (found by the full-machine audit: a real `tree-sitter-dart` was
+  invisible).
+
+
+- A store file that is NOT actually encrypted (a failed `sops -e` leaves
+  plaintext behind) is refused loudly as a failed scan with the fix spelled
+  out, instead of presence blessing cleartext with `configured: true` and
+  zero alerts. The decrypt-failure hint about `SOPS_AGE_KEY_FILE` appends
+  only on identity-shaped failures. `parked` now means keep-as-is in both
+  service adapters: a parked unit is never bootstrapped or booted out, so a
+  freshly seeded registry plans nothing. Every output path is
+  instance-anchored (apply and reconcile had two remaining bare
+  `observed/...` lines; a fitness test now bans the pattern).
+- Seeding describes the machine instead of proposing changes to it: an asset
+  on disk but not active (an unloaded agent, a disabled unit) seeds as
+  `parked`, so `plane apply` on a fresh registry no longer offers to bootstrap
+  things the user never chose (a swept-in vendor updater, live on the walk).
+  `plane schedule`'s hint names the exact `plane apply --id ...` command. The
+  sops decrypt error keeps the actionable tail of stderr and names
+  `SOPS_AGE_KEY_FILE`. The scaffolded `mcp.sources` example is commented out
+  instead of shipping live placeholder paths.
+- The sdist is an explicit allowlist. The default selection packed anything the
+  repo `.gitignore` missed, including untracked local tooling state on the
+  build machine; now only the intended tree ships.
+- `mcp.sources` items are fully strict: an unknown field (`kye:`) and a
+  non-string `key` are load errors like every other typo, and a source FILE
+  that exists but cannot be parsed surfaces as a failed scan instead of
+  quietly observing no servers (an absent file stays quiet: the tool may
+  simply not be installed).
+- A reachability failure of `systemctl --user` while user units exist on disk
+  is a failed-scan alert naming the likely fix (`XDG_RUNTIME_DIR`), instead of
+  silently observing zero units; an absent `systemctl` (macOS) stays quiet.
+  `plane schedule` only claims "the new job is in the snapshot" when it
+  actually is, and warns otherwise. The `plane-mcp` missing-extra hint no
+  longer assumes pip. Count messages pluralize ("wrote 1 entry").
+- A directory without the `.planeops` marker is refused by every verb (and by
+  the MCP server's tools) with "run `plane init <path>` first", instead of
+  being adopted with a warning and having `observed/` state scattered into
+  whatever directory the command ran from. Only `plane init` creates
+  instances.
+- `plane-mcp` on an install without the `mcp` extra prints
+  "pip install 'planeops[mcp]'" and exits 1 instead of a raw import traceback.
+- `injected_as` on a secrets item must be `file:<path>#KEY`. The `env:NAME`
+  form the old error message advertised was silently dropped at
+  materialization; it is now rejected at load as not yet supported, and a
+  typo'd key inside a secrets item (`injectd_as:`) fails like any other
+  unknown key instead of quietly meaning "never materialize this secret".
+- A typo'd YAML key is a loud error, never a silent no-op. Unknown keys on a
+  registry entry (`tolerence:`, `need:`), on a top-level registry document
+  (`entrys:`), and malformed items in `mcp.sources` (`pth:`) are rejected with
+  a did-you-mean suggestion, or the allowed key set when nothing is close.
+  Previously each was silently ignored, so the escalation, the whole file, or
+  the entire source list quietly contributed nothing. `id`/`adapter`/`domain`/
+  `intent` must be strings, `hosts` a non-empty list of non-empty strings, and
+  a glob's value a non-empty string, all enforced at load with the entry named.
+- `phase` must be an integer and `pin` a string at registry load (a YAML
+  `phase: "3"` used to load fine and then crash apply's phase sort). Every verb
+  notes a resolution landing on a directory without the `.planeops` marker (the
+  skipped-init trap), and `plane schedule` warns when the plane binary it bakes
+  into the job does not exist yet.
+- Hardening follow-ups from the audit: parents created for a materialized secret
+  are 0700 (not the process umask, which undermined the 0600 file inside a
+  listable directory); the systemd scheduler refuses a newline in the plane path
+  or PATH (plain-text unit concatenation would have turned it into an injected
+  directive); a secret name that cannot be safely quoted for `sops --extract` is
+  refused before any shell-out; and `plane import observed` defaults to the
+  host's own snapshot path instead of making the user retype a path the CLI
+  already computes (other import kinds still require one). The home-directory
+  containment base and the no-rotation-refresh behavior are now documented
+  decisions in the code, not silences.
+- The adapter contract is honestly typed: `plan(entry, obs, ctx)` requires its
+  ctx (the engine always provides one; the optional-`None` form only invited
+  None-guards for a case production never produces), and the platform None-guards
+  in the chezmoi and secrets adapters are gone. Tests exercise the same contract
+  production runs.
+- Operator errors are handled once, uniformly. A bad registry edit (the most
+  common newcomer mistake) now exits 1 with the schema message from every verb
+  instead of tracebacking from `observe`/`drift`/`apply`; the handling lives at
+  the CLI dispatch point, so every future verb inherits it. A torn or corrupt
+  snapshot reads as one clean "no readable snapshot; run `plane observe` first"
+  from `drift`/`apply` (shared torn-safe loader, same as the read verbs), and
+  snapshot items missing their identifying keys are skipped instead of poisoning
+  the run. `--json` is now a machine contract on every verb, `drift --json`
+  included (a JSON error object on stdout, drift still exiting 1):
+  `status --json` and `mcp --json`
+  emit a JSON error object on stdout when unseeded instead of nothing. `plane
+  status` degrades on a hand-edited or older-schema report instead of crashing.
+  Malformed `secrets` refs on an entry fail at registry load with the entry
+  named, instead of being silently skipped at materialization time.
+- `plane schedule --no-login` now actually fires on Linux. The generated timer
+  had only `OnUnitActiveSec`, which is relative to the service's last activation
+  and so never elapses on a fresh enable (verified live: `NEXT` stayed empty
+  forever); the timer now also carries `OnActiveSec`, so enabling it schedules
+  the first run. The no-op `Persistent=` (calendar timers only) is dropped. And
+  `plane schedule` now shows what it will write and asks before writing (job
+  files + the registry entry), with `--yes` for scripts, the same confirm posture
+  as `import --write`: no readable stdin and no `--yes` writes nothing.
+- The apply journal is crash-safe: each record is appended the moment its change
+  is decided, not batched at the end of the run, so a crash mid-apply still
+  leaves every already-executed mutation on the record (previously such a crash
+  left zero journal entries, exactly when the audit trail mattered most). And the
+  documented converge order is now encoded: every mutating adapter declares its
+  `default_phase` (packages 2, config 3, models 4, secrets 5, services 6), so
+  unphased entries converge packages-first and load services last against
+  complete config, instead of everything landing in one unordered bucket.
+- Subprocess timeouts now match the operation instead of one global 30s ceiling.
+  Confirmed converge operations that legitimately run long (`brew`/`npm`/`uv`
+  installs, `ollama pull`) are unbounded, the human just confirmed the change and
+  owns the wait; service and config operations (`launchctl`, `systemctl`,
+  `chezmoi apply`) get a 300s ceiling so a hung tool can't wedge an apply run;
+  `sops -d` gets 60s. A timeout is now distinct from a missing binary (exit 124
+  vs 127) and says the underlying command may still be running, instead of both
+  collapsing into the same failure. Observe probes keep the fast 30s default.
+- A retired service now converges without `purge`. Drift treated "observed at all"
+  as present, but the launchd/systemd adapters observe every service file on disk
+  regardless of state, so a retired, booted-out service whose file remained alerted
+  forever while `plane apply` had nothing left to do. Adapters now declare semantic
+  presence (a `present` fact: loaded for launchd, enabled-or-active for systemd) and
+  drift's retired check consumes it, so retired means "not running" and `purge`
+  keeps meaning "file removed too". Package adapters are unchanged (installed is
+  present).
+- `plane drift` no longer stays silent about things it can see. A new **Ungoverned**
+  section lists everything observed on the machine that is neither declared nor
+  excluded by an unmanaged glob, and an ungoverned item whose own facts say it is
+  always-on (a login/keepalive/interval launchd agent, an enabled systemd unit)
+  raises an alert: software that installed itself into the boot path is the one
+  thing a control plane must never miss. Adapters expose this as a general
+  `always_on` fact. The JSON pane's `schema_version` bumps to 2 for the new
+  section. Also, entries whose adapter crashed during observe now alert as
+  "adapter scan failed; state unknown" instead of the false "expected present,
+  not observed", and `plane observe` prints a warning per failed adapter.
+- `plane apply` and `plane schedule` report the truth. A typo'd `--id` is a loud
+  error instead of a false "machine matches desired state"; the no-changes message
+  is now neutral and surfaces any standing drift alerts (services and config can't
+  be planned from nothing, so "planned nothing" never meant "no drift"); a
+  successful apply recomputes DRIFT.md/DRIFT.json so a shell prompt reflects the
+  converge immediately instead of at the next scheduled reconcile; and
+  `plane schedule` ends with its own observe, so the hinted `plane apply` sees the
+  just-written job on first use.
+- The MCP server resolves the instance the same way the CLI does
+  ($PLANEOPS_INSTANCE, then the `~/.config/planeops` pointer, then the marker
+  walk). It previously resolved from the client's working directory only, which for
+  a stdio MCP client is arbitrary, so it answered from the wrong instance.
+- `plane drift` now catches a dead reconcile heartbeat. The `launchd`/`systemd`
+  adapters set the general `drifted` fact when a service whose own definition means it
+  to run (a load-at-login or interval launchd agent, an installable systemd unit) is
+  present on disk but not loaded/enabled, and `plane schedule` marks its entry
+  `tolerance: alert`. Before, an agent that silently unloaded left drift green while the
+  shell prompt kept showing stale state, the exact failure the ambient loop exists to
+  prevent; `plane apply` already treated it as a change, so drift and apply now agree.
 
 [Unreleased]: https://github.com/albertorsesc/planeops/commits/main

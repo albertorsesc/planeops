@@ -17,9 +17,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from planeops._run import Runner, default_run
+from planeops.providers import yaml
 
 # At the instance ROOT, deliberately not inside registry/: registry files are
 # declared entries and globs, strictly validated as such; the encrypted store
@@ -38,8 +37,8 @@ class SopsStore:
         if not self._store.is_file():
             return set()
         try:
-            data = yaml.safe_load(self._store.read_text())
-        except (yaml.YAMLError, OSError):
+            data = yaml.load(self._store.read_text())
+        except (yaml.ParseError, OSError):
             return set()
         if not isinstance(data, dict):
             return set()

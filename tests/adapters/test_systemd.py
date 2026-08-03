@@ -114,6 +114,7 @@ def test_observe_reports_enabled_and_active(tmp_path):
         "drifted": False,
         "always_on": True,
         "present": True,
+        "logs": ["journalctl --user -u on.service"],
         "unit_path": str(d / "on.service"),
     }
     assert out["off.service"].facts["enabled"] is False
@@ -370,3 +371,14 @@ def test_parked_unit_is_left_exactly_as_found():
     )
     assert a.plan(_entry("systemd/x.timer", "parked"), off, _ctx()) == []
     assert a.plan(_entry("systemd/y.timer", "parked"), on, _ctx()) == []
+
+
+def test_observe_reports_the_journal_command_as_logs(tmp_path):
+    from pathlib import Path as P
+
+    d = tmp_path / "units"
+    d.mkdir()
+    (d / "probe.service").write_text("[Service]\nExecStart=/bin/true\n")
+    a = SystemdAdapter(run=Fake(session=True), units_dir=P(d))
+    facts = {o.native_id: o.facts for o in a.observe(_ctx())}
+    assert facts["probe.service"]["logs"] == ["journalctl --user -u probe.service"]

@@ -19,23 +19,26 @@ are never recorded, they can hold secrets.
 from __future__ import annotations
 
 import json
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from planeops.config import section as instance_section
 from planeops.core.contracts import Ctx, Observed
 from planeops.core.schema import reject_unknown_keys
+from planeops.providers import yaml
 
 
 @dataclass(frozen=True, slots=True)
 class McpSource:
     label: str
     path: str
-    format: str  # "json" or "yaml"
+    format: str  # "json", "yaml", or "toml"
     key: str  # the mapping key holding the servers, e.g. "mcpServers"
+    # Optional template for this client's per-server log location, with {name}
+    # standing for the server name (e.g. "~/Library/Logs/X/mcp-{name}.log").
+    logs: str | None = None
 
 
 def servers_from_mapping(servers: object) -> dict[str, dict[str, Any]]:
@@ -54,7 +57,17 @@ def servers_from_mapping(servers: object) -> dict[str, dict[str, Any]]:
     return out
 
 
-_SOURCE_KEYS = frozenset({"label", "path", "format", "key"})
+_SOURCE_KEYS = frozenset({"label", "path", "format", "key", "logs"})
+
+
+def _known_client_logs(label: str) -> str | None:
+    """The log template of the discovered known client with this label, if
+    any. Lazy import: the clients seam pulls in discovery machinery this
+    module should not load unless a source actually needs a default."""
+    from planeops.adapters.mcp.clients import discover_clients
+
+    client = discover_clients().get(label)
+    return client.logs if client else None
 
 
 def _source_str(
@@ -83,12 +96,29 @@ def load_sources(repo_root: Path | None) -> list[McpSource]:
         if not isinstance(item, dict):
             raise ValueError(f"mcp.sources[{i}] must be a mapping, got {item!r}")
         reject_unknown_keys(item, _SOURCE_KEYS, f"mcp.sources[{i}]")
+        fmt_val = item.get("format")
+        if fmt_val not in ("json", "yaml", "toml"):
+            raise ValueError(
+                f"mcp.sources[{i}] format must be json, yaml, or toml (got {fmt_val!r})"
+            )
+        logs_t = item.get("logs")
+        if logs_t is not None and (not isinstance(logs_t, str) or not logs_t):
+            raise ValueError(
+                f"mcp.sources[{i}] logs must be a non-empty string template "
+                f"(got {logs_t!r})"
+            )
+        label = _source_str(item, "label", i)
         sources.append(
             McpSource(
-                label=_source_str(item, "label", i),
+                label=label,
                 path=_source_str(item, "path", i),
                 format=_source_str(item, "format", i),
                 key=_source_str(item, "key", i, default="mcpServers"),
+                # Derived default: a source labeled as a discovered known
+                # client inherits that client's conventions at read time, so
+                # templates upgrade with the tool and config stays minimal.
+                # An explicit value in instance.yaml always wins.
+                logs=logs_t if logs_t is not None else _known_client_logs(label),
             )
         )
     return sources
@@ -109,8 +139,19 @@ def _read_source(source: McpSource, home: Path) -> dict[str, dict[str, Any]]:
         return {}
     try:
         text = path.read_text()
-        data = yaml.safe_load(text) if source.format == "yaml" else json.loads(text)
-    except (json.JSONDecodeError, ValueError, yaml.YAMLError, OSError) as exc:
+        if source.format == "yaml":
+            data = yaml.load(text)
+        elif source.format == "toml":
+            data = tomllib.loads(text)
+        else:
+            data = json.loads(text)
+    except (
+        json.JSONDecodeError,
+        tomllib.TOMLDecodeError,
+        ValueError,
+        yaml.ParseError,
+        OSError,
+    ) as exc:
         # A file that EXISTS but cannot be read or parsed must not quietly
         # observe as "no servers": raise into the failed-scan alert.
         raise ValueError(
@@ -136,10 +177,14 @@ class McpAdapter:
         merged: dict[str, dict[str, Any]] = {}
         for source in sources:
             for server_name, meta in _read_source(source, home).items():
-                entry = merged.setdefault(server_name, {"sources": [], "command": ""})
+                entry = merged.setdefault(
+                    server_name, {"sources": [], "command": "", "logs": []}
+                )
                 entry["sources"].append(source.label)
                 if not entry["command"] and meta["command"]:
                     entry["command"] = meta["command"]
+                if source.logs:
+                    entry["logs"].append(source.logs.format(name=server_name))
 
         return [
             Observed(
@@ -148,6 +193,11 @@ class McpAdapter:
                 facts={
                     "sources": sorted(merged[server_name]["sources"]),
                     "command": merged[server_name]["command"],
+                    **(
+                        {"logs": sorted(merged[server_name]["logs"])}
+                        if merged[server_name]["logs"]
+                        else {}
+                    ),
                 },
                 version=None,
             )

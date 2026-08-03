@@ -197,3 +197,87 @@ def test_an_absent_source_file_stays_quiet(tmp_path, fake_platform):
         "mcp:\n  sources:\n    - {label: harness, path: ~/.nope.json, format: json}\n"
     )
     assert McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path)) == []
+
+
+def test_a_source_log_template_lands_per_server(tmp_path, fake_platform):
+    # A client that keeps per-server logs declares WHERE as a template; the
+    # observation resolves it per server so the manifest can know.
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n"
+        "    - label: desktop\n"
+        "      path: ~/.desktop.json\n"
+        "      format: json\n"
+        "      logs: ~/Library/Logs/Desk/mcp-server-{name}.log\n"
+    )
+    (tmp_path / ".desktop.json").write_text(
+        json.dumps({"mcpServers": {"context7": {"command": "npx"}}})
+    )
+    out = McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path))
+    assert out[0].facts["logs"] == ["~/Library/Logs/Desk/mcp-server-context7.log"]
+
+
+def test_sources_without_a_log_template_carry_no_logs(tmp_path, fake_platform):
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n    - {label: a, path: ~/.a.json, format: json}\n"
+    )
+    (tmp_path / ".a.json").write_text(
+        json.dumps({"mcpServers": {"x": {"command": "npx"}}})
+    )
+    out = McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path))
+    assert "logs" not in out[0].facts
+
+
+def test_toml_sources_read_nested_server_tables(tmp_path, fake_platform):
+    # codex-style config: [mcp_servers.<name>] tables in TOML. Same source
+    # contract, third format, stdlib parser.
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n"
+        "    - {label: codex, path: ~/.codex/config.toml, format: toml,"
+        " key: mcp_servers}\n"
+    )
+    (tmp_path / ".codex").mkdir()
+    (tmp_path / ".codex" / "config.toml").write_text(
+        '[mcp_servers.gitnexus]\ncommand = "npx"\nargs = ["mcp"]\n'
+    )
+    out = McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path))
+    assert [o.native_id for o in out] == ["gitnexus"]
+    assert out[0].facts["sources"] == ["codex"]
+    assert out[0].facts["command"] == "npx"
+
+
+def test_unknown_format_is_loud(tmp_path):
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n    - {label: a, path: ~/.x.ini, format: ini}\n"
+    )
+    with pytest.raises(ValueError, match="format"):
+        load_sources(tmp_path)
+
+
+def test_known_client_log_template_is_derived_not_copied(tmp_path, fake_platform):
+    # A source labeled as a discovered known client inherits that client's
+    # conventions at observe time: config stays minimal, templates upgrade
+    # with the tool, and observe never writes anything.
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n"
+        "    - {label: claude-desktop, path: ~/.d.json, format: json}\n"
+    )
+    (tmp_path / ".d.json").write_text(
+        json.dumps({"mcpServers": {"context7": {"command": "npx"}}})
+    )
+    out = McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path))
+    assert out[0].facts["logs"] == ["~/Library/Logs/Claude/mcp-server-context7.log"]
+
+
+def test_an_explicit_config_template_beats_the_derived_default(tmp_path, fake_platform):
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n"
+        "    - label: claude-desktop\n"
+        "      path: ~/.d.json\n"
+        "      format: json\n"
+        "      logs: ~/my/own/{name}.log\n"
+    )
+    (tmp_path / ".d.json").write_text(
+        json.dumps({"mcpServers": {"context7": {"command": "npx"}}})
+    )
+    out = McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path))
+    assert out[0].facts["logs"] == ["~/my/own/context7.log"]

@@ -1,10 +1,9 @@
-import yaml
-
 from planeops.importers.envfile import (
     entries_from_names,
     parse_envfile,
     render_proposal,
 )
+from planeops.providers import yaml
 
 ENV = """
 # an example env file
@@ -60,7 +59,7 @@ def test_render_is_valid_yaml_and_leaks_no_value():
     out = render_proposal(entries_from_names(parse_envfile(ENV)))
     for v in _VALUES:
         assert v not in out
-    loaded = yaml.safe_load(out)
+    loaded = yaml.load(out)
     assert [e["id"] for e in loaded["entries"]] == [
         "secrets/openrouter-api-key",
         "secrets/anthropic-api-key",

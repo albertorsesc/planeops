@@ -21,12 +21,11 @@ def _cmd(args: argparse.Namespace) -> int:
     import os
     import shutil
 
-    import yaml
-
     from planeops.cli.instance import instance_root
     from planeops.core.statefile import atomic_write
     from planeops.importers import render_proposal
     from planeops.platform import current_platform
+    from planeops.providers import yaml
     from planeops.schedulers import current_scheduler
 
     try:
@@ -69,10 +68,7 @@ def _cmd(args: argparse.Namespace) -> int:
         print(f"  {path}")
     print(f"  {repo / 'registry' / 'schedule.yaml'} declaring:")
     entry_doc: dict[str, object] = {"entries": job.entries}
-    print(
-        "    "
-        + yaml.safe_dump(entry_doc, sort_keys=False).rstrip().replace("\n", "\n    ")
-    )
+    print("    " + yaml.dump(entry_doc).rstrip().replace("\n", "\n    "))
     if not args.yes:
         try:
             answer = input("proceed? (y/N) ")
@@ -91,7 +87,7 @@ def _cmd(args: argparse.Namespace) -> int:
     schedule_yaml.parent.mkdir(parents=True, exist_ok=True)
     text = render_proposal(list(job.entries))
     if job.globs:
-        text += "\n" + yaml.safe_dump({"globs": job.globs}, sort_keys=False)
+        text += "\n" + yaml.dump({"globs": job.globs})
     atomic_write(schedule_yaml, text)
     print(f"declared {schedule_yaml}")
 

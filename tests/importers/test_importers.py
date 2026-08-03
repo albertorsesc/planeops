@@ -4,14 +4,13 @@ landing proposals into registry/imported.yaml (merge + de-dupe by id).
 
 from pathlib import Path
 
-import yaml
-
 from planeops.importers import (
     Importer,
     discover_importers,
     render_proposal,
     write_proposal,
 )
+from planeops.providers import yaml
 
 
 def test_discovers_the_built_in_importers():
@@ -32,7 +31,7 @@ def test_every_discovered_importer_satisfies_the_contract():
 
 def test_render_proposal_is_shared_and_round_trips():
     entries = [{"id": "secrets/x", "adapter": "secrets"}]
-    assert yaml.safe_load(render_proposal(entries)) == {"entries": entries}
+    assert yaml.load(render_proposal(entries)) == {"entries": entries}
 
 
 # ---- write_proposal: land + merge + de-dupe ----
@@ -56,11 +55,11 @@ def test_write_proposal_creates_then_merges_without_dupes(tmp_path):
     (tmp_path / "registry").mkdir()
     p, total = write_proposal(_entries("pkg-brew/a", "pkg-brew/b"), tmp_path)
     assert p == tmp_path / "registry" / "imported.yaml"
-    ids = [e["id"] for e in yaml.safe_load(p.read_text())["entries"]]
+    ids = [e["id"] for e in yaml.load(p.read_text())["entries"]]
     assert ids == ["pkg-brew/a", "pkg-brew/b"] and total == 2
     # a second write merges: keeps existing, adds new, de-dups the repeat
     _, total2 = write_proposal(_entries("pkg-brew/b", "pkg-brew/c"), tmp_path)
-    ids = [e["id"] for e in yaml.safe_load(p.read_text())["entries"]]
+    ids = [e["id"] for e in yaml.load(p.read_text())["entries"]]
     assert ids == ["pkg-brew/a", "pkg-brew/b", "pkg-brew/c"] and total2 == 3
 
 
@@ -77,7 +76,7 @@ def test_render_proposal_reads_like_a_document():
     assert (
         "\n\n- id: a/two" in out.replace("  - id", "- id") or "\n\n  - id: a/two" in out
     )
-    assert yaml.safe_load(out) == {"entries": entries}
+    assert yaml.load(out) == {"entries": entries}
 
 
 def test_write_proposal_appends_without_destroying_user_edits(tmp_path):
@@ -105,5 +104,5 @@ def test_write_proposal_appends_without_destroying_user_edits(tmp_path):
     text = path.read_text()
     assert "# keep: verified 2026-08-02" in text  # the user's edit survived
     assert total == 2
-    loaded = yaml.safe_load(text)
+    loaded = yaml.load(text)
     assert [e["id"] for e in loaded["entries"]] == ["a/one", "a/two"]

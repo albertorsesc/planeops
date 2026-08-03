@@ -1,7 +1,7 @@
 import pytest
-import yaml
 
 from planeops._run import RunResult
+from planeops.providers import yaml
 from planeops.secrets.stores.sops import DEFAULT_PATH, STORE, SopsStore
 
 # A sops file: keys plaintext, values encrypted, plus the `sops` metadata block.
@@ -14,7 +14,7 @@ STORE_DOC = {
 
 def _write_store(tmp_path):
     p = tmp_path / "secrets.sops.yaml"
-    p.write_text(yaml.safe_dump(STORE_DOC))
+    p.write_text(yaml.dump(STORE_DOC))
     return p
 
 
