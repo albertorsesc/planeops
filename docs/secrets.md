@@ -29,6 +29,21 @@ environment setup. Re-initializing over an existing store is refused, and a
 store that turns out to hold plaintext is a loud failed-scan alert, never a
 quiet "configured".
 
+## Putting a value in
+
+```console
+$ plane secrets add openrouter-api-key
+add 'openrouter-api-key' in /Users/you/planeops/secrets.sops.yaml
+value for 'openrouter-api-key' (input hidden):
+repeat to confirm:
+added 'openrouter-api-key' in /Users/you/planeops/secrets.sops.yaml
+```
+
+The value is typed blind (twice, to catch typos) and never appears on a
+command line, in the environment, or in any output. Piping works for password
+managers: `op read op://vault/key | plane secrets add openrouter-api-key --yes`.
+Rotating an existing value requires `--force`.
+
 ## A governed secret is one registry entry
 
 ```yaml

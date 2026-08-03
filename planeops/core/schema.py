@@ -106,6 +106,12 @@ _SECRET_REF_KEYS = frozenset({"ref", "injected_as"})
 _SECRET_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
+def valid_secret_name(name: str) -> bool:
+    """The one grammar for a secret name, shared by `secret://<name>` refs and
+    `plane secrets add`, so a name accepted in one place is valid in the other."""
+    return bool(_SECRET_NAME_RE.fullmatch(name))
+
+
 def secret_ref_name(uri: Any, entry_id: Any) -> str:
     """Validate `secret://<name>` and return the name. The retired two-segment
     form (`secret://<store>/<name>`) gets the migration hint: its store segment
@@ -122,7 +128,7 @@ def secret_ref_name(uri: Any, entry_id: Any) -> str:
             f"the store is configured in instance.yaml, write "
             f"'secret://{name.rsplit('/', 1)[-1]}'"
         )
-    if not _SECRET_NAME_RE.fullmatch(name):
+    if not valid_secret_name(name):
         raise SchemaError(
             f"entry {entry_id!r}: secret name {name!r} must match [A-Za-z0-9_.-]+"
         )

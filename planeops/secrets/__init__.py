@@ -65,6 +65,26 @@ class BootstrapsStore(Protocol):
 
 
 @runtime_checkable
+class AcceptsValues(Protocol):
+    """A store that can write one value safely (ISP: separate from
+    `SecretsStore` so a read-only store kind is simply not an instance).
+    The contract every implementation must keep: the value never appears on
+    a command line or in the environment of any spawned process, and any
+    on-disk plaintext is transient, owner-only (0600), and destroyed before
+    the method returns."""
+
+    def add_preview(self, name: str) -> list[str]:
+        """What `add` WOULD do (add vs rotate, and where), for the prompt."""
+        ...
+
+    def add_value(self, name: str, value: str, *, force: bool) -> str:
+        """Encrypt `value` under `name` into the store. Refuses an existing
+        name unless `force` (rotation must be deliberate). Returns the action
+        line for the terminal; the line never carries the value."""
+        ...
+
+
+@runtime_checkable
 class SecretsStoreProvider(Protocol):
     """What a module under `planeops/secrets/stores/` exposes as `STORE`: enough
     for the resolution layer to select and construct the store without knowing
