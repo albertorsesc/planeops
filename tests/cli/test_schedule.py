@@ -135,9 +135,9 @@ def test_schedule_confirms_when_the_job_lands_in_the_snapshot(
 
 
 def test_schedule_warns_when_the_job_did_not_land_in_the_snapshot(sched, capsys):
-    # The fixture's stubbed observe returns nothing: the old message claimed
-    # "the new job is in the snapshot" anyway (verifiably false in a session
-    # with a broken user bus). Now it says so and points at the fix.
+    # The fixture's stubbed observe returns nothing: the success message must
+    # not claim "the new job is in the snapshot" (verifiably false with a
+    # broken user bus); warn and point at the fix instead.
     home, inst = sched
     assert main(["--repo", str(inst), "schedule", "--every", "6h", "--yes"]) == 0
     out = capsys.readouterr()

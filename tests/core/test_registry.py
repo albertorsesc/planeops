@@ -64,7 +64,7 @@ def test_malformed_glob_is_a_clean_schema_error(tmp_path):
 
 
 def test_unknown_top_level_key_is_rejected_with_a_suggestion(tmp_path):
-    # `entrys:` used to make the whole file silently contribute nothing.
+    # `entrys:` must not make the whole file silently contribute nothing.
     (tmp_path / "r.yaml").write_text(
         "entrys:\n  - {id: a/b, adapter: a, domain: d, lifecycle: active, intent: i}\n"
     )

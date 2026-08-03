@@ -62,7 +62,7 @@ def test_flags_ungoverned_servers_observed_but_not_declared():
 
 
 def test_flags_name_drift_same_tool_under_different_names():
-    # the documented real case: an "mcp-" prefixed name in one client, bare in another.
+    # a common real case: an "mcp-" prefixed name in one client, bare in another.
     snap = _snapshot(
         {
             "mcp-sequentialthinking-tools": ["claude-desktop"],

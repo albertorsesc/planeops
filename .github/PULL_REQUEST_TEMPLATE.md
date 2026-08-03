@@ -3,8 +3,8 @@
 A short description of the change and why.
 
 **Type:** feat / fix / docs / refactor / test / chore
-**Breaking?** no — or: BREAKING (registry schema / CLI / config / adapter contract),
-with the migration and the implied version bump (pre-1.0: breaking → minor).
+**Breaking?** no, or: BREAKING (registry schema / CLI / config / adapter contract),
+with the migration and the implied version bump (pre-1.0: breaking bumps minor).
 
 ## Checklist
 

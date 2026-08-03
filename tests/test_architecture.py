@@ -1,7 +1,7 @@
 """Architecture fitness tests: the layering and organization rules, enforced by
 the build instead of by memory.
 
-Three properties the 2026-07 audit verified by hand become permanent here:
+Three properties the build enforces permanently:
 1. The core layer imports no extension package (adapters/importers/schedulers/
    cli/mcp_server); the one sanctioned edge is discovery's package scan.
 2. The core layer names no vendor or OS tool in code: everything variable
@@ -160,8 +160,7 @@ def test_every_engine_module_has_its_mirror_test():
 
 def test_no_unanchored_observed_paths_in_output():
     # Output lines anchor state paths to the instance; a bare "-> observed/..."
-    # sent a user hunting for a directory that is not where they stand
-    # (found twice on live walks after a file-scoped fix missed siblings).
+    # sends a user hunting for a directory that is not where they stand.
     from pathlib import Path
 
     offenders = [

@@ -31,8 +31,9 @@ def test_presence_handle_allows_presence_but_not_value():
 
 
 def test_presence_handle_exposes_no_value_escape_hatch():
-    # the footgun that made the earlier seal a convention must not exist: no method
-    # on the handle an adapter holds may yield a value or a value-capable handle.
+    # no method on the handle an adapter holds may yield a value or a
+    # value-capable handle; any escape hatch would make the seal a convention
+    # instead of a guarantee.
     h = SecretsHandle(FakeBackend())
     assert not hasattr(h, "unsealed")
     assert not hasattr(h, "sealed")

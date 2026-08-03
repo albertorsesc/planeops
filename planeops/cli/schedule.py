@@ -106,8 +106,8 @@ def _cmd(args: argparse.Namespace) -> int:
         )
         print(job.hint)
     else:
-        # Claiming presence here used to be a lie whenever the scan silently
-        # failed (e.g. no user session bus). Say what actually happened.
+        # The scan can fail silently (e.g. no user session bus); claiming
+        # presence then would be a lie. Say what actually happened.
         print(
             "warning: the new job did not appear in the snapshot (adapter scan "
             "failed? see `plane drift` alerts); fix that, then `plane observe` "

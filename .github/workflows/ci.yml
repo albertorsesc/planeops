@@ -76,8 +76,8 @@ jobs:
           tar -xzf /tmp/chezmoi.tar.gz -C /tmp chezmoi
           install -m 0755 /tmp/chezmoi "$HOME/.local/bin/chezmoi"
 
-      # Fails loudly: a missing user bus previously slipped through (|| true) and
-      # silently skipped the systemd integration test.
+      # Fails loudly: a missing user bus must not silently skip the systemd
+      # integration test.
       - name: Start a systemd --user session
         run: |
           set -euo pipefail
@@ -96,9 +96,8 @@ jobs:
       - name: Integration tests (real sops/age/chezmoi + systemctl --user)
         run: uv run --frozen pytest tests/integration -v
 
-  # macOS parity: the launchd integration test runs against the real launchctl
-  # (previously it only ever ran on a dev machine), plus the sops/age/chezmoi
-  # integrations with the real tools from brew.
+  # macOS parity: the launchd integration test runs against the real launchctl,
+  # plus the sops/age/chezmoi integrations with the real tools from brew.
   integration-macos:
     runs-on: macos-15
     steps:

@@ -50,7 +50,7 @@ def _root(repo: str | None) -> Path:
     """Resolve the instance the same way the CLI does: an explicit `repo` wins, else
     $PLANEOPS_INSTANCE, the ~/.config/planeops pointer, then the cwd marker walk.
     An MCP client's cwd is arbitrary (often / or $HOME), so resolving from cwd alone
-    answered from the wrong instance and wrote state outside it. Same refusal rule
+    would answer from the wrong instance and write state outside it. Same refusal rule
     as the CLI: an unmarked directory is not an instance, so a tool call errors
     instead of writing anywhere."""
     root = resolve_instance_root(repo)

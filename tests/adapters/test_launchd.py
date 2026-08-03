@@ -315,8 +315,8 @@ def test_observe_present_means_loaded(tmp_path, fake_platform):
 
 def test_parked_service_is_left_exactly_as_found():
     # `parked` means keep-as-is: never bootstrap an unloaded parked agent
-    # (walk two: a seeded vendor updater got a bootstrap proposal), and never
-    # bootout a loaded one.
+    # (a freshly seeded vendor updater must not get a bootstrap proposal), and
+    # never bootout a loaded one.
     ctx = _ctx(_Plat())
     assert (
         ADAPTER.plan(_entry("launchd/idle", "parked"), _obs("idle", loaded=False), ctx)

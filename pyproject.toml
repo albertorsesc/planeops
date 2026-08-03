@@ -1,7 +1,7 @@
 [project]
 name = "planeops"
 dynamic = ["version"]  # single-sourced from planeops/__init__.py
-description = "Reproduce, observe, and govern a personal AI setup as three planes."
+description = "Keep the AI tooling on your machine declared, observed, and drift-free."
 readme = "README.md"
 license = "Apache-2.0"
 authors = [{ name = "Alberto Rosas" }]

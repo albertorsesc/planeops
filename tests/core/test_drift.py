@@ -324,8 +324,8 @@ def test_json_pane_includes_ungoverned_and_bumps_schema():
 
 
 def test_retired_entry_with_semantically_absent_obs_is_silent():
-    # A booted-out service whose file remains on disk used to alert forever while
-    # apply planned nothing (already unloaded). The adapter now says what
+    # A booted-out service whose file remains on disk must not alert forever
+    # while apply plans nothing (already unloaded). The adapter says what
     # "present" means for its domain: retired + present=False is conformant.
     e = _entry(lifecycle="retired")
     rep = triage([e], {"manual/x": _obs("manual/x", present=False)}, IMPL)
