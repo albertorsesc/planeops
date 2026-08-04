@@ -48,10 +48,13 @@ def _cmd_init(args: argparse.Namespace) -> int:
 
 def _cmd_add(args: argparse.Namespace) -> int:
     from planeops.core.schema import valid_secret_name
-    from planeops.secrets import AcceptsValues
-    from planeops.secrets.resolve import resolve_store
+    from planeops.secrets import AcceptsValues, BootstrapsStore
+    from planeops.secrets.resolve import resolve_provider, resolve_store
 
     repo = instance_root(args)
+    name = args.name
+    if not valid_secret_name(name):
+        raise LookupError(f"secret name {name!r} must match [A-Za-z0-9_.-]+")
     store = resolve_store(repo)
     if store is None:
         raise LookupError("no secrets store is configured or shipped as default")
@@ -60,22 +63,50 @@ def _cmd_add(args: argparse.Namespace) -> int:
             f"the {store.name!r} store does not take values through "
             "`plane secrets add`; see its documentation for manual entry"
         )
-    name = args.name
-    if not valid_secret_name(name):
-        raise LookupError(f"secret name {name!r} must match [A-Za-z0-9_.-]+")
+    interactive = sys.stdin.isatty()
+    if not interactive and not args.yes:
+        raise LookupError(
+            "stdin is not a terminal; pass --yes to confirm a piped value"
+        )
+    if not store.ready():
+        # First use on this machine: offer the store's own bootstrap inline,
+        # behind its usual preview, instead of failing and pointing at a
+        # second command. `plane secrets init` remains for pre-provisioning.
+        provider = resolve_provider(repo)
+        if not isinstance(provider, BootstrapsStore):
+            raise LookupError(
+                "no store exists yet and this store kind does not "
+                "self-bootstrap; see its documentation for manual setup"
+            )
+        age_key = Path(args.age_key).expanduser() if args.age_key else None
+        print("no secrets store yet; add will first initialize it:")
+        for line in provider.bootstrap_preview(repo, age_key_file=age_key):
+            print(f"  {line}")
+        if not args.yes:
+            try:
+                answer = input("initialize? (y/N) ")
+            except (EOFError, OSError):
+                answer = ""
+            if answer.strip().lower()[:1] != "y":
+                print("not initialized; nothing written", file=sys.stderr)
+                return 0
+        for action in provider.bootstrap(repo, age_key_file=age_key):
+            print(action)
+        store = resolve_store(repo)
+        if not isinstance(store, AcceptsValues) or not store.ready():
+            raise LookupError(
+                "the store is still not ready after initializing; a custom "
+                "store path in instance.yaml needs its own `plane secrets init`"
+            )
     for line in store.add_preview(name):
         print(line)
-    if sys.stdin.isatty():
+    if interactive:
         # The value is typed blind, so a typo would be invisible forever:
         # require the same blind entry twice before anything is written.
         value = getpass.getpass(f"value for {name!r} (input hidden): ")
         if value != getpass.getpass("repeat to confirm: "):
             raise LookupError("the two entries did not match; nothing written")
     else:
-        if not args.yes:
-            raise LookupError(
-                "stdin is not a terminal; pass --yes to confirm a piped value"
-            )
         value = sys.stdin.readline().rstrip("\n")
     if not value:
         raise LookupError("empty value; nothing written")
@@ -108,6 +139,13 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     add.add_argument(
         "--yes",
         action="store_true",
-        help="required when the value arrives piped on stdin",
+        help="required when the value arrives piped on stdin; also skips the "
+        "first-use initialize confirm",
+    )
+    add.add_argument(
+        "--age-key",
+        default=None,
+        help="age identity file for a first-use initialize "
+        "(default: where sops itself looks on this OS)",
     )
     add.set_defaults(func=_cmd_add)

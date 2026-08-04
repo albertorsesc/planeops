@@ -135,3 +135,32 @@ def test_add_value_round_trips_through_real_sops(tmp_path, monkeypatch):
     assert backend.get("added-key") == "rotated-REAL-value-43"
     leftovers = [p for p in tmp_path.iterdir() if p.name.startswith(".plane-secrets-")]
     assert leftovers == []
+
+
+def test_add_bootstraps_and_round_trips_through_the_real_cli(tmp_path, monkeypatch):
+    # The whole first-use path with the real binaries: no store, no rules, no
+    # identity; one `secrets add` initializes and lands the value encrypted.
+    from planeops.cli import main
+
+    inst = tmp_path / "inst"
+    (inst / "registry").mkdir(parents=True)
+    (inst / ".planeops").write_text("")
+    key = tmp_path / "age-test.key"
+
+    class _Pipe:
+        def isatty(self):
+            return False
+
+        def readline(self):
+            return "bootstrap-REAL-value-77\n"
+
+    monkeypatch.setattr("sys.stdin", _Pipe())
+    # A custom --age-key means later decrypts (including add's own) need
+    # SOPS_AGE_KEY_FILE, same as documented for `secrets init --age-key`.
+    monkeypatch.setenv("SOPS_AGE_KEY_FILE", str(key))
+    assert main(["--repo", str(inst), "secrets", "add", "boot-key", "--yes",
+                 "--age-key", str(key)]) == 0  # fmt: skip
+    store_file = inst / "secrets.sops.yaml"
+    text = store_file.read_text()
+    assert "boot-key" in text and "bootstrap-REAL-value-77" not in text
+    assert SopsStore(store_file).get("boot-key") == "bootstrap-REAL-value-77"

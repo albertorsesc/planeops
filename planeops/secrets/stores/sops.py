@@ -109,6 +109,9 @@ class SopsStore:
             )
         return res.out.rstrip("\n")
 
+    def ready(self) -> bool:
+        return self._store.is_file()
+
     def add_preview(self, name: str) -> list[str]:
         verb = "rotate the value of" if self.exists(name) else "add"
         return [f"{verb} {name!r} in {self._store}"]

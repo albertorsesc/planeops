@@ -10,15 +10,18 @@ encrypted. `plane observe` can answer "is the OpenRouter key configured?"
 without decrypting anything, and snapshots, reports, and diffs never carry a
 value.
 
-The whole flow is four steps, in order:
+The whole flow, in order:
 
 1. **Declare** the secret as a registry entry (what exists and where it goes).
-2. **`plane secrets init`**, once per machine: identity, rules, empty store.
-3. **`plane secrets add <name>`**, once per secret: the value goes in encrypted.
-4. **`plane apply`** materializes it into the file the entry declares.
+2. **`plane secrets add <name>`**, once per secret: the value goes in
+   encrypted. On a machine with no store yet, `add` offers to initialize it
+   first (identity, rules, empty store) behind its own confirm.
+3. **`plane apply`** materializes it into the file the entry declares.
 
-Until step 3, `plane drift` flags the declared secret as "not configured";
-after it, presence is green and only step 4 ever decrypts.
+Until step 2, `plane drift` flags the declared secret as "not configured";
+after it, presence is green and only step 3 ever decrypts. The standalone
+`plane secrets init` below does the store setup on its own, for
+pre-provisioning a machine or a custom `--age-key`.
 
 ## 1. Declare: a governed secret is one registry entry
 
@@ -36,9 +39,9 @@ after it, presence is green and only step 4 ever decrypts.
 Which store serves a ref is instance configuration, so swapping stores touches
 zero entries.
 
-## 2. Bootstrap the store, once per machine
+## The store bootstrap (automatic on first `add`)
 
-Runnable from anywhere; nothing depends on the working directory:
+Runnable standalone from anywhere; nothing depends on the working directory:
 
 ```console
 $ plane secrets init
@@ -55,7 +58,7 @@ environment setup. Re-initializing over an existing store is refused, and a
 store that turns out to hold plaintext is a loud failed-scan alert, never a
 quiet "configured".
 
-## 3. Put each value in
+## 2. Put each value in
 
 ```console
 $ plane secrets add openrouter-api-key
@@ -70,7 +73,7 @@ command line, in the environment, or in any output. Piping works for password
 managers: `op read op://vault/key | plane secrets add openrouter-api-key --yes`.
 Rotating an existing value requires `--force`.
 
-## 4. When a value moves
+## 3. When a value moves
 
 A value is decrypted exactly once, inside a confirmed `apply`, into the one file
 the entry declares. The write is `0600`, refuses symlinks, and is

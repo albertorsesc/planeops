@@ -205,3 +205,90 @@ def test_secrets_add_existing_name_needs_force(tmp_path, monkeypatch, capsys):
     assert main(["--repo", str(inst), "secrets", "add", "k", "--yes"]) == 1
     assert "--force" in capsys.readouterr().err
     assert main(["--repo", str(inst), "secrets", "add", "k", "--yes", "--force"]) == 0
+
+
+# ---- first use: add offers the store's own bootstrap inline ----
+
+
+class _FullRecorder:
+    """Fake age-keygen + sops for the bootstrap-then-add flow. Encryption is a
+    uniform transform (ENC-wrap every key, append metadata), which serves both
+    the bootstrap's empty store and add's temp file."""
+
+    def __init__(self):
+        self.calls: list[list[str]] = []
+
+    def __call__(self, cmd, timeout=None):
+        self.calls.append(list(cmd))
+        if cmd[0] == "age-keygen":
+            Path(cmd[2]).parent.mkdir(parents=True, exist_ok=True)
+            Path(cmd[2]).write_text(
+                "# created: t\n# public key: age1testkey\nAGE-SECRET-KEY-1X\n"
+            )
+            return RunResult(0, "Public key: age1testkey\n")
+        if cmd[:2] == ["sops", "-d"]:
+            return RunResult(0, "{}\n", "")
+        if cmd[0] == "sops" and "-e" in cmd:
+            from planeops.providers import yaml
+
+            target = Path(cmd[-1])
+            data = yaml.load(target.read_text()) or {}
+            enc = {k: f"ENC[AES256_GCM,data:{k}]" for k in data}
+            enc["sops"] = {"version": "3"}
+            target.write_text(yaml.dump(enc))
+            return RunResult(0)
+        return RunResult(127, "", f"{cmd[0]}: not found")
+
+
+def test_secrets_add_bootstraps_an_absent_store_inline(tmp_path, monkeypatch, capsys):
+    inst = _inst(tmp_path)  # no store, no rules
+    rec = _FullRecorder()
+    monkeypatch.setattr("planeops.secrets.stores.sops.default_run", rec)
+    monkeypatch.setattr("sys.stdin", _Pipe("hunter2\n"))
+    assert main(["--repo", str(inst), "secrets", "add", "tg-token", "--yes",
+                 "--age-key", str(tmp_path / "k.txt")]) == 0  # fmt: skip
+    out = capsys.readouterr().out
+    assert "add will first initialize it" in out
+    assert (inst / ".sops.yaml").exists()
+    text = (inst / "secrets.sops.yaml").read_text()
+    assert "tg-token" in text and "hunter2" not in text
+    for cmd in rec.calls:
+        assert all("hunter2" not in arg for arg in cmd), cmd
+
+
+def test_secrets_add_bootstrap_declined_writes_nothing(tmp_path, monkeypatch):
+    inst = _inst(tmp_path)
+    rec = _FullRecorder()
+    monkeypatch.setattr("planeops.secrets.stores.sops.default_run", rec)
+    monkeypatch.setattr("sys.stdin", _Tty(""))
+    monkeypatch.setattr("builtins.input", lambda *a: "n")
+    called = []
+    monkeypatch.setattr("getpass.getpass", lambda *a: called.append(1) or "v")
+    assert main(["--repo", str(inst), "secrets", "add", "k"]) == 0
+    assert not (inst / "secrets.sops.yaml").exists()
+    assert not (inst / ".sops.yaml").exists()
+    assert called == []  # declined before any value prompt
+    assert rec.calls == []
+
+
+def test_secrets_add_interactive_confirms_bootstrap_then_prompts(tmp_path, monkeypatch):
+    inst = _inst(tmp_path)
+    rec = _FullRecorder()
+    monkeypatch.setattr("planeops.secrets.stores.sops.default_run", rec)
+    monkeypatch.setattr("sys.stdin", _Tty(""))
+    monkeypatch.setattr("builtins.input", lambda *a: "y")
+    prompts = iter(["same", "same"])
+    monkeypatch.setattr("getpass.getpass", lambda *a: next(prompts))
+    assert main(["--repo", str(inst), "secrets", "add", "k",
+                 "--age-key", str(tmp_path / "k.txt")]) == 0  # fmt: skip
+    assert "k" in (inst / "secrets.sops.yaml").read_text()
+
+
+def test_secrets_add_piped_without_yes_refuses_before_bootstrap(tmp_path, monkeypatch):
+    inst = _inst(tmp_path)
+    rec = _FullRecorder()
+    monkeypatch.setattr("planeops.secrets.stores.sops.default_run", rec)
+    monkeypatch.setattr("sys.stdin", _Pipe("v\n"))
+    assert main(["--repo", str(inst), "secrets", "add", "k"]) == 1
+    assert rec.calls == []  # refused before creating anything
+    assert not (inst / "secrets.sops.yaml").exists()
