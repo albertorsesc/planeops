@@ -301,3 +301,9 @@ def test_add_preview_says_add_or_rotate(tmp_path):
     store = SopsStore(_write_store(tmp_path), run=_add_runner())
     assert "add" in store.add_preview("new_key")[0]
     assert "rotate" in store.add_preview("openrouter_api_key")[0]
+
+
+def test_ready_reports_store_presence(tmp_path):
+    absent = SopsStore(tmp_path / "secrets.sops.yaml")
+    assert absent.ready() is False
+    assert SopsStore(_write_store(tmp_path)).ready() is True

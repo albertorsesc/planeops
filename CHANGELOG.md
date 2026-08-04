@@ -6,6 +6,14 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `plane secrets add` on a machine with no store offers the store's own
+  bootstrap inline (previewed and confirmed, `--age-key` supported) instead of
+  failing and pointing at `plane secrets init`. The standalone `init` remains
+  for pre-provisioning. A store kind opts in by exposing `ready()` on the
+  `AcceptsValues` protocol.
+
 ## [0.2.0] - 2026-08-03
 
 ### Added

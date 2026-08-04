@@ -73,6 +73,12 @@ class AcceptsValues(Protocol):
     on-disk plaintext is transient, owner-only (0600), and destroyed before
     the method returns."""
 
+    def ready(self) -> bool:
+        """Does the store exist on disk, i.e. can `add_value` succeed? False
+        lets the CLI offer the store's own bootstrap before asking for a
+        value, instead of failing after the value was already typed."""
+        ...
+
     def add_preview(self, name: str) -> list[str]:
         """What `add` WOULD do (add vs rotate, and where), for the prompt."""
         ...
