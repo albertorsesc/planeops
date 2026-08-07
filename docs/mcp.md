@@ -34,6 +34,13 @@ Formats: `json`, `yaml`, `toml`. A source labeled as a known client inherits
 that client's per-server log location automatically. Server `env` blocks are
 never recorded: they can hold secrets.
 
+A known client's extra wiring scopes are read too, from its own config, with
+no filesystem search: for claude-code that means each `projects.<dir>`
+section (`claude mcp add`'s default, private to that directory) and each
+committed `.mcp.json` inside those directories. Scoped wirings show under
+their own label, `claude-code project:~/x` or `claude-code repo:~/x`, so the
+view tells "wired everywhere" from "wired only in one project".
+
 ## The server: let your assistant read the plane
 
 Install the extra (`uv tool install "planeops[mcp]"`) and wire `plane-mcp` into

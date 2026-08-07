@@ -6,6 +6,16 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- The mcp adapter reads a known client's extra wiring scopes from the
+  client's own config: for claude-code, each `projects.<dir>.mcpServers`
+  section and each committed `.mcp.json` in those directories. Scoped
+  wirings observe under `<client> project:<dir>` / `<client> repo:<dir>`
+  labels, so a server wired only inside one project is visible and
+  governable instead of silently absent. A client declares its scopes via
+  the new optional `scopes` reader on the clients seam.
+
 ## [0.4.0] - 2026-08-07
 
 ### Added

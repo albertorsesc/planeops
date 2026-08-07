@@ -281,3 +281,59 @@ def test_an_explicit_config_template_beats_the_derived_default(tmp_path, fake_pl
     )
     out = McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path))
     assert out[0].facts["logs"] == ["~/my/own/context7.log"]
+
+
+# ---- known-client scopes merge into the observation ----
+
+
+def test_known_client_scopes_surface_with_scoped_labels(tmp_path, fake_platform):
+    proj = tmp_path / "Projects" / "life-chess"
+    proj.mkdir(parents=True)
+    (tmp_path / ".claude.json").write_text(json.dumps({
+        "mcpServers": {"context7": {"command": "npx context7"}},
+        "projects": {str(proj): {"mcpServers": {"seq": {"command": "npx seq"}}}},
+    }))  # fmt: skip
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n"
+        "    - {label: claude-code, path: ~/.claude.json, format: json, key: mcpServers}\n"
+    )
+    out = {
+        o.native_id: o
+        for o in McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path))
+    }
+    assert out["context7"].facts["sources"] == ["claude-code"]
+    assert out["seq"].facts["sources"] == ["claude-code project:~/Projects/life-chess"]
+
+
+def test_a_server_in_two_scopes_lists_both_sources(tmp_path, fake_platform):
+    proj = tmp_path / "p"
+    proj.mkdir()
+    (tmp_path / ".claude.json").write_text(json.dumps({
+        "mcpServers": {"seq": {"command": "npx seq"}},
+        "projects": {str(proj): {"mcpServers": {"seq": {"command": "npx seq"}}}},
+    }))  # fmt: skip
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n"
+        "    - {label: claude-code, path: ~/.claude.json, format: json, key: mcpServers}\n"
+    )
+    out = {
+        o.native_id: o
+        for o in McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path))
+    }
+    assert out["seq"].facts["sources"] == ["claude-code", "claude-code project:~/p"]
+
+
+def test_an_unknown_label_gets_no_scope_reading(tmp_path, fake_platform):
+    (tmp_path / "custom.json").write_text(json.dumps({
+        "mcpServers": {"a": {"command": "c"}},
+        "projects": {"/x": {"mcpServers": {"hidden": {"command": "h"}}}},
+    }))  # fmt: skip
+    (tmp_path / "instance.yaml").write_text(
+        "mcp:\n  sources:\n"
+        "    - {label: my-gateway, path: ~/custom.json, format: json, key: mcpServers}\n"
+    )
+    out = {
+        o.native_id: o
+        for o in McpAdapter().observe(_ctx(fake_platform(tmp_path), repo_root=tmp_path))
+    }
+    assert set(out) == {"a"}  # only the declared key; no client, no scopes

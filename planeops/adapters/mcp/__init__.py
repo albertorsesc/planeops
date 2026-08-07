@@ -60,13 +60,17 @@ def servers_from_mapping(servers: object) -> dict[str, dict[str, Any]]:
 _SOURCE_KEYS = frozenset({"label", "path", "format", "key", "logs"})
 
 
-def _known_client_logs(label: str) -> str | None:
-    """The log template of the discovered known client with this label, if
-    any. Lazy import: the clients seam pulls in discovery machinery this
-    module should not load unless a source actually needs a default."""
+def _known_client(label: str) -> Any:
+    """The discovered known client with this label, if any. Lazy import: the
+    clients seam pulls in discovery machinery this module should not load
+    unless a source actually references a known client."""
     from planeops.adapters.mcp.clients import discover_clients
 
-    client = discover_clients().get(label)
+    return discover_clients().get(label)
+
+
+def _known_client_logs(label: str) -> str | None:
+    client = _known_client(label)
     return client.logs if client else None
 
 
@@ -132,11 +136,12 @@ def _resolve(path_str: str, home: Path) -> Path:
     return Path(path_str)
 
 
-def _read_source(source: McpSource, home: Path) -> dict[str, dict[str, Any]]:
+def _parse_source(source: McpSource, home: Path) -> dict[str, Any] | None:
+    """The source file parsed to a mapping, or None when absent (the tool may
+    simply not be installed on this machine: quiet)."""
     path = _resolve(source.path, home)
     if not path.is_file():
-        # The tool may simply not be installed on this machine: quiet.
-        return {}
+        return None
     try:
         text = path.read_text()
         if source.format == "yaml":
@@ -157,8 +162,7 @@ def _read_source(source: McpSource, home: Path) -> dict[str, dict[str, Any]]:
         raise ValueError(
             f"mcp source {source.label!r}: cannot read {path}: {exc}"
         ) from exc
-    servers = data.get(source.key) if isinstance(data, dict) else None
-    return servers_from_mapping(servers)
+    return data if isinstance(data, dict) else {}
 
 
 class McpAdapter:
@@ -175,16 +179,31 @@ class McpAdapter:
         home = ctx.platform.home()
 
         merged: dict[str, dict[str, Any]] = {}
-        for source in sources:
-            for server_name, meta in _read_source(source, home).items():
+
+        def _merge(label: str, source: McpSource, servers: object) -> None:
+            for server_name, meta in servers_from_mapping(servers).items():
                 entry = merged.setdefault(
-                    server_name, {"sources": [], "command": "", "logs": []}
+                    server_name, {"sources": set(), "command": "", "logs": set()}
                 )
-                entry["sources"].append(source.label)
+                entry["sources"].add(label)
                 if not entry["command"] and meta["command"]:
                     entry["command"] = meta["command"]
                 if source.logs:
-                    entry["logs"].append(source.logs.format(name=server_name))
+                    entry["logs"].add(source.logs.format(name=server_name))
+
+        for source in sources:
+            data = _parse_source(source, home)
+            if data is None:
+                continue
+            _merge(source.label, source, data.get(source.key))
+            # A known client can wire servers in scopes beyond its main key
+            # (a per-project section, a committed repo file); each surfaces
+            # under its own scoped label so the view can tell "everywhere"
+            # from "only in this project".
+            client = _known_client(source.label)
+            if client is not None and client.scopes is not None:
+                for scope, mapping in client.scopes(data, home):
+                    _merge(f"{source.label} {scope}", source, mapping)
 
         return [
             Observed(
