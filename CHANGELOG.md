@@ -6,6 +6,18 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `plane secrets list` (names only, never values) and `plane secrets remove
+  <name>` (behind a confirm; the store is untouched on any failure). Store
+  kinds opt in via the `EnumeratesKeys` and `RemovesValues` protocols.
+- `planeops_secrets_list` on the MCP server: the same names-only read for
+  assistants, without paying for a full scan. Mutations stay CLI-only.
+- A store key that no registry entry declares now appears in the snapshot and
+  lands in `plane drift` as ungoverned, the same way an undeclared service
+  does. Requires a store kind that can enumerate names; presence facts and
+  the "required secret is not configured" alert are unchanged.
+
 ## [0.3.0] - 2026-08-04
 
 ### Changed

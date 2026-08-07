@@ -23,6 +23,7 @@ def test_exposes_the_read_verbs_only():
         "planeops_drift",
         "planeops_status",
         "planeops_mcp",
+        "planeops_secrets_list",
     }
 
 
@@ -34,7 +35,13 @@ def test_no_tool_is_destructive_and_the_reads_are_pure():
     for name, tool in tools.items():
         assert tool.annotations is not None, name
         assert tool.annotations.destructive_hint in (None, False), name
-    for pure in ("planeops_drift", "planeops_status", "planeops_mcp"):
+    pure_reads = (
+        "planeops_drift",
+        "planeops_status",
+        "planeops_mcp",
+        "planeops_secrets_list",
+    )
+    for pure in pure_reads:
         assert tools[pure].annotations.read_only_hint is True, pure
         assert tools[pure].annotations.idempotent_hint is True, pure
     assert tools["planeops_observe"].annotations.read_only_hint is False
@@ -92,3 +99,17 @@ def test_default_repo_resolves_like_the_cli(tmp_path, monkeypatch):
 
     res = asyncio.run(build_server().call_tool("planeops_status", {}))
     assert res.structured_content.get("alert_count") == 3  # env-resolved instance
+
+
+def test_secrets_list_tool_call_returns_names_only(tmp_path):
+    # A real call over the MCP boundary: names come back structured, no value
+    # field exists anywhere in the payload.
+    (tmp_path / ".planeops").write_text("")
+    (tmp_path / "secrets.sops.yaml").write_text(
+        "tg-token: ENC[AES256_GCM,data:x]\nsops:\n  version: '3'\n"
+    )
+    res = asyncio.run(
+        build_server().call_tool("planeops_secrets_list", {"repo": str(tmp_path)})
+    )
+    assert res.is_error is False
+    assert res.structured_content == {"names": ["tg-token"], "count": 1}

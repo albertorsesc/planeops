@@ -25,6 +25,7 @@ from planeops.mcp_server.tools import (
     drift_state,
     mcp_view_state,
     observe_state,
+    secrets_names,
     status_state,
 )
 
@@ -110,6 +111,18 @@ def build_server() -> MCPServer:
     )
     def planeops_mcp(repo: str | None = None) -> dict[str, Any]:
         return mcp_view_state(_root(repo))
+
+    @mcp.tool(
+        annotations=_PURE_READ,
+        description=(
+            "The secret NAMES in the configured store, never a value (same as "
+            "`plane secrets list`). A pure read of the store's key set: no scan, "
+            "no decrypt, no write. Adding, rotating, or removing a value stays "
+            "behind the CLI's confirmation gate."
+        ),
+    )
+    def planeops_secrets_list(repo: str | None = None) -> dict[str, Any]:
+        return secrets_names(_root(repo))
 
     return mcp
 

@@ -52,3 +52,15 @@ def test_a_presence_handle_cannot_be_escalated_to_a_value_handle():
     presence = SecretsHandle(FakeBackend())
     with pytest.raises(RedactionError):
         materialization_handle(presence).get("present")
+
+
+def test_handle_enumerates_keys_from_a_listing_store():
+    class _Listing(FakeBackend):
+        def keys(self):
+            return {"a", "b"}
+
+    assert SecretsHandle(_Listing()).keys() == {"a", "b"}
+
+
+def test_handle_keys_is_none_for_a_non_listing_store():
+    assert SecretsHandle(FakeBackend()).keys() is None

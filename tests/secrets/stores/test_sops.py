@@ -307,3 +307,52 @@ def test_ready_reports_store_presence(tmp_path):
     absent = SopsStore(tmp_path / "secrets.sops.yaml")
     assert absent.ready() is False
     assert SopsStore(_write_store(tmp_path)).ready() is True
+
+
+def test_keys_lists_names_only(tmp_path):
+    assert SopsStore(_write_store(tmp_path)).keys() == {
+        "openrouter_api_key",
+        "anthropic_api_key",
+    }
+    assert SopsStore(tmp_path / "nope.yaml").keys() == set()
+
+
+def test_remove_value_deletes_and_reseals(tmp_path):
+    _rules(tmp_path)
+    store = SopsStore(
+        _write_store(tmp_path),
+        run=_add_runner(decrypt_out="openrouter_api_key: v1\nanthropic_api_key: v2\n"),
+    )
+    out = store.remove_value("openrouter_api_key")
+    assert "removed" in out
+    text = (tmp_path / "secrets.sops.yaml").read_text()
+    assert "openrouter_api_key" not in text
+    assert "anthropic_api_key" in text and "ENC[" in text and "sops" in text
+
+
+def test_remove_value_refuses_an_unconfigured_name(tmp_path):
+    _rules(tmp_path)
+    store = SopsStore(_write_store(tmp_path), run=_add_runner())
+    with pytest.raises(LookupError, match="not configured"):
+        store.remove_value("nope")
+
+
+def test_remove_last_value_leaves_a_valid_empty_store(tmp_path):
+    _rules(tmp_path)
+    p = tmp_path / "secrets.sops.yaml"
+    p.write_text("only: ENC[AES256_GCM,data:x]\nsops:\n  version: '3'\n")
+    store = SopsStore(p, run=_add_runner(decrypt_out="only: v\n"))
+    store.remove_value("only")
+    text = p.read_text()
+    assert "only" not in text and "sops" in text
+
+
+def test_remove_failure_leaves_the_store_untouched(tmp_path):
+    _rules(tmp_path)
+    p = _write_store(tmp_path)
+    before = p.read_text()
+    store = SopsStore(p, run=_add_runner(encrypt_ok=False))
+    with pytest.raises(LookupError, match="encrypt"):
+        store.remove_value("openrouter_api_key")
+    assert p.read_text() == before
+    assert [q for q in tmp_path.iterdir() if q.name.startswith(".plane-secrets-")] == []

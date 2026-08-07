@@ -292,3 +292,54 @@ def test_secrets_add_piped_without_yes_refuses_before_bootstrap(tmp_path, monkey
     assert main(["--repo", str(inst), "secrets", "add", "k"]) == 1
     assert rec.calls == []  # refused before creating anything
     assert not (inst / "secrets.sops.yaml").exists()
+
+
+# ---- list and remove ----
+
+
+def test_secrets_list_prints_names_only(tmp_path, monkeypatch, capsys):
+    inst = _bootstrapped(tmp_path)
+    (inst / "secrets.sops.yaml").write_text(
+        "b-key: ENC[AES256_GCM,data:x]\na-key: ENC[AES256_GCM,data:y]\n"
+        "sops:\n  version: '3'\n"
+    )
+    assert main(["--repo", str(inst), "secrets", "list"]) == 0
+    out = capsys.readouterr().out
+    assert out.splitlines() == ["a-key", "b-key"]  # sorted, names only
+
+
+def test_secrets_list_empty_store_says_so(tmp_path, capsys):
+    inst = _bootstrapped(tmp_path)
+    assert main(["--repo", str(inst), "secrets", "list"]) == 0
+    assert "no secrets" in capsys.readouterr().out
+
+
+def test_secrets_remove_deletes_after_confirm(tmp_path, monkeypatch, capsys):
+    inst = _bootstrapped(tmp_path)
+    (inst / "secrets.sops.yaml").write_text(
+        "gone: ENC[AES256_GCM,data:x]\nkept: ENC[AES256_GCM,data:y]\n"
+        "sops:\n  version: '3'\n"
+    )
+    rec = _AddRecorder(decrypt_out="gone: v1\nkept: v2\n")
+    monkeypatch.setattr("planeops.secrets.stores.sops.default_run", rec)
+    assert main(["--repo", str(inst), "secrets", "remove", "gone", "--yes"]) == 0
+    text = (inst / "secrets.sops.yaml").read_text()
+    assert "gone" not in text and "kept" in text
+
+
+def test_secrets_remove_declined_removes_nothing(tmp_path, monkeypatch):
+    inst = _bootstrapped(tmp_path)
+    (inst / "secrets.sops.yaml").write_text(
+        "stays: ENC[AES256_GCM,data:x]\nsops:\n  version: '3'\n"
+    )
+    monkeypatch.setattr("planeops.secrets.stores.sops.default_run", _AddRecorder())
+    monkeypatch.setattr("builtins.input", lambda *a: "n")
+    assert main(["--repo", str(inst), "secrets", "remove", "stays"]) == 0
+    assert "stays" in (inst / "secrets.sops.yaml").read_text()
+
+
+def test_secrets_remove_unconfigured_name_is_loud(tmp_path, monkeypatch, capsys):
+    inst = _bootstrapped(tmp_path)
+    monkeypatch.setattr("planeops.secrets.stores.sops.default_run", _AddRecorder())
+    assert main(["--repo", str(inst), "secrets", "remove", "nope", "--yes"]) == 1
+    assert "not configured" in capsys.readouterr().err

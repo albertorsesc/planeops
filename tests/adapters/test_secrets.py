@@ -324,3 +324,22 @@ def test_materialization_creates_missing_parents_private(tmp_path):
     assert (parent / ".env").read_text() == "KEY=value\n"
     assert (tmp_path / "new").stat().st_mode & 0o777 == 0o700
     assert parent.stat().st_mode & 0o777 == 0o700
+
+
+def test_observe_surfaces_undeclared_store_keys():
+    # A key in the store that no entry declares is a shadow secret: it must
+    # land in the snapshot so drift can call it ungoverned.
+    class _Listing(FakeBackend):
+        def keys(self):
+            return self._present
+
+    a = SecretsAdapter(store=_Listing(["declared-key", "shadow-key"]))
+    out = a.observe(_ctx([_entry("declared-key")]))
+    assert [o.native_id for o in out] == ["declared-key", "shadow-key"]
+    assert all(o.facts["configured"] for o in out)
+
+
+def test_observe_without_enumeration_stays_declared_only():
+    out = SecretsAdapter(store=FakeBackend([])).observe(_ctx([_entry("only-declared")]))
+    assert [o.native_id for o in out] == ["only-declared"]
+    assert out[0].facts["configured"] is False

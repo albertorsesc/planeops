@@ -78,6 +78,26 @@ def status_state(
     return data if data is not None else {"error": "no drift report yet; run drift"}
 
 
+def secrets_names(repo_root: Path) -> dict[str, Any]:
+    """The secret NAMES in the configured store, never a value (identical to
+    `plane secrets list`). A pure read against the store file: no scan, no
+    decrypt, no write. `{"error": ...}` when no store is configured or the
+    store kind cannot enumerate."""
+    from planeops.secrets import EnumeratesKeys
+    from planeops.secrets.resolve import resolve_store
+
+    store = resolve_store(repo_root)
+    if store is None:
+        return {"error": "no secrets store is configured or shipped as default"}
+    if not isinstance(store, EnumeratesKeys):
+        return {"error": f"the {store.name!r} store cannot list its keys"}
+    try:
+        names = sorted(store.keys())
+    except ValueError as exc:  # a plaintext store is refused, not listed
+        return {"error": str(exc)}
+    return {"names": names, "count": len(names)}
+
+
 def mcp_view_state(
     repo_root: Path, *, platform: Platform | None = None
 ) -> dict[str, Any]:

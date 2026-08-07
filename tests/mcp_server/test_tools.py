@@ -121,3 +121,22 @@ def test_mcp_view_state_returns_the_cross_client_view(tmp_path, fake_platform):
 
 def test_mcp_view_state_errors_when_no_snapshot(tmp_path, fake_platform):
     assert "error" in mcp_view_state(tmp_path, platform=fake_platform(tmp_path))
+
+
+def test_secrets_names_lists_names_never_values(tmp_path):
+    from planeops.mcp_server.tools import secrets_names
+
+    (tmp_path / "secrets.sops.yaml").write_text(
+        "b-key: ENC[AES256_GCM,data:x]\na-key: ENC[AES256_GCM,data:y]\n"
+        "sops:\n  version: '3'\n"
+    )
+    out = secrets_names(tmp_path)
+    assert out == {"names": ["a-key", "b-key"], "count": 2}
+
+
+def test_secrets_names_refuses_a_plaintext_store_with_an_error(tmp_path):
+    from planeops.mcp_server.tools import secrets_names
+
+    (tmp_path / "secrets.sops.yaml").write_text("oops: plain\n")
+    out = secrets_names(tmp_path)
+    assert "not encrypted" in out["error"]
