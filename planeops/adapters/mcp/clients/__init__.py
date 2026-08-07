@@ -11,8 +11,15 @@ exists. Adding a client is dropping a module in; nothing central changes.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from pathlib import Path
+from typing import Any, Protocol, runtime_checkable
+
+# A scope reader: given the client's parsed main config and the home dir,
+# yields (scope-label, servers-mapping) pairs BEYOND the main key: e.g. a
+# per-project section, or a per-repo config file the main config points at.
+ScopeReader = Callable[[dict[str, Any], Path], list[tuple[str, dict[str, Any]]]]
 
 
 @runtime_checkable
@@ -24,6 +31,7 @@ class KnownClient(Protocol):
     logs: str | None  # per-server log template ({name}), or None
     binary: str | None  # installed-probe: a binary expected on PATH
     app: str | None  # installed-probe: an app bundle name
+    scopes: ScopeReader | None  # extra wiring scopes, or None
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +45,7 @@ class Client:
     logs: str | None = None
     binary: str | None = None
     app: str | None = None
+    scopes: ScopeReader | None = None
 
 
 def discover_clients() -> dict[str, KnownClient]:
