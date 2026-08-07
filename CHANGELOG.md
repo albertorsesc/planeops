@@ -6,6 +6,8 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-07
+
 ### Added
 
 - `plane secrets list` (names only, never values) and `plane secrets remove
@@ -469,7 +471,8 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   shell prompt kept showing stale state, the exact failure the ambient loop exists to
   prevent; `plane apply` already treated it as a change, so drift and apply now agree.
 
-[Unreleased]: https://github.com/albertorsesc/planeops/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/albertorsesc/planeops/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/albertorsesc/planeops/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/albertorsesc/planeops/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/albertorsesc/planeops/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/albertorsesc/planeops/releases/tag/v0.1.0
