@@ -65,6 +65,33 @@ class BootstrapsStore(Protocol):
 
 
 @runtime_checkable
+class EnumeratesKeys(Protocol):
+    """A store that can list its key NAMES (presence-level, never values), so
+    observe can surface a key nobody declared the same way it surfaces an
+    ungoverned service (ISP: a store kind whose backend forbids listing is
+    simply not an instance)."""
+
+    def keys(self) -> set[str]:
+        """Every secret name in the store. Never decrypts a value."""
+        ...
+
+
+@runtime_checkable
+class RemovesValues(Protocol):
+    """A store that can delete one value (ISP: separate from `AcceptsValues`
+    so either capability can exist without the other)."""
+
+    def remove_preview(self, name: str) -> list[str]:
+        """What `remove` WOULD do, for the confirm prompt."""
+        ...
+
+    def remove_value(self, name: str) -> str:
+        """Delete `name` from the store. Raises LookupError if it is not
+        configured. Returns the action line for the terminal."""
+        ...
+
+
+@runtime_checkable
 class AcceptsValues(Protocol):
     """A store that can write one value safely (ISP: separate from
     `SecretsStore` so a read-only store kind is simply not an instance).
@@ -126,6 +153,13 @@ class SecretsHandle:
 
     def meta(self, name: str) -> dict[str, Any] | None:
         return self._store.meta(name)
+
+    def keys(self) -> set[str] | None:
+        """Every secret NAME in the store (presence-level, allowed on this
+        handle), or None when the store kind cannot enumerate."""
+        if isinstance(self._store, EnumeratesKeys):
+            return self._store.keys()
+        return None
 
     def get(self, name: str) -> str:
         raise RedactionError(

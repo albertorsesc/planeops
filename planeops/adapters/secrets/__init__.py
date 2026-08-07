@@ -15,7 +15,7 @@ import contextlib
 import errno
 import os
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from planeops.config import section as instance_section
 from planeops.core.contracts import Change, Ctx, Observed, Result
@@ -29,6 +29,14 @@ class _Reader(Protocol):
     handle on Ctx both structurally satisfy this)."""
 
     def exists(self, name: str) -> bool: ...
+
+
+@runtime_checkable
+class _Enumerator(Protocol):
+    """A reader that can also list key NAMES (still presence-level). The
+    handle answers None when its store kind cannot enumerate."""
+
+    def keys(self) -> set[str] | None: ...
 
 
 class SecretsAdapter:
@@ -54,16 +62,31 @@ class SecretsAdapter:
         reader = self._reader(ctx)
         if reader is None:
             return []
-        return [
+        declared = {e.native_id for e in ctx.entries if e.adapter == self.name}
+        out = [
             Observed(
                 adapter=self.name,
-                native_id=entry.native_id,
-                facts={"configured": reader.exists(entry.native_id)},
+                native_id=name,
+                facts={"configured": reader.exists(name)},
                 version=None,
             )
-            for entry in ctx.entries
-            if entry.adapter == self.name
+            for name in sorted(declared)
         ]
+        # A key sitting in the store that no entry declares is a shadow secret:
+        # observed like any other machine fact, so drift surfaces it as
+        # ungoverned instead of the mirror staying silent about it.
+        stored = reader.keys() if isinstance(reader, _Enumerator) else None
+        out.extend(
+            Observed(
+                adapter=self.name,
+                native_id=name,
+                facts={"configured": True},
+                version=None,
+            )
+            for name in sorted(stored or set())
+            if name not in declared
+        )
+        return out
 
     def plan(self, entry: Entry, obs: Observed | None, ctx: Ctx) -> list[Change]:
         home = ctx.platform.home()

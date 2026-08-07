@@ -37,12 +37,13 @@ never recorded: they can hold secrets.
 ## The server: let your assistant read the plane
 
 Install the extra (`uv tool install "planeops[mcp]"`) and wire `plane-mcp` into
-your assistant. It exposes four read-only tools over stdio:
+your assistant. It exposes five read-only tools over stdio:
 
 - `planeops_observe`: fresh scan
 - `planeops_drift`: the triaged diff
 - `planeops_status`: the last drift report, no recompute
 - `planeops_mcp`: the server-by-client view above
+- `planeops_secrets_list`: the secret names in the store, never a value
 
 Your assistant can answer "what drifted on my machine this week?" and "which
 clients have the context7 server wired?" from real state instead of guessing.

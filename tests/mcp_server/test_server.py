@@ -23,6 +23,7 @@ def test_exposes_the_read_verbs_only():
         "planeops_drift",
         "planeops_status",
         "planeops_mcp",
+        "planeops_secrets_list",
     }
 
 

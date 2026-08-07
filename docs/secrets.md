@@ -73,6 +73,11 @@ command line, in the environment, or in any output. Piping works for password
 managers: `op read op://vault/key | plane secrets add openrouter-api-key --yes`.
 Rotating an existing value requires `--force`.
 
+`plane secrets list` prints the names in the store (names only, never values),
+and `plane secrets remove <name>` deletes one, behind a confirm. A key sitting
+in the store that no registry entry declares shows up in `plane drift` as
+ungoverned, the same way an undeclared service does.
+
 ## 3. When a value moves
 
 A value is decrypted exactly once, inside a confirmed `apply`, into the one file

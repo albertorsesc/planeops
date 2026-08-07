@@ -68,6 +68,11 @@ class SopsStore:
             )
         return {k for k in secrets if isinstance(k, str)}
 
+    def keys(self) -> set[str]:
+        """Every secret name in the store, key set only. Raises on a plaintext
+        store, same as every presence path."""
+        return self._keys()
+
     def exists(self, name: str) -> bool:
         return name in self._keys()
 
@@ -145,6 +150,36 @@ class SopsStore:
                 f"secret {name!r} is already configured in {self._store}; "
                 "pass --force to rotate its value"
             )
+        data = self._decrypt_all(rules)
+        data[name] = value
+        self._reseal(rules, data, name, expect_present=True)
+        return f"{'rotated' if rotating else 'added'} {name!r} in {self._store}"
+
+    def remove_preview(self, name: str) -> list[str]:
+        return [f"remove {name!r} from {self._store}"]
+
+    def remove_value(self, name: str) -> str:
+        """Delete one key through the same decrypt-mutate-reseal cycle as
+        `add_value`; the store is untouched on any failure."""
+        rules = self._store.parent / ".sops.yaml"
+        if not self._store.is_file():
+            raise LookupError(
+                f"no store at {self._store}; run `plane secrets init` first"
+            )
+        if not rules.is_file():
+            raise LookupError(
+                f"no sops rules at {rules}; run `plane secrets init` first"
+            )
+        if name not in self._keys():  # raises on a plaintext store
+            raise LookupError(f"secret {name!r} is not configured in {self._store}")
+        data = self._decrypt_all(rules)
+        data.pop(name, None)
+        self._reseal(rules, data, name, expect_present=False)
+        return f"removed {name!r} from {self._store}"
+
+    def _decrypt_all(self, rules: Path) -> dict[str, Any]:
+        """The whole store as a plain mapping, in memory only, ready to mutate
+        and reseal. Raises LookupError with the actionable tail on failure."""
         res = self._run(
             ["sops", "-d", "--config", str(rules), str(self._store)], timeout=60
         )
@@ -161,7 +196,16 @@ class SopsStore:
         if not isinstance(data, dict):
             raise LookupError(f"decrypted store {self._store} is not a mapping")
         data.pop("sops", None)
-        data[name] = value
+        return data
+
+    def _reseal(
+        self, rules: Path, data: dict[str, Any], name: str, *, expect_present: bool
+    ) -> None:
+        """Encrypt `data` through a transient owner-only file beside the store
+        (same filesystem, so the final swap is atomic) and verify the result is
+        fully encrypted, with `name` present or absent as the operation
+        demands, before replacing. The plaintext file is zeroed and removed on
+        every path out; the store is untouched on failure."""
         tmp_dir = Path(
             tempfile.mkdtemp(prefix=".plane-secrets-", dir=self._store.parent)
         )
@@ -182,13 +226,13 @@ class SopsStore:
                     f"{enc.err.strip()[-200:] or 'is sops installed?'}"
                 )
             out = yaml.load(tmp.read_text())
-            sealed = (
-                isinstance(out, dict)
-                and "sops" in out
-                and isinstance(out.get(name), str)
-                and out[name].startswith("ENC[")
-            )
-            if not sealed:
+            values_sealed = isinstance(out, dict) and "sops" in out and all(
+                isinstance(v, str) and v.startswith("ENC[")
+                for k, v in out.items()
+                if k != "sops"
+            )  # fmt: skip
+            name_ok = isinstance(out, dict) and (name in out) == expect_present
+            if not (values_sealed and name_ok):
                 raise LookupError(
                     "encrypt verification failed: refusing to replace the store "
                     "with a file that is not fully encrypted"
@@ -204,7 +248,6 @@ class SopsStore:
                 tmp.unlink(missing_ok=True)
             with contextlib.suppress(OSError):
                 tmp_dir.rmdir()
-        return f"{'rotated' if rotating else 'added'} {name!r} in {self._store}"
 
 
 def _sops_default_key_file(home: Path) -> Path:

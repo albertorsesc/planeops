@@ -164,3 +164,24 @@ def test_add_bootstraps_and_round_trips_through_the_real_cli(tmp_path, monkeypat
     text = store_file.read_text()
     assert "boot-key" in text and "bootstrap-REAL-value-77" not in text
     assert SopsStore(store_file).get("boot-key") == "bootstrap-REAL-value-77"
+
+
+def test_remove_value_round_trips_through_real_sops(tmp_path, monkeypatch):
+    store = _encrypted_store(tmp_path, monkeypatch)
+    recipient = subprocess.run(
+        ["age-keygen", "-y", tmp_path / "age.key"],
+        check=True, capture_output=True, text=True,
+    ).stdout.strip()  # fmt: skip
+    (tmp_path / ".sops.yaml").write_text(
+        "creation_rules:\n"
+        "  - path_regex: secrets\\.sops\\.yaml$\n"
+        f"    age: {recipient}\n"
+    )
+    backend = SopsStore(store)
+    backend.add_value("doomed", "doomed-REAL-value", force=False)
+    assert backend.get("doomed") == "doomed-REAL-value"
+    out = backend.remove_value("doomed")
+    assert "removed" in out
+    assert not backend.exists("doomed")
+    assert backend.get("api-key") == VALUE  # the survivor still decrypts
+    assert "doomed" not in store.read_text()
