@@ -6,6 +6,12 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- A parked entry no longer reports the `drifted` fact: a parked RunAtLoad
+  service that is unloaded deviates from its own definition on purpose, and
+  apply plans nothing for parked, so the report could only nag forever.
+
 ## [0.7.0] - 2026-08-08
 
 ### Added

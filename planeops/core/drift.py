@@ -139,7 +139,13 @@ def triage(
                         "attestation stale (>30d); run `plane observe --attest`",
                     )
                 )
-            if obs.facts.get("drifted"):
+            if obs.facts.get("drifted") and entry.lifecycle in (
+                Lifecycle.active,
+                Lifecycle.maintain,
+            ):
+                # A parked asset deviating from its own definition (an unloaded
+                # RunAtLoad service) IS the desired dormancy, and apply plans
+                # nothing for parked; reporting it would nag forever.
                 _soft_section(report, entry.tolerance).append(
                     _item(entry, "drifted from its declared source; apply to converge")
                 )
