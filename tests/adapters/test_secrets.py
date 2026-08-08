@@ -87,14 +87,14 @@ def test_observe_reports_presence_only():
     out = {
         o.native_id: o for o in a.observe(_ctx([_entry("openrouter"), _entry("gone")]))
     }
-    assert out["openrouter"].facts == {"configured": True}
-    assert out["gone"].facts == {"configured": False}
+    assert out["openrouter"].facts == {"configured": True, "present": True}
+    assert out["gone"].facts == {"configured": False, "present": False}
     assert out["openrouter"].key == "secrets/openrouter"
 
 
 def test_observe_never_carries_a_value():
     o = SecretsAdapter(store=FakeBackend(["k"])).observe(_ctx([_entry("k")]))[0]
-    assert set(o.facts) == {"configured"} and o.version is None
+    assert set(o.facts) == {"configured", "present"} and o.version is None
 
 
 def test_ignores_non_secret_entries():
@@ -125,8 +125,8 @@ def test_default_store_resolves_at_the_instance_root(tmp_path):
             _ctx([_entry("openrouter-api-key"), _entry("absent")], repo_root=tmp_path)
         )
     }
-    assert out["openrouter-api-key"].facts == {"configured": True}
-    assert out["absent"].facts == {"configured": False}
+    assert out["openrouter-api-key"].facts == {"configured": True, "present": True}
+    assert out["absent"].facts == {"configured": False, "present": False}
 
 
 def test_store_path_is_overridable_via_instance_yaml(tmp_path):
@@ -138,7 +138,7 @@ def test_store_path_is_overridable_via_instance_yaml(tmp_path):
         "secrets:\n  store: sops\n  sops:\n    path: vault.sops.yaml\n"
     )
     out = SecretsAdapter().observe(_ctx([_entry("k")], repo_root=tmp_path))
-    assert out[0].facts == {"configured": True}
+    assert out[0].facts == {"configured": True, "present": True}
 
 
 # ---- materialization ------------------------------------------------------

@@ -6,6 +6,22 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- A completed retirement asks for its own cleanup: a retired/purge entry
+  whose reality has converged reports "complete; remove the entry from the
+  registry", so the registry stays current intent and history lives in git.
+
+### Fixed
+
+- Lifecycle governs secrets like everything else: a `parked` secret is
+  deliberately dormant, so unconfigured is its expected state (no alert, no
+  re-auth line); the "required secret is not configured" alert applies to
+  active/maintain entries only. The secrets adapter also declares presence
+  for its domain (`present` = value in the store), so a retired secret
+  without a value is conformant and one with a lingering value correctly
+  flags for `plane secrets remove`.
+
 ## [0.6.1] - 2026-08-07
 
 ### Fixed
