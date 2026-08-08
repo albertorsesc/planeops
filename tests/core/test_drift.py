@@ -48,10 +48,13 @@ def test_retired_but_present_is_alert():
     assert "retired" in rep.alerts[0].message
 
 
-def test_retired_and_absent_is_silent():
+def test_retired_and_absent_reports_completion():
+    # The entry was a work order; once reality converged, the closing move is
+    # deleting the line, and the report says so until it happens.
     e = _entry(lifecycle="retired")
     rep = triage([e], {}, IMPL)
-    assert not rep.alerts and not rep.report
+    assert not rep.alerts and len(rep.report) == 1
+    assert "remove the entry" in rep.report[0].message
 
 
 def test_stale_attestation_is_report_not_alert():
@@ -323,13 +326,15 @@ def test_json_pane_includes_ungoverned_and_bumps_schema():
 # ---- semantic presence: retired means "not running", purge means "no file" ----
 
 
-def test_retired_entry_with_semantically_absent_obs_is_silent():
+def test_retired_entry_with_semantically_absent_obs_reports_completion():
     # A booted-out service whose file remains on disk must not alert forever
     # while apply plans nothing (already unloaded). The adapter says what
-    # "present" means for its domain: retired + present=False is conformant.
+    # "present" means for its domain: retired + present=False is conformant,
+    # and the completed retirement asks for its entry to be removed.
     e = _entry(lifecycle="retired")
     rep = triage([e], {"manual/x": _obs("manual/x", present=False)}, IMPL)
-    assert not rep.alerts and not rep.report
+    assert not rep.alerts and len(rep.report) == 1
+    assert "remove the entry" in rep.report[0].message
 
 
 def test_retired_entry_with_semantically_present_obs_still_alerts():
@@ -419,3 +424,41 @@ def test_reauth_clears_once_the_credential_is_configured():
     }
     rep = triage([done, pending, unobserved], observed, IMPL)
     assert [i.entry_id for i in rep.reauth] == ["secrets/pending", "secrets/gone"]
+
+
+def _secret(name, **over):
+    base = {
+        "id": f"secrets/{name}",
+        "adapter": "secrets",
+        "domain": "secret",
+        "lifecycle": "active",
+        "intent": "i",
+    }
+    base.update(over)
+    return entry_from_dict(base)
+
+
+def test_parked_secret_unconfigured_is_silent():
+    # Parked means deliberately dormant: unconfigured is the expected state,
+    # and there is nothing to re-auth right now.
+    e = _secret("dormant", lifecycle="parked", auth="interactive")
+    obs = {"secrets/dormant": _obs("secrets/dormant", configured=False, present=False)}
+    rep = triage([e], obs, {"secrets"})
+    assert not rep.alerts and not rep.report and not rep.reauth
+
+
+def test_retired_secret_unconfigured_reports_completion():
+    e = _secret("gone", lifecycle="retired")
+    obs = {"secrets/gone": _obs("secrets/gone", configured=False, present=False)}
+    rep = triage([e], obs, {"secrets"})
+    assert not rep.alerts and len(rep.report) == 1
+    assert "remove the entry" in rep.report[0].message
+
+
+def test_retired_secret_with_a_lingering_value_alerts():
+    e = _secret("lingering", lifecycle="retired")
+    obs = {
+        "secrets/lingering": _obs("secrets/lingering", configured=True, present=True)
+    }
+    rep = triage([e], obs, {"secrets"})
+    assert len(rep.alerts) == 1 and "still observed present" in rep.alerts[0].message

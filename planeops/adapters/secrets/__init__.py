@@ -67,7 +67,14 @@ class SecretsAdapter:
             Observed(
                 adapter=self.name,
                 native_id=name,
-                facts={"configured": reader.exists(name)},
+                # `present` declares what presence MEANS for this domain: a
+                # secret is present when its value is in the store, so a
+                # retired-but-unconfigured secret is conformant and a retired
+                # one whose value lingers correctly flags for removal.
+                facts={
+                    "configured": (present := reader.exists(name)),
+                    "present": present,
+                },
                 version=None,
             )
             for name in sorted(declared)
@@ -80,7 +87,7 @@ class SecretsAdapter:
             Observed(
                 adapter=self.name,
                 native_id=name,
-                facts={"configured": True},
+                facts={"configured": True, "present": True},
                 version=None,
             )
             for name in sorted(stored or set())

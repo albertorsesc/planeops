@@ -65,7 +65,10 @@ def triage(
         # credential whose observation says configured has been restored and
         # drops off; the checklist must empty as the human works it, never
         # stand as a permanent fixture.
-        if entry.auth is Auth.interactive:
+        if entry.auth is Auth.interactive and entry.lifecycle in (
+            Lifecycle.active,
+            Lifecycle.maintain,
+        ):
             obs = observed_by_key.get(entry.id)
             if not (obs and obs.facts.get("configured")):
                 report.reauth.append(
@@ -105,13 +108,29 @@ def triage(
                         f"listed {entry.lifecycle.value} but still observed present",
                     )
                 )
+            else:
+                # Reality converged: the entry was a work order and the work is
+                # done. The registry holds current intent, not history (git
+                # does), so the closing move is deleting the line.
+                report.report.append(
+                    _item(
+                        entry,
+                        f"{entry.lifecycle.value} complete; "
+                        "remove the entry from the registry",
+                    )
+                )
         elif obs is None:
             if entry.lifecycle in (Lifecycle.active, Lifecycle.maintain):
                 report.alerts.append(_item(entry, "expected present, not observed"))
             else:
                 report.report.append(_item(entry, "parked but not observed"))
         else:
-            if obs.facts.get("configured") is False:
+            if obs.facts.get("configured") is False and entry.lifecycle in (
+                Lifecycle.active,
+                Lifecycle.maintain,
+            ):
+                # A parked secret is deliberately dormant: unconfigured is its
+                # expected state, not a violation.
                 report.alerts.append(_item(entry, "required secret is not configured"))
             if obs.facts.get("stale"):
                 _soft_section(report, entry.tolerance).append(
