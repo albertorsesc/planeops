@@ -61,11 +61,16 @@ def triage(
     entries = list(entries)  # walked twice: per-entry triage, then dependency checks
     for entry in entries:
         # The re-auth checklist is coverage-independent: any interactive
-        # credential contributes a line even when its adapter is unbuilt.
+        # credential contributes a line even when its adapter is unbuilt. A
+        # credential whose observation says configured has been restored and
+        # drops off; the checklist must empty as the human works it, never
+        # stand as a permanent fixture.
         if entry.auth is Auth.interactive:
-            report.reauth.append(
-                _item(entry, "interactive credential; re-auth after migration")
-            )
+            obs = observed_by_key.get(entry.id)
+            if not (obs and obs.facts.get("configured")):
+                report.reauth.append(
+                    _item(entry, "interactive credential; re-auth after migration")
+                )
 
         if entry.adapter not in implemented:
             report.uncovered.append(

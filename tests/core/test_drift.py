@@ -401,3 +401,21 @@ def test_malformed_observed_items_are_skipped_not_fatal(tmp_path):
     )
     rep = run_drift(tmp_path, platform=_Plat(), write=False)
     assert not rep.alerts  # manual/x observed; junk items didn't poison the run
+
+
+def test_reauth_clears_once_the_credential_is_configured():
+    # The checklist must empty as the human works it: a configured interactive
+    # credential drops off; an unconfigured or unobserved one stays.
+    def secret(name):
+        return entry_from_dict(
+            {"id": f"secrets/{name}", "adapter": "secrets", "domain": "secret",
+             "lifecycle": "active", "auth": "interactive", "intent": "i"}
+        )  # fmt: skip
+
+    done, pending, unobserved = secret("done"), secret("pending"), secret("gone")
+    observed = {
+        "secrets/done": _obs("secrets/done", configured=True),
+        "secrets/pending": _obs("secrets/pending", configured=False),
+    }
+    rep = triage([done, pending, unobserved], observed, IMPL)
+    assert [i.entry_id for i in rep.reauth] == ["secrets/pending", "secrets/gone"]
