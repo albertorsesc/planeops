@@ -7,7 +7,7 @@ makes visible (single-client, name drift, ungoverned).
 
 import json
 
-from planeops.adapters.mcp.view import build_mcp_view, read_mcp_view, render_mcp_view
+from planeops.adapters.mcp.view import build_mcp_view, read_mcp_view
 
 
 def _snapshot(servers, host="testhost", ts="2026-07-29T00:00:00"):
@@ -114,17 +114,6 @@ def test_read_mcp_view_is_none_on_a_torn_or_corrupt_snapshot(tmp_path, fake_plat
     d.mkdir(parents=True)
     (d / "snapshot.json").write_text("{partial")  # invalid / half-written JSON
     assert read_mcp_view(tmp_path, platform=fake_platform(tmp_path)) is None
-
-
-def test_render_lists_servers_their_clients_and_the_flags():
-    view = build_mcp_view(
-        _snapshot({"context7": ["claude-code"], "tolaria": ["cursor"]}),
-        declared_ids={"mcp/context7"},
-    )
-    out = render_mcp_view(view)
-    assert "context7" in out and "claude-code" in out
-    assert "tolaria" in out and "cursor" in out
-    assert "ungoverned" in out.lower()
 
 
 def test_read_mcp_view_none_on_valid_json_that_is_not_an_object(

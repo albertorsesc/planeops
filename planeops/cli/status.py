@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 
 from planeops.cli.instance import instance_root
 
 
 def _cmd(args: argparse.Namespace) -> int:
     from planeops.core.status import read_status
+    from planeops.providers import ui
 
     repo = instance_root(args)
     data = read_status(repo)  # last DRIFT.json, no recompute
@@ -19,7 +19,7 @@ def _cmd(args: argparse.Namespace) -> int:
             # --json is a machine contract: stdout always parses as JSON.
             print(json.dumps({"error": "no drift report yet; run `plane drift`"}))
         elif not args.short:  # a prompt wants silence, not an error, when unseeded
-            print("no drift report yet; run `plane drift`", file=sys.stderr)
+            ui.note("no drift report yet; run `plane drift`")
         return 0
     # A hand-edited or older-schema report may miss keys; the prompt path must
     # degrade, never traceback.
@@ -28,22 +28,32 @@ def _cmd(args: argparse.Namespace) -> int:
         print(json.dumps(data, indent=2))
     elif args.short:  # a shell-prompt token: nothing when clean
         if alerts:
-            print(f"drift:{alerts}")
+            ui.warn(f"drift:{alerts}")
     else:
-        summary = data.get("summary") or {}
-        print(
-            f"{alerts} alert(s), {summary.get('report', 0)} report, "
-            f"{summary.get('uncovered', 0)} uncovered (as of {data.get('ts', '?')})"
-        )
+        from planeops.cli._text import human_ts
+
+        host = data.get("host") or "this host"
+        when = f"as of {human_ts(data.get('ts'))}"
+        if alerts:
+            ui.headline("alert", f"{alerts} alert(s) on {host}", detail=when)
+        else:
+            ui.headline("ok", f"clean on {host}", detail=when)
         # Resolution is invisible by design; the full status names which
         # instance answered so a wrong-instance reading is self-evident.
-        print(f"instance: {repo}")
+        ui.line("instance", detail=str(repo))
     return 2 if alerts else 0
 
 
 def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     p = sub.add_parser(
-        "status", help="show the last drift report without recomputing (read-only)"
+        "status",
+        help="show the last drift report without recomputing (read-only)",
+        description=(
+            "The cheap 'is there drift right now?' read: prints the recorded "
+            "DRIFT.json summary without scanning anything. --short prints a "
+            "compact drift:N token (and nothing when clean), made for a shell "
+            "prompt. Exit code 2 means the recorded report has alerts."
+        ),
     )
     p.add_argument(
         "--json", dest="as_json", action="store_true",

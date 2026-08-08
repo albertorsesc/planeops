@@ -70,7 +70,9 @@ def _append_journal(observed_dir: Path, host: str, now: datetime, a: Applied) ->
 
 
 def prompt_confirm(change: Change) -> str:
-    print(change.diff)
+    from planeops.providers import ui
+
+    ui.panel(f"{change.entry_id} · {change.kind}", change.diff)
     try:
         answer = input(
             f"apply {change.entry_id} [{change.kind}]? "

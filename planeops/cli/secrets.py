@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 from planeops.cli.instance import instance_root
+from planeops.providers import ui
 
 
 def _cmd_init(args: argparse.Namespace) -> int:
@@ -26,23 +27,20 @@ def _cmd_init(args: argparse.Namespace) -> int:
             "see its documentation for manual setup"
         )
     age_key = Path(args.age_key).expanduser() if args.age_key else None
-    print("secrets init will write:")
+    ui.title("secrets init will write:")
     for line in provider.bootstrap_preview(repo, age_key_file=age_key):
-        print(f"  {line}")
+        ui.line(f"  {line}")
     if not args.yes:
         try:
             answer = input("proceed? (y/N) ")
         except (EOFError, OSError):
             answer = ""
         if answer.strip().lower()[:1] != "y":
-            print(
-                "not initialized (use --yes to run non-interactively)",
-                file=sys.stderr,
-            )
+            ui.note("not initialized (use --yes to run non-interactively)")
             return 0
     for action in provider.bootstrap(repo, age_key_file=age_key):
-        print(action)
-    print("store ready; declare secrets in the registry, then `plane observe`")
+        ui.line(action)
+    ui.good("store ready; declare secrets in the registry, then `plane observe`")
     return 0
 
 
@@ -79,19 +77,19 @@ def _cmd_add(args: argparse.Namespace) -> int:
                 "self-bootstrap; see its documentation for manual setup"
             )
         age_key = Path(args.age_key).expanduser() if args.age_key else None
-        print("no secrets store yet; add will first initialize it:")
+        ui.title("no secrets store yet; add will first initialize it:")
         for line in provider.bootstrap_preview(repo, age_key_file=age_key):
-            print(f"  {line}")
+            ui.line(f"  {line}")
         if not args.yes:
             try:
                 answer = input("initialize? (y/N) ")
             except (EOFError, OSError):
                 answer = ""
             if answer.strip().lower()[:1] != "y":
-                print("not initialized; nothing written", file=sys.stderr)
+                ui.note("not initialized; nothing written")
                 return 0
         for action in provider.bootstrap(repo, age_key_file=age_key):
-            print(action)
+            ui.line(action)
         store = resolve_store(repo)
         if not isinstance(store, AcceptsValues) or not store.ready():
             raise LookupError(
@@ -99,7 +97,7 @@ def _cmd_add(args: argparse.Namespace) -> int:
                 "store path in instance.yaml needs its own `plane secrets init`"
             )
     for line in store.add_preview(name):
-        print(line)
+        ui.line(line)
     if interactive:
         # The value is typed blind, so a typo would be invisible forever:
         # require the same blind entry twice before anything is written.
@@ -110,7 +108,7 @@ def _cmd_add(args: argparse.Namespace) -> int:
         value = sys.stdin.readline().rstrip("\n")
     if not value:
         raise LookupError("empty value; nothing written")
-    print(store.add_value(name, value, force=args.force))
+    ui.good(store.add_value(name, value, force=args.force))
     return 0
 
 
@@ -127,10 +125,10 @@ def _cmd_list(args: argparse.Namespace) -> int:
         )
     names = sorted(store.keys())
     if not names:
-        print("no secrets in the store")
+        ui.line("no secrets in the store")
         return 0
     for name in names:
-        print(name)
+        ui.line(name)
     return 0
 
 
@@ -152,22 +150,30 @@ def _cmd_remove(args: argparse.Namespace) -> int:
             "`plane secrets remove`; see its documentation for manual removal"
         )
     for line in store.remove_preview(name):
-        print(line)
+        ui.line(line)
     if not args.yes:
         try:
             answer = input("remove? (y/N) ")
         except (EOFError, OSError):
             answer = ""
         if answer.strip().lower()[:1] != "y":
-            print("not removed (use --yes to run non-interactively)", file=sys.stderr)
+            ui.note("not removed (use --yes to run non-interactively)")
             return 0
-    print(store.remove_value(name))
+    ui.good(store.remove_value(name))
     return 0
 
 
 def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     p = sub.add_parser(
-        "secrets", help="secrets store actions (init, add, list, remove)"
+        "secrets",
+        help="secrets store actions (init, add, list, remove)",
+        description=(
+            "Manage the encrypted secrets store: init bootstraps it (identity, "
+            "rules, empty store), add puts one value in (prompted blind, never "
+            "on a command line), list prints the names only, remove deletes one "
+            "behind a confirm. Values are decrypted only inside a confirmed "
+            "apply, never here."
+        ),
     )
     actions = p.add_subparsers(dest="action", required=True)
     init = actions.add_parser(

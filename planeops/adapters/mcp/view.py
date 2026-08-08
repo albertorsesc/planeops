@@ -100,34 +100,3 @@ def read_mcp_view(
         return None
     declared_ids = {e.id for e in load_registry(repo_root / "registry").entries}
     return build_mcp_view(snapshot, declared_ids)
-
-
-def render_mcp_view(view: dict[str, Any]) -> str:
-    """Human-readable rendering: a `server -> clients` table, then the single-client,
-    ungoverned, and name-drift call-outs."""
-    servers = view["servers"]
-    host = view.get("host") or "this host"
-    ts = view.get("ts")
-    lines = [f"MCP servers on {host}" + (f" (as of {ts})" if ts else "") + ":", ""]
-    if not servers:
-        lines.append(
-            "  (none observed; add mcp.sources to instance.yaml, then `plane observe`)"
-        )
-        return "\n".join(lines) + "\n"
-
-    width = max(len(s["name"]) for s in servers)
-    for s in servers:
-        clients = ", ".join(s["clients"]) or "(none)"
-        tag = "" if s["governed"] else "  (ungoverned)"
-        lines.append(f"  {s['name']:<{width}}  {clients}{tag}")
-
-    if view["single_client"]:
-        joined = ", ".join(view["single_client"])
-        lines += ["", f"single-client (reuse candidates): {joined}"]
-    if view["ungoverned"]:
-        joined = ", ".join(view["ungoverned"])
-        lines.append(f"ungoverned (observed, not in the registry): {joined}")
-    if view["name_drift"]:
-        lines.append("name drift (same tool, different names):")
-        lines += ["  " + ", ".join(g["names"]) for g in view["name_drift"]]
-    return "\n".join(lines) + "\n"

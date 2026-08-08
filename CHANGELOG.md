@@ -6,6 +6,27 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- A designed terminal experience behind a presentation port
+  (`planeops/providers/ui`; the fitness test bans drawing imports anywhere
+  else). `plane drift` renders its triage inline: a state headline, then
+  alert/report/ungoverned/re-auth sections with aligned ids, symbols
+  carrying state so color is never load-bearing, shared messages stated
+  once, big sections truncated to the file. `plane observe` answers with a
+  per-adapter breakdown, `plane status` in two calm lines, `plane mcp` as a
+  bordered table with one client per line, and `plane apply` frames each
+  diff in the tool's only panel. Styling appears only on a terminal: piped
+  output stays plain, `NO_COLOR` is respected, `--json` and `--short` are
+  byte-untouched.
+- Every `--help` page is styled and every verb carries a full description,
+  so the CLI documents itself.
+
+### Changed
+
+- Runtime dependencies grow from one to three: `rich` and `rich-argparse`
+  join `ruamel.yaml`, both confined to the presentation leaf.
+
 ## [0.5.0] - 2026-08-07
 
 ### Added

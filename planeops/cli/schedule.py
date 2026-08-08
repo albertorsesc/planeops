@@ -5,7 +5,6 @@ the confirm gate, and the interval grammar."""
 from __future__ import annotations
 
 import argparse
-import sys
 
 
 def _parse_every(value: str) -> int:
@@ -25,13 +24,13 @@ def _cmd(args: argparse.Namespace) -> int:
     from planeops.core.statefile import atomic_write
     from planeops.importers import render_proposal
     from planeops.platform import current_platform
-    from planeops.providers import yaml
+    from planeops.providers import ui, yaml
     from planeops.schedulers import current_scheduler
 
     try:
         interval = _parse_every(args.every)
     except ValueError:
-        print(f"--every must be like 6h/30m/90s (got {args.every!r})", file=sys.stderr)
+        ui.err(f"--every must be like 6h/30m/90s (got {args.every!r})")
         return 1
 
     home = current_platform().home()
@@ -39,10 +38,10 @@ def _cmd(args: argparse.Namespace) -> int:
     plane = which or str(home / ".local" / "bin" / "plane")
     if which is None and not (home / ".local" / "bin" / "plane").exists():
         # The job would silently fail at fire time; say so at schedule time.
-        print(
+        ui.warn(
             f"warning: plane is not on PATH and {plane} does not exist; the "
             "scheduled job may fail until planeops is installed there",
-            file=sys.stderr,
+            stderr=True,
         )
     scheduler = current_scheduler()  # NotImplementedError -> main()'s handler
 
@@ -56,32 +55,32 @@ def _cmd(args: argparse.Namespace) -> int:
             off=args.off,
         )
     except ValueError as exc:  # a backend refusing an unsafe value (not central:
-        print(str(exc), file=sys.stderr)  # ValueError is too broad to catch there)
+        ui.err(str(exc))  # ValueError is too broad to catch there)
         return 1
 
     repo = instance_root(args)
     # schedule writes machine state (job files + a registry entry): show what it
     # will write and confirm, the same posture as `import --write`. No readable
     # stdin and no --yes: write nothing.
-    print("schedule will write:")
+    ui.title("schedule will write:")
     for path in job.files:
-        print(f"  {path}")
-    print(f"  {repo / 'registry' / 'schedule.yaml'} declaring:")
+        ui.line(f"  {path}")
+    ui.line(f"  {repo / 'registry' / 'schedule.yaml'} declaring:")
     entry_doc: dict[str, object] = {"entries": job.entries}
-    print("    " + yaml.dump(entry_doc).rstrip().replace("\n", "\n    "))
+    ui.line("    " + yaml.dump(entry_doc).rstrip().replace("\n", "\n    "))
     if not args.yes:
         try:
             answer = input("proceed? (y/N) ")
         except (EOFError, OSError):
             answer = ""
         if answer.strip().lower()[:1] != "y":
-            print("not written (use --yes to write non-interactively)", file=sys.stderr)
+            ui.note("not written (use --yes to write non-interactively)")
             return 0
 
     for path, content in job.files.items():
         path.parent.mkdir(parents=True, exist_ok=True)
         atomic_write(path, content)
-        print(f"wrote {path}")
+        ui.good(f"wrote {path}")
 
     schedule_yaml = repo / "registry" / "schedule.yaml"
     schedule_yaml.parent.mkdir(parents=True, exist_ok=True)
@@ -89,7 +88,7 @@ def _cmd(args: argparse.Namespace) -> int:
     if job.globs:
         text += "\n" + yaml.dump({"globs": job.globs})
     atomic_write(schedule_yaml, text)
-    print(f"declared {schedule_yaml}")
+    ui.good(f"declared {schedule_yaml}")
 
     # `plane apply` plans from the snapshot; without this refresh the just-written
     # job file is invisible and the hinted next step reports "no changes planned".
@@ -101,18 +100,18 @@ def _cmd(args: argparse.Namespace) -> int:
     }
     job_ids = {e.get("id") for e in job.entries if isinstance(e, dict)}
     if job_ids & observed_keys:
-        print(
+        ui.good(
             f"observed {len(snap['observed'])} fact(s); the new job is in the snapshot"
         )
-        print(job.hint)
+        ui.line(job.hint)
     else:
         # The scan can fail silently (e.g. no user session bus); claiming
         # presence then would be a lie. Say what actually happened.
-        print(
+        ui.warn(
             "warning: the new job did not appear in the snapshot (adapter scan "
             "failed? see `plane drift` alerts); fix that, then `plane observe` "
             "and `plane apply`",
-            file=sys.stderr,
+            stderr=True,
         )
     return 0
 
@@ -121,6 +120,13 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     p = sub.add_parser(
         "schedule",
         help="set up the ambient reconcile timer (then `plane apply` loads it)",
+        description=(
+            "Write the OS-native timer files (launchd on macOS, systemd on Linux) "
+            "that run `plane reconcile` on an interval, plus a registry entry "
+            "declaring the job, all previewed and confirmed first. The job itself "
+            "is then governed like any other entry: `plane apply` loads it, "
+            "--off retires it."
+        ),
     )
     p.add_argument(
         "--every", default="6h", help="run interval: 6h / 30m / 90s (default 6h)"

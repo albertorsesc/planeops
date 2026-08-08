@@ -28,6 +28,8 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
+    "rich>=13",
+    "rich-argparse>=1.6",
     "ruamel-yaml>=0.18",
 ]
 
