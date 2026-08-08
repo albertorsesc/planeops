@@ -21,7 +21,11 @@ def test_mcp_prints_the_human_view(monkeypatch, capsys, inst):
     )
     assert main(["--repo", inst, "mcp"]) == 0
     out = capsys.readouterr().out
-    assert "context7" in out and "(ungoverned)" in out
+    assert "context7" in out and "ungoverned" in out
+    [tolaria_line] = [
+        ln for ln in out.splitlines() if "tolaria" in ln and "," not in ln
+    ]
+    assert "ungoverned" in tolaria_line  # the flag rides the server's own row
 
 
 def test_mcp_json_emits_the_structured_view(monkeypatch, capsys, inst):

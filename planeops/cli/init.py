@@ -29,15 +29,18 @@ def _seed_from_machine(inst: Path) -> None:
 
     from planeops.core.observe import run_observe
     from planeops.importers import discover_importers, write_proposal
+    from planeops.providers import ui
 
-    print("seeding the registry from this machine (observe -> import)...")
+    ui.line("seeding the registry from this machine (observe -> import)...")
     snap = run_observe(inst)
     entries = discover_importers()["observed"].propose(json.dumps(snap), inst)
     if not entries:
-        print("  nothing observed to seed")
+        ui.line("  nothing observed to seed")
         return
     written, total = write_proposal(entries, inst)
-    print(f"  wrote {n_entries(len(entries))} to {written}; prune, then `plane drift`")
+    ui.good(
+        f"  wrote {n_entries(len(entries))} to {written}; prune, then `plane drift`"
+    )
 
 
 def _resolve_target(args: argparse.Namespace) -> Path | None:
@@ -54,12 +57,11 @@ def _resolve_target(args: argparse.Namespace) -> Path | None:
     try:
         answer = input(f"create the instance at {default}? (path or Enter to accept) ")
     except (EOFError, OSError):
-        import sys
+        from planeops.providers import ui
 
-        print(
+        ui.err(
             "no path given and no way to ask: pass a path "
-            "(`plane init <path>`) or --yes for the default",
-            file=sys.stderr,
+            "(`plane init <path>`) or --yes for the default"
         )
         return None
     return Path(answer.strip()).expanduser() if answer.strip() else default
@@ -68,24 +70,34 @@ def _resolve_target(args: argparse.Namespace) -> Path | None:
 def _cmd(args: argparse.Namespace) -> int:
     from planeops.core.init import init_instance
     from planeops.core.locate import config_home
+    from planeops.providers import ui
 
     path = _resolve_target(args)
     if path is None:
         return 1
     for action in init_instance(path, config_home(), force=args.force):
-        print(action)
+        ui.line(action)
     inst = path.expanduser().resolve()
-    print(f"\ninstance ready at {inst}")
+    ui.line("")
+    ui.good(f"instance ready at {inst}")
     if _should_seed(args):
         _seed_from_machine(inst)
     else:
-        print("next: `plane observe && plane import observed --write`, then drift")
+        ui.line("next: `plane observe && plane import observed --write`, then drift")
     return 0
 
 
 def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     p = sub.add_parser(
-        "init", help="scaffold an instance and register it in ~/.config/planeops"
+        "init",
+        help="scaffold an instance and register it in ~/.config/planeops",
+        description=(
+            "Create a planeops instance: the directory that holds your registry "
+            "(desired state), instance.yaml (this machine's adapter settings), and "
+            "generated observations. Asks where to put it unless a path or --yes "
+            "is given, then offers to seed the registry from what is already "
+            "installed so onboarding is pruning, not authoring."
+        ),
     )
     p.add_argument(
         "path",

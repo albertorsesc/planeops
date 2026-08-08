@@ -181,6 +181,8 @@ def test_third_party_libraries_live_only_in_their_provider_ring():
     ring = {
         "ruamel": "planeops/providers/yaml",
         "yaml": "planeops/providers/yaml",  # the old direct pyyaml habit
+        "rich": "planeops/providers/ui",
+        "rich_argparse": "planeops/providers/ui",
     }
     offenders = []
     for p in Path("planeops").rglob("*.py"):

@@ -34,7 +34,7 @@ def test_drift_without_json_prints_human_summary_not_json(monkeypatch, capsys, i
     monkeypatch.setattr("planeops.core.drift.run_drift", lambda repo: _report(alerts=0))
     code = main(["--repo", inst, "drift"])
     out = capsys.readouterr().out
-    assert "alert(s)" in out and "DRIFT.md" in out
+    assert "no drift" in out
     assert not out.lstrip().startswith("{")
     assert code == 0
 

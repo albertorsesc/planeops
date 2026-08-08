@@ -13,7 +13,6 @@ confirmation before each mutation; the engine owns that gate, not the adapters.
 from __future__ import annotations
 
 import argparse
-import sys
 from typing import cast
 
 from planeops import __version__
@@ -47,17 +46,27 @@ _VERBS = (
 )
 
 
+class _Parser(argparse.ArgumentParser):
+    """ArgumentParser with the styled help formatter as its default; passed as
+    `parser_class` below, argparse propagates it to every subcommand (nested
+    ones included), so one class styles the whole help surface."""
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        from planeops.providers import ui
+
+        kwargs.setdefault("formatter_class", ui.help_formatter())
+        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="plane", description="personal AI control plane"
-    )
+    parser = _Parser(prog="plane", description="personal AI control plane")
     parser.add_argument("--version", action="version", version=f"plane {__version__}")
     parser.add_argument(
         "--repo",
         default=None,
         help="instance root; else $PLANEOPS_INSTANCE, ~/.config/planeops, or cwd",
     )
-    sub = parser.add_subparsers(dest="verb", required=True)
+    sub = parser.add_subparsers(dest="verb", required=True, parser_class=_Parser)
     for verb in _VERBS:
         verb.register(sub)
     return parser
@@ -75,7 +84,9 @@ def main(argv: list[str] | None = None) -> int:
         # missing/torn snapshot, unknown --id, unsupported platform): every
         # verb, current and future, gets the same clean message + exit 1
         # instead of each handler re-implementing the catch.
-        print(str(exc), file=sys.stderr)
+        from planeops.providers import ui
+
+        ui.err(str(exc))
         return 1
 
 

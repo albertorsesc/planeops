@@ -81,4 +81,5 @@ def test_apply_failed_execute_exits_1(monkeypatch, capsys, inst):
     )
     monkeypatch.setattr("planeops.core.drift.run_drift", lambda repo: _report())
     assert main(["--repo", inst, "apply"]) == 1
-    assert "FAILED" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "✗" in out and "failed" in out

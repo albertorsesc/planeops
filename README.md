@@ -25,19 +25,16 @@ first.
 
 ```console
 $ plane status --short
-drift:6
+drift:2
 
 $ plane drift
-6 alert(s), 0 report, 2 uncovered -> ~/planeops/observed/mymac/DRIFT.md
+✗ 2 alert(s) on mymac 16:20
 
-$ cat ~/planeops/observed/mymac/DRIFT.md
-# DRIFT
-...
-## Alerts (6)
-- `launchd/ai.gateway` (unregistered): ungoverned always-on service;
-  declare it or add an unmanaged glob
-- `ollama/qwen3:8b` (active): expected present, not observed
-...
+alerts (2)
+  ✗ launchd/ai.gateway  ungoverned always-on service; declare it or add an unmanaged glob
+  ✗ ollama/qwen3:8b     expected present, not observed
+
+  full report ~/planeops/observed/mymac/DRIFT.md
 ```
 
 *A machine with six things running that nobody wrote down, caught by one
@@ -104,8 +101,10 @@ instance ready at /Users/you/planeops
 
 # scan the machine, diff it against the registry
 $ plane observe
+✓ observed 73 facts on mymac /Users/you/planeops/observed/mymac/snapshot.json
+  brew 21 · mcp 14 · ollama 9 · npm 8 · launchd 6 · ...
 $ plane drift
-0 alert(s), 3 report, 0 uncovered -> /Users/you/planeops/observed/mymac/DRIFT.md
+✓ no drift on mymac 16:04
 
 # keep it fresh: an OS timer, previewed and confirmed
 $ plane schedule --every 6h
