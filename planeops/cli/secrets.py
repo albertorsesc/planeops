@@ -109,6 +109,7 @@ def _cmd_add(args: argparse.Namespace) -> int:
     if not value:
         raise LookupError("empty value; nothing written")
     ui.good(store.add_value(name, value, force=args.force))
+    ui.hint("run `plane observe` for drift to see it")
     return 0
 
 
@@ -160,6 +161,7 @@ def _cmd_remove(args: argparse.Namespace) -> int:
             ui.note("not removed (use --yes to run non-interactively)")
             return 0
     ui.good(store.remove_value(name))
+    ui.hint("run `plane observe` for drift to see it")
     return 0
 
 
