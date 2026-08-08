@@ -6,6 +6,15 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- The re-auth checklist clears as it is worked: an interactive credential
+  whose observation reports configured drops off, instead of every
+  interactive credential standing on the list forever. Unconfigured and
+  unobserved (adapter unbuilt) credentials keep their line.
+- `plane secrets add`/`remove` end with the `plane observe` hint, so the
+  snapshot-staleness step is guided instead of discovered.
+
 ## [0.6.0] - 2026-08-07
 
 ### Added
