@@ -462,3 +462,12 @@ def test_retired_secret_with_a_lingering_value_alerts():
     }
     rep = triage([e], obs, {"secrets"})
     assert len(rep.alerts) == 1 and "still observed present" in rep.alerts[0].message
+
+
+def test_parked_entry_ignores_the_drifted_fact():
+    # A parked RunAtLoad service that is unloaded deviates from its own
+    # definition on purpose: that deviation IS the desired dormancy, and
+    # apply plans nothing for parked, so reporting it would nag forever.
+    e = _entry(lifecycle="parked")
+    rep = triage([e], {"manual/x": _obs("manual/x", drifted=True)}, IMPL)
+    assert not rep.alerts and not rep.report and not rep.auto_folded
