@@ -434,6 +434,40 @@ def test_default_noise_names_are_never_tools(tmp_path):
     assert "gh" in out  # real tools unaffected
 
 
+def test_shell_completion_caches_are_debris(tmp_path):
+    # zsh writes .zcompdump and .zcompdump-<host>-<version>; both are rebuilt
+    # from the completion functions, so neither is ever a tool.
+    home, inst = _machine(
+        tmp_path,
+        'footprint:\n  roots:\n    - {label: home-dot, path: "~", dot_only: true}\n',
+    )
+    (home / ".zcompdump").write_text("")
+    (home / ".zcompdump-somehost-5.9").write_text("")
+    (home / ".zshrc").write_text("")
+    out = _observe(tmp_path, inst)
+    assert "zshrc" in out
+    assert not [k for k in out if k.startswith("zcompdump")]
+
+
+def test_the_default_patterns_never_hide_login_wiring(tmp_path):
+    # The one thing this tool must never go quiet about is something that runs
+    # code at login. No default pattern may match the directories where that
+    # is declared, on either platform.
+    import fnmatch
+
+    from planeops.adapters.footprint import IGNORED_BY_DEFAULT
+
+    never = (
+        "systemd",  # ~/.config/systemd/user holds user units
+        "autostart",  # ~/.config/autostart holds desktop autostart entries
+        "LaunchAgents",
+        "LaunchDaemons",
+    )
+    for name in never:
+        hits = [p for p in IGNORED_BY_DEFAULT if fnmatch.fnmatchcase(name, p)]
+        assert not hits, f"{name} is matched by {hits}"
+
+
 def test_the_ignore_list_extends_the_defaults(tmp_path):
     home, inst = _machine(
         tmp_path,

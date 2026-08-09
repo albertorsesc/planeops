@@ -70,6 +70,7 @@ IGNORED_BY_DEFAULT: tuple[str, ...] = (
     "lesshst",
     ".zsh_sessions",
     ".bash_sessions",
+    ".zcompdump*",
     "*_history",
     "*.bak",
     "*.backup",

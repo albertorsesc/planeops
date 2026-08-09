@@ -6,6 +6,15 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- The footprint noise defaults skip shell completion caches
+  (`.zcompdump`, `.zcompdump-<host>-<version>`), found by running the
+  adapter against a real machine. Two rules now bound what ships as a
+  default: a pattern must match something real on a scanned machine, and no
+  pattern may match a directory where software wires itself to run at login
+  (`systemd`, `autostart`, `LaunchAgents`), which a test enforces.
+
 ## [0.9.0] - 2026-08-09
 
 ### Added

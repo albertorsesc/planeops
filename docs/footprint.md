@@ -40,11 +40,20 @@ configured root is never itself a tool, on any OS and through symlinks, so
 `.config` and `.local` don't show up as discoveries.
 
 Debris never becomes a question: OS artifacts (`.DS_Store`, `.Trash`),
-shell and editor state (`*_history`, `.viminfo`, session dirs), backup
-copies (`*.bak`, `*~`, `._*`), and the cache dir are skipped by on-disk
-name before anything merges. `ignore:` adds instance-specific patterns;
-`ignore_defaults: false` drops the built-in list; registry `unmanaged`
-globs remain the id-level knob above both.
+shell and editor state (`*_history`, `.viminfo`, `.zcompdump*`, session
+dirs), backup copies (`*.bak`, `*~`, `._*`), and the cache dir are skipped
+by on-disk name before anything merges. `ignore:` adds instance-specific
+patterns; `ignore_defaults: false` drops the built-in list; registry
+`unmanaged` globs remain the id-level knob above both.
+
+A skipped name leaves no trace in the snapshot, so `ignore_defaults: false`
+is how you audit the filter: re-observe with it off and diff the tool list
+to see exactly what the defaults are hiding on your machine. Two rules bound
+what ships as a default. A pattern must match something real on a scanned
+machine, so nothing is filtered on speculation; and no pattern may match a
+directory where software wires itself to run at login (`systemd`,
+`autostart`, `LaunchAgents`), which a test enforces, because going quiet
+about that is the one failure this tool cannot afford.
 
 ## Governance without double-asking
 
