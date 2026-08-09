@@ -19,7 +19,6 @@ footprint:
     - {label: xdg-data, path: ~/.local/share}
     - {label: xdg-state, path: ~/.local/state}
     - {label: home-dot, path: "~", dot_only: true}
-    - {label: app-support, path: ~/Library/Application Support, os: darwin}
 ```
 
 - `path` must be `~`-anchored or absolute; home itself is quoted `"~"`
@@ -31,10 +30,31 @@ footprint:
   fails the scan loudly.
 - No `footprint:` section, no scan: discovery is opt-in per instance.
 
+## Choose roots that hold what you installed
+
+A convention is worth scanning when the things inside it are yours. A
+directory the operating system keeps its own state in is not: on macOS,
+`~/Library/Application Support` was measured at 79 entries on one real
+machine, of which 37 were the system's own (Apple bundle ids and framework
+state) and most of the rest were browsers, desktop apps, and derived caches
+of tools a package manager already governs. Every one of those is a row
+nobody can act on: there is no intent to declare, nothing for `apply` to do,
+and no way to remove it. So that root is not in the recommended set.
+
+The temptation is to scan it anyway and teach the tool to filter the OS's
+directories back out. That was tried and rejected, and the reason is worth
+recording. Deciding "the OS owns this name" by matching against what the
+system ships means treating roughly 3,200 names as OS-owned on a current
+macOS, 34 of them ordinary words like `security`, `install`, `search`,
+`notes`, and `music`. Whoever creates a directory chooses its name, so such a
+filter can be entered on purpose: name something `com.apple.anything` or
+`CloudDocs` and it would stop being reported. A filter that a name can walk
+through is worse than the noise it removes, so the tool does not ship one.
+
 ## One tool, many traces
 
 The same tool across roots merges into a single observation: `~/.ollama`,
-`~/.config/ollama`, and an app-support `Ollama` are one tool with three
+`~/.config/ollama`, and `~/.local/share/Ollama` are one tool with three
 footprints (path, kind, convention, and a symlink flag when linked). A
 configured root is never itself a tool, on any OS and through symlinks, so
 `.config` and `.local` don't show up as discoveries.
