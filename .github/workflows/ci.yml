@@ -10,6 +10,35 @@ permissions:
   contents: read
 
 jobs:
+  # SemVer accounting is mechanical, not remembered: a feature or fix PR must
+  # carry its CHANGELOG entry, because the Unreleased section is what decides
+  # the next release's bump. The title comes in through the environment so a
+  # crafted PR title cannot inject into the shell.
+  changelog:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Feature and fix PRs update the changelog
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          case "$TITLE" in
+            feat*|fix*) ;;
+            *) echo "not a feat/fix PR; no changelog entry required"; exit 0 ;;
+          esac
+          if git diff --name-only "$BASE"...HEAD | grep -qx 'CHANGELOG.md'; then
+            echo "CHANGELOG.md updated"
+          else
+            echo "::error::a feat/fix PR must add its entry to CHANGELOG.md's Unreleased section (it decides the next version bump)"
+            exit 1
+          fi
+
   gate:
     runs-on: ubuntu-latest
     permissions:
