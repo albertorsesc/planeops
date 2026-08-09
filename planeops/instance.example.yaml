@@ -47,8 +47,13 @@
 # (the `gh` trace when `pkg-brew/gh` is in the registry) is attributed to
 # that entry instead of asking for its own. Stat-only: nothing is opened, so
 # credential-bearing configs contribute their name and shape, never their
-# contents. Omit the section to scan nothing.
+# contents. Debris is skipped by default (OS artifacts like .DS_Store,
+# shell/editor state, *_history, *.bak/*.backup/*.old, the cache dir);
+# `ignore:` adds name patterns (fnmatch against the on-disk name,
+# case-sensitive on every OS) and `ignore_defaults: false` disables the
+# built-in list. Omit the section to scan nothing.
 # footprint:
+#   ignore: [".myjunk-*"]
 #   roots:
 #     - {label: xdg-config, path: ~/.config}
 #     - {label: xdg-data, path: ~/.local/share}

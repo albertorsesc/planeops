@@ -16,10 +16,17 @@ discovered platform name) confines a root to that system, so one documented
 convention block is safe to carry to every machine; the tag is validated
 against the discovered platforms, so a typo fails the scan loudly instead of
 silently skipping forever. No section means no scan.
+
+Debris is filtered by name before anything merges: `IGNORED_BY_DEFAULT`
+skips OS artifacts, shell and editor state, backup copies, and the cache
+dir, so discovery asks about tools, not about `.DS_Store`. `ignore:` extends
+the list per instance and `ignore_defaults: false` drops it entirely;
+registry-level `unmanaged` globs remain the id-level knob on top.
 """
 
 from __future__ import annotations
 
+import fnmatch
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -40,6 +47,48 @@ class FootprintRoot:
 
 
 _ROOT_KEYS = frozenset({"label", "path", "dot_only", "os"})
+_SECTION_KEYS = frozenset({"roots", "ignore", "ignore_defaults"})
+
+# Debris, not tools: OS artifacts, shell and editor state, backup copies, and
+# the cache dir (a convention that holds no intent). Matched against the
+# on-disk child name with fnmatchcase, so behavior is identical on macOS and
+# Linux. `ignore:` extends this list; `ignore_defaults: false` drops it.
+IGNORED_BY_DEFAULT: tuple[str, ...] = (
+    ".DS_Store",
+    ".CFUserTextEncoding",
+    ".Trash",
+    ".localized",
+    ".cache",
+    ".viminfo",
+    ".lesshst",
+    "lesshst",
+    ".zsh_sessions",
+    ".bash_sessions",
+    "*_history",
+    "*.bak",
+    "*.backup",
+    "*.old",
+    "*.swp",
+)
+
+
+def _section(repo_root: Path | None) -> dict[str, Any]:
+    section = instance_section(repo_root, "footprint")
+    reject_unknown_keys(section, _SECTION_KEYS, "footprint")
+    return section
+
+
+def load_ignore(repo_root: Path | None) -> tuple[str, ...]:
+    """The name patterns this instance skips: the defaults (unless
+    `ignore_defaults: false`) plus any `ignore:` additions."""
+    section = _section(repo_root)
+    defaults_on = section.get("ignore_defaults", True)
+    if not isinstance(defaults_on, bool):
+        raise ValueError("footprint.ignore_defaults must be true or false")
+    extra = section.get("ignore", [])
+    if not isinstance(extra, list) or not all(isinstance(p, str) and p for p in extra):
+        raise ValueError("footprint.ignore must be a list of non-empty strings")
+    return (IGNORED_BY_DEFAULT if defaults_on else ()) + tuple(extra)
 
 
 def _platform_names() -> frozenset[str]:
@@ -53,7 +102,7 @@ def load_roots(repo_root: Path | None) -> list[FootprintRoot]:
     yields no roots (opt-in); a present but malformed root raises, landing in
     the snapshot's failed-scan alert, so a typo can never quietly mean
     "observe nothing"."""
-    raw = instance_section(repo_root, "footprint").get("roots")
+    raw = _section(repo_root).get("roots")
     if not isinstance(raw, list):
         return []
     roots: list[FootprintRoot] = []
@@ -108,6 +157,7 @@ class FootprintAdapter:
         # xdg-config are both scanned, `.config` (and `.local`, which merely
         # holds the data/state roots) must not surface as tools themselves.
         bases = [resolve_path(r.path, home) for r in roots]
+        ignore = load_ignore(ctx.repo_root)
         merged: dict[str, list[dict[str, Any]]] = {}
         for root in roots:
             base = resolve_path(root.path, home)
@@ -115,6 +165,8 @@ class FootprintAdapter:
                 continue  # the convention is simply not present here: quiet
             for child in sorted(base.iterdir()):
                 if root.dot_only and not child.name.startswith("."):
+                    continue
+                if any(fnmatch.fnmatchcase(child.name, p) for p in ignore):
                     continue
                 if any(b == child or b.is_relative_to(child) for b in bases):
                     continue

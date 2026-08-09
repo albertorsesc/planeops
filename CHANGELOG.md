@@ -16,8 +16,11 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   whose name matches another adapter's declared entry is attributed to it
   (`governed_by`, a new general fact the triage honors) instead of listing
   as ungoverned, so discovery only asks about tools with no decision on
-  record. All of it stat-only: nothing is ever opened, so credential-bearing
-  configs contribute their name and shape, never their contents. Opt-in: no
+  record. Debris never becomes a question: OS artifacts, shell and editor
+  state, backup copies, and the cache dir are skipped by name
+  (`ignore:` extends the list, `ignore_defaults: false` drops it). All of
+  it stat-only: nothing is ever opened, so credential-bearing configs
+  contribute their name and shape, never their contents. Opt-in: no
   section, no scan.
 
 ## [0.8.0] - 2026-08-08
