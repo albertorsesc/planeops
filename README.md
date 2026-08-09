@@ -8,13 +8,14 @@
   <a href="https://scorecard.dev/viewer/?uri=github.com/albertorsesc/planeops"><img src="https://api.scorecard.dev/projects/github.com/albertorsesc/planeops/badge" alt="OpenSSF Scorecard"></a>
   <a href="https://pypi.org/project/planeops/"><img src="https://img.shields.io/pypi/v/planeops.svg" alt="PyPI"></a>
   <a href="https://pypi.org/project/planeops/"><img src="https://img.shields.io/pypi/pyversions/planeops.svg" alt="Python versions"></a>
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-8250df.svg" alt="Platforms: macOS and Linux">
   <a href="https://github.com/albertorsesc/planeops/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License: Apache-2.0"></a>
 </p>
 
 <p align="center">
   <a href="#install">Install</a> ·
   <a href="#quickstart">Quickstart</a> ·
-  <a href="#features">Features</a> ·
+  <a href="#what-you-can-do-with-it">What you can do</a> ·
   <a href="#going-further">Docs</a> ·
   <a href="https://github.com/albertorsesc/planeops/blob/main/SPEC.md">Spec</a>
 </p>
@@ -58,17 +59,24 @@ planeops turns the pile into a registry: every asset declared with its reason
 for existing, every scan diffed against that intent, every fix a rendered
 change you confirm one at a time.
 
-## Features
+## What you can do with it
 
-- **Catches what package managers can't**: ungoverned always-on services, an MCP server wired into one client (or one project) but not the others, a pruned model your tooling depends on.
-- **One loop, three verbs**: `observe` scans read-only, `drift` diffs desired against observed, `apply` converges with per-change confirmation.
-- **Lifecycles drive the triage**: `parked` is deliberately dormant, so nothing nags while a project sleeps; a finished retirement asks for registry cleanup instead of alerting forever.
-- **No daemon, no open ports**: every command exits; the ambient loop is your OS scheduler running `plane reconcile`.
-- **Onboarding is pruning, not authoring**: `plane init --seed` proposes the registry from what is already installed.
-- **Typos are load errors**: `tolerence:` fails with "did you mean 'tolerance'?", never a silent no-op.
-- **Secrets stay references**: names and presence are tracked; a value is only ever written to the one file its entry declares.
-- **Exit codes are a contract**: `0` clean, `1` operator error, `2` drift, so your prompt and your cron both know the state.
-- **Provider-neutral core**: adapters, schedulers, and stores are discovery seams; a fitness test bans vendor names from the engine.
+| You want to | planeops gives you |
+| --- | --- |
+| Put your whole AI setup in writing | A plain-YAML registry: every service, model, package, MCP server, key, and config trace, each with the reason it exists. `plane init --seed` drafts it from what's already installed; you prune instead of authoring. |
+| Find out what's really on the machine | `plane observe`: one read-only scan across package managers, launchd/systemd, Ollama, MCP client configs, secret stores, and the config traces tools leave behind, covering tools nothing else tracks. |
+| Hear about it when reality diverges | `plane drift`: the daemon that installed itself, the model a cleanup pruned, the MCP server wired into one client but missing from the rest, the key that was never configured. |
+| Converge without surprise mutations | `plane apply`: each fix rendered as a diff and confirmed one change at a time; nothing writes behind your back. |
+| Pause a project without months of nagging | `parked` means dormant on purpose, so silence is correct; a completed retirement asks you to clean up the registry instead of alerting forever. |
+| Keep API keys sealed and findable | `plane secrets add/list/remove`: names and presence tracked in the open, values encrypted at rest (sops + age), written only to the file their entry declares. |
+| Make the loop ambient | `plane schedule` puts the scan on your OS's own timer, no daemon involved; `plane status --short` drops the state into your shell prompt. |
+| Let your assistant work from real state | `plane-mcp`: read-only MCP tools for drift, status, the server-by-client view, and secret names, so "what changed on my machine?" gets a real answer. |
+
+The guarantees under all of it: observation never writes, there is no daemon
+and no open port, a registry typo fails at load instead of silently meaning
+nothing, exit codes are scriptable (`0` clean, `1` operator error, `2` drift),
+and the engine names no vendor: adapters, schedulers, and secret stores are
+all discovery seams.
 
 ## Install
 
