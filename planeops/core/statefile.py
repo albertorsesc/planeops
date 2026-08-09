@@ -13,8 +13,10 @@ that safe, and both live here so no writer or reader has to re-implement them:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +28,30 @@ def atomic_write(path: Path, text: str) -> None:
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(text)
     os.replace(tmp, path)
+
+
+def atomic_write_foreign(path: Path, text: str) -> None:
+    """Atomic write for a file planeops does NOT own (another tool's config).
+    Foreign files bring hazards the state-file writer never meets: the path
+    may be a symlink into a dotfiles repo (write through it, never replace
+    the link with a file), the mode may be 0600 on credential-bearing content
+    (preserve it, never widen), another process may be writing its own temp
+    (unique temp name), and the content is the user's only copy (fsync before
+    publishing)."""
+    real = path.resolve()
+    mode = real.stat().st_mode & 0o7777
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{real.name}.", dir=str(real.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.chmod(tmp_name, mode)
+        os.replace(tmp_name, real)
+    except BaseException:
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(tmp_name)
+        raise
 
 
 def read_json_file(path: Path) -> dict[str, Any] | None:

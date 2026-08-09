@@ -102,9 +102,11 @@ def test_missing_sources_are_empty_not_error(tmp_path, fake_platform):
     assert McpAdapter(sources=_sources()).observe(_ctx(fake_platform(tmp_path))) == []
 
 
-def test_mcp_is_observe_only():
-    # wiring an MCP into a tool means writing its config; deferred past v1.
-    assert not can_apply(ADAPTER)
+def test_mcp_is_a_mutating_adapter():
+    # The write side landed: unwiring a retired server is convergeable,
+    # behind apply's confirm gate and the mcp.manage opt-in.
+    assert can_apply(ADAPTER)
+    assert ADAPTER.default_phase == 3  # wiring is config
 
 
 # ---- config-driven sources (no tool names in the engine) -----------------

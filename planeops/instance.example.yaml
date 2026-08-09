@@ -16,6 +16,9 @@
 # (`json` or `yaml`), key (the mapping holding the servers; default mcpServers),
 # and optionally logs: a template for that client's per-server log file, with
 # {name} standing for the server name, so seeded entries know where to look.
+# `manage: true` (off by default) lets `plane apply` UNWIRE a retired server
+# from a client's user-scope config: previewed, confirmed, digest-guarded,
+# with the removed block backed up outside this instance first.
 # mcp:
 #   sources:
 #     - label: coding-harness

@@ -1,9 +1,10 @@
 """Core wire types and the adapter/platform contracts (SPEC.md section 4).
 
 Every interface here has a live implementer: `Adapter` (observe) is honored by
-the manual and launchd adapters; `MutatingAdapter` (plan/execute) by launchd and
-secrets, which `plane apply` drives. `Ctx.secrets` carries the redaction gate. The
-usage contract is still deferred to its own milestone and is not declared yet.
+the manual and launchd adapters; `MutatingAdapter` (plan/execute) by launchd,
+secrets, and mcp, which `plane apply` drives. `Ctx.secrets` carries the redaction
+gate. The usage contract is still deferred to its own milestone and is not
+declared yet.
 """
 
 from __future__ import annotations

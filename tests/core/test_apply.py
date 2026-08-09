@@ -295,6 +295,7 @@ def test_every_mutating_adapter_declares_its_converge_phase():
         "pkg-npm": 2,
         "pkg-uv": 2,
         "chezmoi": 3,
+        "mcp": 3,
         "ollama": 4,
         "secrets": 5,
         "launchd": 6,
@@ -357,6 +358,29 @@ def test_a_crashing_plan_is_recorded_and_the_run_continues(tmp_path, fake_platfo
     assert outcomes["fake/b"] == (True, True)  # the run continued
     journal = tmp_path / "observed" / "testhost" / "applied.jsonl"
     assert "plan boom" in journal.read_text()
+
+
+def test_a_crashing_plan_says_why_on_the_console(tmp_path, fake_platform, capsys):
+    # The journal records the failure; the human at the prompt must also see
+    # why the entry was skipped, not just a skipped count in the summary.
+    class CrashyPlan:
+        name = "fake"
+        domains = ("d",)
+        default_phase = 1
+
+        def observe(self, ctx):
+            return []
+
+        def plan(self, entry, obs, ctx):
+            raise RuntimeError("plan boom")
+
+        def execute(self, change, ctx):
+            return Result(ok=True, detail="done")
+
+    _seed(tmp_path)
+    _run(tmp_path, fake_platform, {"fake": CrashyPlan()}, ["y"])
+    out = capsys.readouterr().out
+    assert "fake/a: plan failed: plan boom" in out
 
 
 def test_only_phase_filters(tmp_path, fake_platform):

@@ -173,6 +173,9 @@ def run_apply(
         try:
             changes = adapter.plan(entry, obs, ctx)
         except Exception as exc:  # a broken adapter must not abort the whole run
+            from planeops.providers import ui
+
+            ui.bad(f"{entry.id}: plan failed: {exc}")
             _record(
                 Applied(
                     Change(entry.id, "patch", f"plan failed: {exc}", {}),

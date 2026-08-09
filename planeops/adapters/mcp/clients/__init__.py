@@ -21,6 +21,12 @@ from typing import Any, Protocol, runtime_checkable
 # per-project section, or a per-repo config file the main config points at.
 ScopeReader = Callable[[dict[str, Any], Path], list[tuple[str, dict[str, Any]]]]
 
+# A server remover: a pure transform (data, key, name) -> new data with that
+# server's block gone from the mapping under `key`. Declared by a leaf only
+# when this client's config format supports a faithful rewrite; a client
+# without one is simply not writable, and plan says so instead of guessing.
+ServerRemover = Callable[[dict[str, Any], str, str], dict[str, Any]]
+
 
 @runtime_checkable
 class KnownClient(Protocol):
@@ -32,6 +38,7 @@ class KnownClient(Protocol):
     binary: str | None  # installed-probe: a binary expected on PATH
     app: str | None  # installed-probe: an app bundle name
     scopes: ScopeReader | None  # extra wiring scopes, or None
+    remove_server: ServerRemover | None  # write capability, or None
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +53,7 @@ class Client:
     binary: str | None = None
     app: str | None = None
     scopes: ScopeReader | None = None
+    remove_server: ServerRemover | None = None
 
 
 def discover_clients() -> dict[str, KnownClient]:

@@ -11,9 +11,14 @@ is a candidate to reuse in the others.
 This adapter names no specific tool. The sources are configuration: a list of
 `{label, path, format, key}` under the `mcp.sources` key of `instance.yaml` at the
 instance root (see `planeops/instance.example.yaml`). The engine reads that list; it
-never hardcodes where any particular tool keeps its config. Observe-only: wiring a
-server into a tool means writing that tool's config, deferred past v1. Env values
-are never recorded, they can hold secrets.
+never hardcodes where any particular tool keeps its config. Env values are never
+recorded, they can hold secrets.
+
+The write side (planeops/adapters/mcp/write.py) converges one case: a retired or
+purge entry still wired in a client's user scope gets its block removed, behind
+apply's confirm gate and an explicit `mcp.manage: true` opt-in in instance.yaml.
+Wiring a server INTO a client stays out: a server block carries env values the
+registry must never hold in plaintext.
 """
 
 from __future__ import annotations
@@ -25,8 +30,8 @@ from pathlib import Path
 from typing import Any
 
 from planeops.config import section as instance_section
-from planeops.core.contracts import Ctx, Observed
-from planeops.core.schema import reject_unknown_keys
+from planeops.core.contracts import Change, Ctx, Observed, Result
+from planeops.core.schema import Entry, reject_unknown_keys
 from planeops.providers import yaml
 
 
@@ -128,7 +133,9 @@ def load_sources(repo_root: Path | None) -> list[McpSource]:
     return sources
 
 
-def _resolve(path_str: str, home: Path) -> Path:
+def resolve_path(path_str: str, home: Path) -> Path:
+    """A source path resolved against the platform's home, not the process's,
+    so a fake platform in tests confines every read to its own tree."""
     if path_str == "~":
         return home
     if path_str.startswith("~/"):
@@ -139,7 +146,7 @@ def _resolve(path_str: str, home: Path) -> Path:
 def _parse_source(source: McpSource, home: Path) -> dict[str, Any] | None:
     """The source file parsed to a mapping, or None when absent (the tool may
     simply not be installed on this machine: quiet)."""
-    path = _resolve(source.path, home)
+    path = resolve_path(source.path, home)
     if not path.is_file():
         return None
     try:
@@ -168,24 +175,50 @@ def _parse_source(source: McpSource, home: Path) -> dict[str, Any] | None:
 class McpAdapter:
     name = "mcp"
     domains: tuple[str, ...] = ("mcp-server",)
+    # Converge order: wiring is config, alongside chezmoi's slot.
+    default_phase = 3
 
     def __init__(self, sources: list[McpSource] | None = None):
         self._sources_override = sources
 
+    def _sources(self, ctx: Ctx) -> list[McpSource]:
+        if self._sources_override is not None:
+            return self._sources_override
+        return load_sources(ctx.repo_root)
+
+    def plan(self, entry: Entry, obs: Observed | None, ctx: Ctx) -> list[Change]:
+        from planeops.adapters.mcp.write import plan_unwire
+
+        if obs is None:
+            return []  # nothing observed wired; nothing to remove
+        return plan_unwire(entry, obs.facts, ctx, self._sources(ctx))
+
+    def execute(self, change: Change, ctx: Ctx) -> Result:
+        from planeops.adapters.mcp.write import execute_unwire
+
+        if change.action.get("op") != "unwire":
+            return Result(
+                ok=False, detail=f"unknown mcp op {change.action.get('op')!r}"
+            )
+        return execute_unwire(change, ctx)
+
     def observe(self, ctx: Ctx) -> list[Observed]:
-        sources = self._sources_override
-        if sources is None:
-            sources = load_sources(ctx.repo_root)
+        sources = self._sources(ctx)
         home = ctx.platform.home()
 
         merged: dict[str, dict[str, Any]] = {}
 
-        def _merge(label: str, source: McpSource, servers: object) -> None:
+        def _merge(label: str, source: McpSource, servers: object, scope: str) -> None:
             for server_name, meta in servers_from_mapping(servers).items():
                 entry = merged.setdefault(
-                    server_name, {"sources": set(), "command": "", "logs": set()}
+                    server_name,
+                    {"sources": set(), "wirings": set(), "command": "", "logs": set()},
                 )
                 entry["sources"].add(label)
+                # The structured twin of the display label: consumers that must
+                # DECIDE something (which file a write may touch) read this,
+                # never the label string, whose format is presentation.
+                entry["wirings"].add((source.label, scope))
                 if not entry["command"] and meta["command"]:
                     entry["command"] = meta["command"]
                 if source.logs:
@@ -195,7 +228,7 @@ class McpAdapter:
             data = _parse_source(source, home)
             if data is None:
                 continue
-            _merge(source.label, source, data.get(source.key))
+            _merge(source.label, source, data.get(source.key), "user")
             # A known client can wire servers in scopes beyond its main key
             # (a per-project section, a committed repo file); each surfaces
             # under its own scoped label so the view can tell "everywhere"
@@ -203,7 +236,7 @@ class McpAdapter:
             client = _known_client(source.label)
             if client is not None and client.scopes is not None:
                 for scope, mapping in client.scopes(data, home):
-                    _merge(f"{source.label} {scope}", source, mapping)
+                    _merge(f"{source.label} {scope}", source, mapping, scope)
 
         return [
             Observed(
@@ -211,6 +244,10 @@ class McpAdapter:
                 native_id=server_name,
                 facts={
                     "sources": sorted(merged[server_name]["sources"]),
+                    "wirings": [
+                        {"client": c, "scope": s}
+                        for c, s in sorted(merged[server_name]["wirings"])
+                    ],
                     "command": merged[server_name]["command"],
                     **(
                         {"logs": sorted(merged[server_name]["logs"])}
