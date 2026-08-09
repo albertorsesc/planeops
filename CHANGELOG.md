@@ -6,6 +6,8 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-09
+
 ### Added
 
 - A footprint adapter: tools discovered by the config traces they leave.
@@ -579,7 +581,8 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   shell prompt kept showing stale state, the exact failure the ambient loop exists to
   prevent; `plane apply` already treated it as a change, so drift and apply now agree.
 
-[Unreleased]: https://github.com/albertorsesc/planeops/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/albertorsesc/planeops/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/albertorsesc/planeops/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/albertorsesc/planeops/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/albertorsesc/planeops/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/albertorsesc/planeops/compare/v0.6.0...v0.6.1
