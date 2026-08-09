@@ -62,17 +62,17 @@ def propose_from_snapshot(text: str, repo_root: Path | None) -> list[dict[str, A
         entry_id = f"{adapter}/{native}"
         if entry_id in declared or entry_id in seen:
             continue
-        facts_raw = obs.get("facts")
-        governed_by = (
-            facts_raw.get("governed_by") if isinstance(facts_raw, dict) else None
-        )
-        if isinstance(governed_by, str) and governed_by in declared:
-            continue  # attributed to a decision already on record, like drift
         seen.add(entry_id)
+        facts = obs.get("facts")
+        governed_by = facts.get("governed_by") if isinstance(facts, dict) else None
+        if isinstance(governed_by, str) and governed_by in declared:
+            # Attributed to a decision already on record. This check spans
+            # every host's entries (drift's is host-scoped) because a same-id
+            # entry anywhere already forbids proposing the id again.
+            continue
         # Seeding must DESCRIBE the machine, never propose changes to it: an
         # asset that is on disk but not active (facts.present False, e.g. an
         # unloaded agent) seeds as `parked`, so a fresh registry plans nothing.
-        facts = obs.get("facts")
         inactive = isinstance(facts, dict) and facts.get("present") is False
         entry: dict[str, Any] = {
             "id": entry_id,

@@ -20,8 +20,9 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   state, backup copies, and the cache dir are skipped by name
   (`ignore:` extends the list, `ignore_defaults: false` drops it). All of
   it stat-only: nothing is ever opened, so credential-bearing configs
-  contribute their name and shape, never their contents. Opt-in: no
-  section, no scan.
+  contribute their name and shape, never their contents; a root the scan
+  cannot list refuses loudly into the failed-scan alert, naming itself,
+  instead of silently shrinking coverage. Opt-in: no section, no scan.
 
 ## [0.8.0] - 2026-08-08
 
