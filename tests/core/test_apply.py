@@ -155,6 +155,19 @@ def test_all_in_domain_auto_approves_rest(tmp_path, fake_platform):
     assert all(a.executed for a in applied)
 
 
+def test_auto_approved_changes_still_render_their_diffs(
+    tmp_path, fake_platform, capsys
+):
+    # 'a' answers the question for the domain, not the showing: a change that
+    # executes under a standing 'a' must still put its diff on the screen, or
+    # the engine's no-unseen-mutation promise breaks.
+    _seed(tmp_path)
+    fake = FakeMutating({"fake/a": [CA], "fake/b": [CB]})
+    _run(tmp_path, fake_platform, {"fake": fake}, ["a"])
+    out = capsys.readouterr().out
+    assert CB.diff in out  # the auto-approved second change was shown
+
+
 def test_observe_only_adapter_is_skipped(tmp_path, fake_platform):
     _seed(tmp_path)
     applied = _run(tmp_path, fake_platform, {"fake": FakeObserveOnly()}, [])

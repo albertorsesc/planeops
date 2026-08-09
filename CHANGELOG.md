@@ -11,6 +11,9 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A parked entry no longer reports the `drifted` fact: a parked RunAtLoad
   service that is unloaded deviates from its own definition on purpose, and
   apply plans nothing for parked, so the report could only nag forever.
+- Changes executed under a standing `a` (all in domain) render their diffs
+  before executing, instead of mutating with the diff only journaled after
+  the fact. `a` answers the question for the domain, never the showing.
 
 ## [0.7.0] - 2026-08-08
 

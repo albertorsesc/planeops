@@ -69,10 +69,16 @@ def _append_journal(observed_dir: Path, host: str, now: datetime, a: Applied) ->
         )
 
 
-def prompt_confirm(change: Change) -> str:
+def render_change(change: Change) -> None:
+    """Show the diff about to be applied. The engine owns this: every mutation
+    renders, whether the decision comes from a prompt or a standing 'a'."""
     from planeops.providers import ui
 
     ui.panel(f"{change.entry_id} · {change.kind}", change.diff)
+
+
+def prompt_confirm(change: Change) -> str:
+    render_change(change)
     try:
         answer = input(
             f"apply {change.entry_id} [{change.kind}]? "
@@ -182,6 +188,9 @@ def run_apply(
         may_materialize = store is not None and adapter is adapters.get("secrets")
         for change in changes:
             if entry.domain in auto_domains:
+                # 'a' answered the QUESTION for this domain, not the showing:
+                # the diff still renders so nothing mutates unseen.
+                render_change(change)
                 decision = "y"
             else:
                 decision = confirm(change)
