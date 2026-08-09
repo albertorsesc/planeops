@@ -148,6 +148,7 @@ footprint: [docs/instance.md](https://github.com/albertorsesc/planeops/blob/main
 - [docs/instance.md](https://github.com/albertorsesc/planeops/blob/main/docs/instance.md): your instance directory, several machines on one registry, the tool's footprint.
 - [docs/secrets.md](https://github.com/albertorsesc/planeops/blob/main/docs/secrets.md): the secrets flow (declare, `secrets add`/`list`/`remove` with the store bootstrapped on first use, `apply` materializes) and how values stay sealed.
 - [docs/mcp.md](https://github.com/albertorsesc/planeops/blob/main/docs/mcp.md): every MCP server across every client in one view, the opt-in unwire of retired servers, and the read-only server your assistant can query.
+- [docs/footprint.md](https://github.com/albertorsesc/planeops/blob/main/docs/footprint.md): discovering tools by the config traces they leave, and how debris and already-governed tools stay out of the way.
 - [CHANGELOG.md](https://github.com/albertorsesc/planeops/blob/main/CHANGELOG.md): releases and what is coming.
 
 ## What planeops is not
