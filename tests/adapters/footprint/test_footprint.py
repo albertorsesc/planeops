@@ -210,6 +210,51 @@ def test_a_malformed_root_raises_instead_of_scanning_nothing(tmp_path):
         ADAPTER.observe(_ctx(tmp_path, inst))
 
 
+def test_a_non_bool_ignore_defaults_raises(tmp_path):
+    home, inst = _machine(
+        tmp_path,
+        "footprint:\n  ignore_defaults: sure\n  roots:\n"
+        "    - {label: xdg-config, path: ~/.config}\n",
+    )
+    with pytest.raises(ValueError, match="ignore_defaults"):
+        ADAPTER.observe(_ctx(tmp_path, inst))
+
+
+def test_a_non_mapping_root_raises(tmp_path):
+    home, inst = _machine(tmp_path, "footprint:\n  roots:\n    - just-a-string\n")
+    with pytest.raises(ValueError, match="mapping"):
+        ADAPTER.observe(_ctx(tmp_path, inst))
+
+
+def test_an_empty_label_raises(tmp_path):
+    home, inst = _machine(
+        tmp_path,
+        'footprint:\n  roots:\n    - {label: "", path: ~/.config}\n',
+    )
+    with pytest.raises(ValueError, match="label"):
+        ADAPTER.observe(_ctx(tmp_path, inst))
+
+
+def test_a_non_string_path_raises(tmp_path):
+    home, inst = _machine(
+        tmp_path,
+        "footprint:\n  roots:\n    - {label: x, path: 3}\n",
+    )
+    with pytest.raises(ValueError, match="path must be"):
+        ADAPTER.observe(_ctx(tmp_path, inst))
+
+
+def test_a_root_outside_home_displays_its_absolute_path(tmp_path):
+    outside = tmp_path / "opt" / "shared-tools"
+    (outside / "modelpack").mkdir(parents=True)
+    home, inst = _machine(
+        tmp_path,
+        f"footprint:\n  roots:\n    - {{label: shared, path: {outside}}}\n",
+    )
+    [fp] = _observe(tmp_path, inst)["modelpack"].facts["footprints"]
+    assert fp["path"] == str(outside / "modelpack")  # absolute, no ~ to relate
+
+
 def test_a_non_bool_dot_only_raises(tmp_path):
     home, inst = _machine(
         tmp_path,
@@ -399,6 +444,62 @@ def test_attribution_is_deterministic_across_multiple_matches(tmp_path):
     )
     out = {o.native_id: o for o in ADAPTER.observe(ctx)}
     assert out["gh"].facts["governed_by"] == "manual/gh"  # first by sorted id
+
+
+# ---- lifecycle flows: adapter facts through the real triage ---------------
+
+
+def _lifecycle_report(tmp_path, lifecycle, tool="gh"):
+    from planeops.core.drift import triage
+
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    home, inst = _machine(tmp_path)
+    entry = entry_from_dict(
+        {"id": f"footprint/{tool}", "adapter": "footprint",
+         "domain": "footprint", "lifecycle": lifecycle, "intent": "i"}
+    )  # fmt: skip
+    obs = {o.key: o for o in ADAPTER.observe(_ctx(tmp_path, inst, entries=[entry]))}
+    return triage([entry], obs, {"footprint"})
+
+
+def test_an_active_present_footprint_is_conformant(tmp_path):
+    rep = _lifecycle_report(tmp_path, "active")
+    assert not rep.alerts and not rep.report
+    assert "footprint/gh" not in [i.entry_id for i in rep.ungoverned]
+
+
+def test_an_active_absent_footprint_alerts(tmp_path):
+    rep = _lifecycle_report(tmp_path, "active", tool="ghost")
+    assert [a.entry_id for a in rep.alerts] == ["footprint/ghost"]
+    assert "present" in rep.alerts[0].message
+
+
+def test_a_parked_present_footprint_is_silent(tmp_path):
+    rep = _lifecycle_report(tmp_path / "a", "parked")
+    assert not rep.alerts and not rep.report
+
+
+def test_a_parked_vanished_footprint_reports_without_alerting(tmp_path):
+    # The engine's cross-adapter semantics: a parked thing that disappeared
+    # entirely earns a report line (never an alert), same as a parked service.
+    rep = _lifecycle_report(tmp_path / "b", "parked", tool="ghost")
+    assert not rep.alerts
+    assert any("parked but not observed" in i.message for i in rep.report)
+
+
+def test_a_retired_footprint_still_present_alerts(tmp_path):
+    rep = _lifecycle_report(tmp_path, "retired")
+    assert [a.entry_id for a in rep.alerts] == ["footprint/gh"]
+    assert "retired" in rep.alerts[0].message
+
+
+def test_a_completed_retirement_asks_for_registry_cleanup(tmp_path):
+    rep = _lifecycle_report(tmp_path, "retired", tool="ghost")
+    assert not rep.alerts
+    assert any(
+        i.entry_id == "footprint/ghost" and "remove the entry" in i.message
+        for i in rep.report
+    )
 
 
 def test_the_adapter_is_discovered_and_observe_only(tmp_path):
