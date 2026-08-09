@@ -51,6 +51,7 @@ mcp = [
 [dependency-groups]
 dev = [
     "pytest>=8",
+    "pytest-cov>=6",
     "ruff>=0.16.1",
     "mypy>=1.18",
     "types-PyYAML>=6",

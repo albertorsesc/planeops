@@ -4,9 +4,11 @@
 
 <p align="center">
   <a href="https://github.com/albertorsesc/planeops/actions/workflows/ci.yml"><img src="https://github.com/albertorsesc/planeops/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://codecov.io/gh/albertorsesc/planeops"><img src="https://codecov.io/gh/albertorsesc/planeops/graph/badge.svg" alt="Coverage"></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/albertorsesc/planeops"><img src="https://api.scorecard.dev/projects/github.com/albertorsesc/planeops/badge" alt="OpenSSF Scorecard"></a>
   <a href="https://pypi.org/project/planeops/"><img src="https://img.shields.io/pypi/v/planeops.svg" alt="PyPI"></a>
+  <a href="https://pypi.org/project/planeops/"><img src="https://img.shields.io/pypi/pyversions/planeops.svg" alt="Python versions"></a>
   <a href="https://github.com/albertorsesc/planeops/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License: Apache-2.0"></a>
-  <img src="https://img.shields.io/badge/python-3.12%2B-blue.svg" alt="Python 3.12+">
 </p>
 
 <p align="center">

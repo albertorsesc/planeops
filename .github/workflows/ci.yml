@@ -12,6 +12,9 @@ permissions:
 jobs:
   gate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Codecov OIDC upload; no stored token
     strategy:
       fail-fast: false
       matrix:
@@ -38,7 +41,16 @@ jobs:
         run: uv run --frozen mypy
 
       - name: Tests
-        run: uv run --frozen pytest -q
+        run: uv run --frozen pytest -q --cov=planeops --cov-report=xml
+
+      # One upload per run: both matrix legs measure the same tree.
+      - name: Upload coverage
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          use_oidc: true
+          files: coverage.xml
+          fail_ci_if_error: false
 
   # Linux parity: run the real-tool integration tests against actual
   # sops/age/chezmoi and (via a systemd --user session) systemctl.
