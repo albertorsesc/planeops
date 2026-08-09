@@ -41,8 +41,8 @@
 # home itself must be quoted "~" because YAML reads a bare ~ as null), and
 # optionally `dot_only: true` (scan only dot-children, what makes "~" mean
 # home dotfiles) and `os: darwin|linux` (scan only on that system). The same
-# tool across roots merges into one observation (`.ollama` + an app-support
-# `Ollama` is one tool, two footprints), and a configured root is never
+# tool across roots merges into one observation (`~/.ollama` plus
+# `~/.config/ollama` is one tool, two footprints), and a configured root is never
 # itself a tool. A tool whose name matches another adapter's declared entry
 # (the `gh` trace when `pkg-brew/gh` is in the registry) is attributed to
 # that entry instead of asking for its own. Stat-only: nothing is opened, so
@@ -52,6 +52,12 @@
 # `ignore:` adds name patterns (fnmatch against the on-disk name,
 # case-sensitive on every OS) and `ignore_defaults: false` disables the
 # built-in list. Omit the section to scan nothing.
+#
+# Pick roots that hold what YOU installed. A directory the OS keeps its own
+# state in (on macOS, ~/Library/Application Support) is mostly the system's
+# and mostly derived caches of tools a package manager already governs, so
+# scanning it buys a long list of things nobody can decide about. See
+# docs/footprint.md.
 # footprint:
 #   ignore: [".myjunk-*"]
 #   roots:
@@ -59,7 +65,6 @@
 #     - {label: xdg-data, path: ~/.local/share}
 #     - {label: xdg-state, path: ~/.local/state}
 #     - {label: home-dot, path: "~", dot_only: true}
-#     - {label: app-support, path: ~/Library/Application Support, os: darwin}
 
 # --- import: manifest section -> adapter mapping for `plane import stackfile` -
 # The first rule whose `keyword` appears (case-insensitively) in a section header

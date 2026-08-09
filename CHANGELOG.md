@@ -6,6 +6,17 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- The footprint conventions the example instance recommends no longer include
+  macOS's `~/Library/Application Support`. Measured on a real machine, 37 of
+  its 79 entries were the system's own and most of the rest were desktop apps
+  and derived caches of tools a package manager already governs, so the root
+  produced rows nobody can declare, apply, or remove. docs/footprint.md
+  records why the alternative, teaching the tool to filter the OS's own
+  directories back out, was rejected: that filter would key on names its
+  subject chooses.
+
 ### Fixed
 
 - The footprint noise defaults skip shell completion caches

@@ -3,8 +3,9 @@
 A tool that writes `~/.config/<name>` exists on this machine whether or not
 any package manager knows about it. Each root named in instance.yaml is
 scanned one level deep; children that name the same tool across roots merge
-into one observation (`~/.ollama`, `~/.config/ollama`, and an app-support
-`Ollama` are one tool with three footprints). Discovery is stat-only:
+into one observation (`~/.ollama`, `~/.config/ollama`, and
+`~/.local/share/Ollama` are one tool with three footprints). Discovery is
+stat-only:
 nothing is ever opened, so a footprint holding credentials contributes its
 name and shape, never its contents.
 
