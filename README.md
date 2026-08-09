@@ -150,7 +150,7 @@ footprint: [docs/instance.md](https://github.com/albertorsesc/planeops/blob/main
 
 ## Status
 
-Pre-1.0: the loop, eleven adapters, scheduling, secrets, importers, and the MCP
+Pre-1.0: the loop, twelve adapters, scheduling, secrets, importers, and the MCP
 server work on macOS and Linux and govern this project's own machines daily.
 Contracts may still move; a breaking change bumps the minor and lands in the
 [CHANGELOG](https://github.com/albertorsesc/planeops/blob/main/CHANGELOG.md)

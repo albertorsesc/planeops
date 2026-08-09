@@ -33,10 +33,10 @@ import time
 from pathlib import Path
 from typing import Any
 
-from planeops.adapters.mcp import resolve_path
 from planeops.adapters.mcp.clients import KnownClient, discover_clients
 from planeops.config import section as instance_section
 from planeops.core.contracts import Change, Ctx, Result
+from planeops.core.paths import resolve_path
 from planeops.core.schema import ABSENT_LIFECYCLES, Entry
 from planeops.core.statefile import atomic_write_foreign
 

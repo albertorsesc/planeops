@@ -31,6 +31,7 @@ from typing import Any
 
 from planeops.config import section as instance_section
 from planeops.core.contracts import Change, Ctx, Observed, Result
+from planeops.core.paths import resolve_path
 from planeops.core.schema import Entry, reject_unknown_keys
 from planeops.providers import yaml
 
@@ -131,16 +132,6 @@ def load_sources(repo_root: Path | None) -> list[McpSource]:
             )
         )
     return sources
-
-
-def resolve_path(path_str: str, home: Path) -> Path:
-    """A source path resolved against the platform's home, not the process's,
-    so a fake platform in tests confines every read to its own tree."""
-    if path_str == "~":
-        return home
-    if path_str.startswith("~/"):
-        return home / path_str[2:]
-    return Path(path_str)
 
 
 def _parse_source(source: McpSource, home: Path) -> dict[str, Any] | None:
