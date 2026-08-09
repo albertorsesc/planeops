@@ -36,6 +36,16 @@
 #       format: yaml
 #       key: mcp_servers
 
+# --- footprint adapter: discover tools by the config traces they leave ------
+# Each root: label (the convention's name, shown as the source) and path
+# (`~` expands to home). Every direct child of a root is observed by name,
+# stat-only: nothing is opened, so credential-bearing configs contribute
+# their name and shape, never their contents. Omit the section to scan
+# nothing.
+# footprint:
+#   roots:
+#     - {label: xdg-config, path: ~/.config}
+
 # --- import: manifest section -> adapter mapping for `plane import stackfile` -
 # The first rule whose `keyword` appears (case-insensitively) in a section header
 # wins. A section that matches no rule imports as `manual`, for you to sort out.

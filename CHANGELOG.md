@@ -6,6 +6,14 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- A footprint adapter: tools discovered by the config traces they leave.
+  Roots are configuration (`footprint.roots` in instance.yaml, e.g. XDG's
+  `~/.config`); every direct child of a root is observed by name, stat-only,
+  so nothing is ever opened and credential-bearing configs contribute their
+  name and shape, never their contents. Opt-in: no section, no scan.
+
 ## [0.8.0] - 2026-08-08
 
 ### Added

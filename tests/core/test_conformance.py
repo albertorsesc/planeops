@@ -15,6 +15,7 @@ import pytest
 
 from planeops._run import RunResult
 from planeops.adapters.chezmoi import ChezmoiAdapter
+from planeops.adapters.footprint import FootprintAdapter
 from planeops.adapters.launchd import LaunchdAdapter
 from planeops.adapters.manual import ManualAdapter
 from planeops.adapters.mcp import McpAdapter
@@ -52,6 +53,7 @@ def _hermetic_adapters(tmp_path):
         "chezmoi": ChezmoiAdapter(run=_empty_run),
         "secrets": SecretsAdapter(),
         "systemd": SystemdAdapter(run=_empty_run, units_dir=empty),
+        "footprint": FootprintAdapter(),
     }
 
 
@@ -169,5 +171,5 @@ def test_plan_is_pure_and_wellformed(tmp_path, fake_platform):
 
 def test_observe_only_adapters_do_not_expose_apply(tmp_path):
     adapters = _hermetic_adapters(tmp_path)
-    for name in ("manual", "pkg-nvm"):
+    for name in ("manual", "pkg-nvm", "footprint"):
         assert not can_apply(adapters[name])
