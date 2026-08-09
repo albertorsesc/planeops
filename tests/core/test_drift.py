@@ -296,14 +296,52 @@ def test_ungoverned_always_on_service_alerts():
     assert not rep.ungoverned  # escalated, not double-listed
 
 
+def test_a_failed_scan_with_no_declared_entries_still_alerts():
+    # A configured adapter that failed to scan is a coverage hole even when
+    # nothing is declared for it yet; per-entry "state unknown" lines cannot
+    # exist, so the adapter itself must alert.
+    rep = triage([], {}, {"footprint"}, failed={"footprint": "root x not readable"})
+    assert [a.entry_id for a in rep.alerts] == ["footprint"]
+    assert "scan failed" in rep.alerts[0].message
+
+
+def test_a_failed_scan_with_entries_alerts_per_entry_not_per_adapter():
+    e = _entry()  # manual/x
+    rep = triage([e], {}, {"manual"}, failed={"manual": "boom"})
+    ids = [a.entry_id for a in rep.alerts]
+    assert "manual/x" in ids and "manual" not in ids
+
+
+def test_a_failed_unimplemented_adapter_still_alerts():
+    # Entries of an unimplemented adapter go to Uncovered before the failed
+    # check; the scan failure must not vanish behind that.
+    e = _entry()  # manual/x
+    rep = triage([e], {}, set(), failed={"manual": "boom"})
+    assert any(a.entry_id == "manual" and "scan failed" in a.message
+               for a in rep.alerts)  # fmt: skip
+
+
 def test_an_observation_governed_by_a_declared_entry_is_not_ungoverned():
     # A footprint (or any adapter) can attribute its observation to an entry
     # that already governs the tool; the decision exists, so nothing is asked.
     e = _entry()  # manual/x
-    obs = {"footprint/x": _obs("footprint/x", governed_by="manual/x", always_on=True)}
+    obs = {"footprint/x": _obs("footprint/x", governed_by="manual/x")}
     rep = triage([e], obs, IMPL | {"footprint"})
     assert not rep.ungoverned
     assert not [a for a in rep.alerts if a.entry_id == "footprint/x"]
+
+
+def test_always_on_alerts_even_when_attributed():
+    # Attribution is evidence of a decision, not a license: something that
+    # runs code on its own must alert regardless of a name-matched entry.
+    e = _entry()  # manual/x
+    obs = {
+        "manual/x": _obs("manual/x"),
+        "launchd/x": _obs("launchd/x", governed_by="manual/x", always_on=True),
+    }
+    rep = triage([e], obs, IMPL | {"launchd"})
+    assert [a.entry_id for a in rep.alerts] == ["launchd/x"]
+    assert "always-on" in rep.alerts[0].message
 
 
 def test_a_stale_governed_by_falls_back_to_ungoverned():

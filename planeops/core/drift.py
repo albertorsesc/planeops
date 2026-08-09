@@ -143,9 +143,9 @@ def triage(
                 Lifecycle.active,
                 Lifecycle.maintain,
             ):
-                # A parked asset deviating from its own definition (an unloaded
-                # RunAtLoad service) IS the desired dormancy, and apply plans
-                # nothing for parked; reporting it would nag forever.
+                # A parked asset deviating from its own definition (a
+                # start-at-login service sitting unloaded) IS dormancy, and
+                # apply plans nothing for parked; a report would nag forever.
                 _soft_section(report, entry.tolerance).append(
                     _item(entry, "drifted from its declared source; apply to converge")
                 )
@@ -174,13 +174,10 @@ def triage(
         if key in declared_ids:
             continue
         obs = observed_by_key[key]
-        governed_by = obs.facts.get("governed_by")
-        if isinstance(governed_by, str) and governed_by in declared_ids:
-            # Evidence attributed to an entry that already governs the tool
-            # (a general fact, like always_on): the decision exists, nothing
-            # to ask. A stale attribution falls through and stays visible.
-            continue
         if obs.facts.get("always_on"):
+            # Checked before attribution on purpose: something that runs code
+            # on its own must alert even when a name-matched entry claims it,
+            # because attribution is evidence of a decision, not a license.
             report.alerts.append(
                 DriftItem(
                     key,
@@ -188,9 +185,33 @@ def triage(
                     "ungoverned always-on service; declare it or add an unmanaged glob",
                 )
             )
+        elif (
+            isinstance(governed_by := obs.facts.get("governed_by"), str)
+            and governed_by in declared_ids
+        ):
+            # Evidence attributed to an entry that already governs the tool:
+            # the decision exists, nothing to ask. A stale attribution falls
+            # through and stays visible.
+            pass
         else:
             report.ungoverned.append(
                 DriftItem(key, "unregistered", "observed but not in the registry")
+            )
+
+    # A failed scan alerts through its entries ("state unknown" lines), but
+    # only when the adapter has entries AND counts as implemented; in every
+    # other combination the failure would vanish, and a configured adapter
+    # that could not scan is a coverage hole, so the adapter itself alerts.
+    covered_by_entries = {e.adapter for e in entries} & implemented
+    for adapter_name in sorted(failed):
+        if adapter_name not in covered_by_entries:
+            report.alerts.append(
+                DriftItem(
+                    adapter_name,
+                    "scan-failed",
+                    f"adapter scan failed ({failed[adapter_name]}); "
+                    "coverage lost until fixed",
+                )
             )
 
     # Dependency integrity: an active/maintain entry that `needs` something being

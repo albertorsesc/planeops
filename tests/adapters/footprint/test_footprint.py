@@ -226,6 +226,70 @@ def test_a_non_mapping_root_raises(tmp_path):
         ADAPTER.observe(_ctx(tmp_path, inst))
 
 
+def test_roots_that_are_not_a_list_raise_instead_of_scanning_nothing(tmp_path):
+    # The likeliest YAML slip, a dropped `-`, turns the list into a mapping;
+    # that must never silently mean "observe nothing".
+    home, inst = _machine(
+        tmp_path,
+        "footprint:\n  roots:\n    label: xdg-config\n    path: ~/.config\n",
+    )
+    with pytest.raises(ValueError, match="list of mappings"):
+        ADAPTER.observe(_ctx(tmp_path, inst))
+
+
+def test_a_bare_null_roots_key_is_the_quiet_opt_out(tmp_path):
+    home, inst = _machine(tmp_path, "footprint:\n  roots:\n")
+    assert ADAPTER.observe(_ctx(tmp_path, inst)) == []
+
+
+def test_a_relative_root_path_raises(tmp_path):
+    # A relative path would scan wherever the process runs; ~user has no
+    # home to borrow. Both refuse at the shared resolver.
+    for bad in (".config", "~other/x"):
+        home, inst = _machine(
+            tmp_path / bad.replace("/", "_"),
+            f"footprint:\n  roots:\n    - {{label: x, path: {bad}}}\n",
+        )
+        with pytest.raises(ValueError, match="absolute or start with"):
+            ADAPTER.observe(_ctx(tmp_path / bad.replace("/", "_"), inst))
+
+
+def test_an_os_tagged_root_still_shields_its_path_everywhere(tmp_path):
+    # Being a convention is a property of the config, not of which OS is
+    # scanning: a linux-tagged xdg root must not surface as a `config` tool
+    # when darwin scans home-dot.
+    home, inst = _machine(
+        tmp_path,
+        "footprint:\n  roots:\n"
+        '    - {label: home-dot, path: "~", dot_only: true}\n'
+        "    - {label: xdg-config, path: ~/.config, os: linux}\n",
+    )
+    (home / ".zshrc").write_text("")
+    out = {
+        o.native_id
+        for o in ADAPTER.observe(_ctx(tmp_path, inst, platform_name="darwin"))
+    }
+    assert "config" not in out and "zshrc" in out
+
+
+def test_a_symlinked_root_shields_its_home_side_name(tmp_path):
+    # Dotfiles setups: ~/.config is a symlink to ~/dotfiles/config and the
+    # instance names the target; the link in home is still the convention.
+    home = tmp_path / "home"
+    (home / "dotfiles" / "config" / "gh").mkdir(parents=True)
+    (home / ".config").symlink_to(home / "dotfiles" / "config")
+    inst = tmp_path / "inst"
+    inst.mkdir()
+    (inst / ".planeops").write_text("")
+    (inst / "instance.yaml").write_text(
+        "footprint:\n  roots:\n"
+        '    - {label: home-dot, path: "~", dot_only: true}\n'
+        "    - {label: xdg-config, path: ~/dotfiles/config}\n",
+    )
+    out = {o.native_id for o in ADAPTER.observe(_ctx(tmp_path, inst))}
+    assert "config" not in out and "gh" in out
+
+
 def test_an_empty_label_raises(tmp_path):
     home, inst = _machine(
         tmp_path,
@@ -249,7 +313,7 @@ def test_a_root_outside_home_displays_its_absolute_path(tmp_path):
     (outside / "modelpack").mkdir(parents=True)
     home, inst = _machine(
         tmp_path,
-        f"footprint:\n  roots:\n    - {{label: shared, path: {outside}}}\n",
+        f'footprint:\n  roots:\n    - {{label: shared, path: "{outside}"}}\n',
     )
     [fp] = _observe(tmp_path, inst)["modelpack"].facts["footprints"]
     assert fp["path"] == str(outside / "modelpack")  # absolute, no ~ to relate
@@ -275,6 +339,41 @@ def test_a_bare_tilde_path_explains_the_yaml_null_trap(tmp_path):
         ADAPTER.observe(_ctx(tmp_path, inst))
 
 
+@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores file modes")
+def test_an_unreadable_root_refuses_loudly_naming_itself(tmp_path):
+    # Silent partial coverage would read as "covered everything"; the refusal
+    # lands in the failed-scan alert with the fix in the message.
+    home, inst = _machine(tmp_path)
+    locked = home / "locked-root"
+    locked.mkdir()
+    os.chmod(locked, 0o000)
+    (inst / "instance.yaml").write_text(
+        f'footprint:\n  roots:\n    - {{label: locked, path: "{locked}"}}\n',
+    )
+    try:
+        with pytest.raises(ValueError, match="locked.*not readable"):
+            ADAPTER.observe(_ctx(tmp_path, inst))
+    finally:
+        os.chmod(locked, 0o700)
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores file modes")
+def test_an_unreadable_child_dir_is_still_observed(tmp_path):
+    # stat on a child needs only the parent's permissions; the child's own
+    # mode never matters because nothing is ever opened or entered.
+    home, inst = _machine(tmp_path)
+    sshlike = home / ".config" / "keys"
+    sshlike.mkdir()
+    os.chmod(sshlike, 0o000)
+    try:
+        facts = _observe(tmp_path, inst)["keys"].facts
+        assert facts["present"] is True
+        assert facts["footprints"][0]["kind"] == "dir"
+    finally:
+        os.chmod(sshlike, 0o700)
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores file modes")
 def test_discovery_is_stat_only_an_unreadable_file_is_still_observed(tmp_path):
     # Presence never requires reading: a credential file with owner-none mode
     # still contributes its name and shape.
@@ -296,11 +395,17 @@ def test_a_unicode_name_folds_case_like_any_other(tmp_path):
     assert "陽tool" in _observe(tmp_path, inst)
 
 
-def test_an_all_dots_name_keeps_its_literal_key(tmp_path):
-    # lstrip would empty it; the literal name is the only honest identity.
-    home, inst = _machine(tmp_path)
-    (home / ".config" / "...").mkdir()
-    assert "..." in _observe(tmp_path, inst)
+def test_tool_key_folds_normalization_case_and_one_dot():
+    from planeops.adapters.footprint import tool_key
+
+    # NFD (as a normalizing filesystem reads it back) meets NFC (as typed
+    # into the registry); casefold covers dotted-I and sharp-s; only ONE
+    # leading dot strips, so `..foo` stays distinct from `.foo`.
+    assert tool_key("Café") == tool_key("Café")
+    assert tool_key(".Straße") == "strasse"
+    assert tool_key("İTool") == "i̇tool"
+    assert tool_key("..foo") == ".foo"
+    assert tool_key(".") == "."  # a bare dot keeps its literal self
 
 
 def test_default_noise_names_are_never_tools(tmp_path):
@@ -452,7 +557,6 @@ def test_attribution_is_deterministic_across_multiple_matches(tmp_path):
 def _lifecycle_report(tmp_path, lifecycle, tool="gh"):
     from planeops.core.drift import triage
 
-    tmp_path.mkdir(parents=True, exist_ok=True)
     home, inst = _machine(tmp_path)
     entry = entry_from_dict(
         {"id": f"footprint/{tool}", "adapter": "footprint",
@@ -475,14 +579,14 @@ def test_an_active_absent_footprint_alerts(tmp_path):
 
 
 def test_a_parked_present_footprint_is_silent(tmp_path):
-    rep = _lifecycle_report(tmp_path / "a", "parked")
+    rep = _lifecycle_report(tmp_path, "parked")
     assert not rep.alerts and not rep.report
 
 
 def test_a_parked_vanished_footprint_reports_without_alerting(tmp_path):
     # The engine's cross-adapter semantics: a parked thing that disappeared
     # entirely earns a report line (never an alert), same as a parked service.
-    rep = _lifecycle_report(tmp_path / "b", "parked", tool="ghost")
+    rep = _lifecycle_report(tmp_path, "parked", tool="ghost")
     assert not rep.alerts
     assert any("parked but not observed" in i.message for i in rep.report)
 

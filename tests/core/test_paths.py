@@ -19,7 +19,19 @@ def test_absolute_paths_pass_through():
     assert resolve_path("/etc/hosts", HOME) == Path("/etc/hosts")
 
 
-def test_a_tilde_username_form_is_not_expanded():
-    # Only the calling user's home is known to the platform; `~other` stays
-    # literal rather than guessing at the process environment.
-    assert resolve_path("~other/x", HOME) == Path("~other/x")
+def test_a_relative_path_is_refused():
+    # It would resolve against the process CWD, so observations would depend
+    # on where the command ran.
+    import pytest
+
+    with pytest.raises(ValueError, match="absolute or start with"):
+        resolve_path(".config", HOME)
+
+
+def test_a_tilde_username_form_is_refused():
+    # Only the calling user's home is known to the platform; `~other` has no
+    # home to borrow and would otherwise become a relative literal path.
+    import pytest
+
+    with pytest.raises(ValueError, match="absolute or start with"):
+        resolve_path("~other/x", HOME)
