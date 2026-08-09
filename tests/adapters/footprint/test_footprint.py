@@ -258,6 +258,92 @@ def test_an_all_dots_name_keeps_its_literal_key(tmp_path):
     assert "..." in _observe(tmp_path, inst)
 
 
+def test_default_noise_names_are_never_tools(tmp_path):
+    # OS artifacts, shell/editor state, backup copies, and the cache dir are
+    # debris, not tools; they must not become 11 open questions.
+    home, inst = _machine(
+        tmp_path,
+        "footprint:\n  roots:\n"
+        '    - {label: home-dot, path: "~", dot_only: true}\n'
+        "    - {label: xdg-config, path: ~/.config}\n",
+    )
+    for name in (".DS_Store", ".Trash", ".cache", ".viminfo", ".zsh_history"):
+        p = home / name
+        p.mkdir() if name in (".Trash", ".cache") else p.write_text("")
+    (home / ".config" / "settings.json.bak").write_text("")
+    out = _observe(tmp_path, inst)
+    for absent in (
+        "ds_store",
+        "trash",
+        "cache",
+        "viminfo",
+        "zsh_history",
+        "settings.json.bak",
+    ):
+        assert absent not in out, absent  # fmt: skip
+    assert "gh" in out  # real tools unaffected
+
+
+def test_the_ignore_list_extends_the_defaults(tmp_path):
+    home, inst = _machine(
+        tmp_path,
+        "footprint:\n"
+        "  ignore: [gh]\n"
+        "  roots:\n    - {label: xdg-config, path: ~/.config}\n",
+    )
+    out = _observe(tmp_path, inst)
+    assert "gh" not in out and "uv" in out
+
+
+def test_ignore_defaults_false_restores_the_debris(tmp_path):
+    home, inst = _machine(
+        tmp_path,
+        "footprint:\n"
+        "  ignore_defaults: false\n"
+        "  roots:\n    - {label: xdg-config, path: ~/.config}\n",
+    )
+    (home / ".config" / ".DS_Store").write_text("")
+    assert "ds_store" in _observe(tmp_path, inst)
+
+
+def test_ignore_matches_the_literal_name_case_sensitively(tmp_path):
+    # fnmatchcase on both OSs: the same instance.yaml filters identically on
+    # macOS and Linux, and patterns match the on-disk name, not the tool key.
+    home, inst = _machine(
+        tmp_path,
+        "footprint:\n"
+        "  ignore: [.Weird*]\n"
+        "  roots:\n    - {label: xdg-config, path: ~/.config}\n",
+    )
+    (home / ".config" / ".weirdtool").mkdir()
+    out = _observe(tmp_path, inst)
+    # The pattern names .Weird*; the on-disk name is .weirdtool: no match,
+    # on either OS, regardless of filesystem case rules.
+    assert "weirdtool" in out
+    [fp] = out["weirdtool"].facts["footprints"]
+    assert fp["path"] == "~/.config/.weirdtool"
+
+
+def test_a_malformed_ignore_raises(tmp_path):
+    home, inst = _machine(
+        tmp_path,
+        "footprint:\n  ignore: [3]\n  roots:\n"
+        "    - {label: xdg-config, path: ~/.config}\n",
+    )
+    with pytest.raises(ValueError, match="ignore"):
+        ADAPTER.observe(_ctx(tmp_path, inst))
+
+
+def test_an_unknown_footprint_section_key_raises(tmp_path):
+    home, inst = _machine(
+        tmp_path,
+        "footprint:\n  ignroe: [x]\n  roots:\n"
+        "    - {label: xdg-config, path: ~/.config}\n",
+    )
+    with pytest.raises(ValueError, match="ignroe"):
+        ADAPTER.observe(_ctx(tmp_path, inst))
+
+
 def test_a_tool_matching_another_adapters_entry_is_attributed(tmp_path):
     home, inst = _machine(tmp_path)
     ctx = _ctx(tmp_path, inst, entries=[_entry("pkg-brew/gh", "pkg-brew")])
