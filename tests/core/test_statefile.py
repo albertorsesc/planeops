@@ -55,3 +55,51 @@ def test_read_host_json_builds_the_host_path(tmp_path, fake_platform):
         "host": "testhost"
     }
     assert read_host_json(tmp_path, "missing.json", platform=plat) is None
+
+
+# ---- atomic_write_foreign: files planeops does not own ----
+
+
+def test_foreign_write_goes_through_a_symlink(tmp_path):
+    from planeops.core.statefile import atomic_write_foreign
+
+    real = tmp_path / "dotfiles" / "config.json"
+    real.parent.mkdir()
+    real.write_text("{}")
+    link = tmp_path / "config.json"
+    link.symlink_to(real)
+    atomic_write_foreign(link, '{"a": 1}')
+    assert link.is_symlink()  # the link survived
+    assert real.read_text() == '{"a": 1}'  # the target got the bytes
+
+
+def test_foreign_write_preserves_a_0600_mode(tmp_path):
+    import os
+
+    from planeops.core.statefile import atomic_write_foreign
+
+    p = tmp_path / "secretish.json"
+    p.write_text("{}")
+    os.chmod(p, 0o600)
+    atomic_write_foreign(p, '{"b": 2}')
+    assert p.stat().st_mode & 0o777 == 0o600
+
+
+def test_foreign_write_leaves_no_temp_on_failure(tmp_path, monkeypatch):
+    import os
+
+    import pytest
+
+    from planeops.core import statefile
+
+    p = tmp_path / "cfg.json"
+    p.write_text("{}")
+
+    def boom(src, dst):
+        raise OSError("replace failed")
+
+    monkeypatch.setattr(os, "replace", boom)
+    with pytest.raises(OSError):
+        statefile.atomic_write_foreign(p, "{}")
+    leftovers = [q for q in tmp_path.iterdir() if q.name != "cfg.json"]
+    assert leftovers == []

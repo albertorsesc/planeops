@@ -65,6 +65,7 @@ _SAMPLE = {
     "chezmoi": ("config", "somefile"),
     "secrets": ("secret", "openrouter-api-key"),
     "systemd": ("service", "sample.service"),
+    "mcp": ("mcp-server", "somesrv"),
 }
 
 
@@ -168,5 +169,5 @@ def test_plan_is_pure_and_wellformed(tmp_path, fake_platform):
 
 def test_observe_only_adapters_do_not_expose_apply(tmp_path):
     adapters = _hermetic_adapters(tmp_path)
-    for name in ("manual", "mcp", "pkg-nvm"):
+    for name in ("manual", "pkg-nvm"):
         assert not can_apply(adapters[name])

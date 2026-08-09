@@ -6,6 +6,21 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- The mcp adapter grows its write side: with `manage: true` under `mcp:` in
+  `instance.yaml`, `plane apply` proposes removing a retired server's block
+  from each client config that still wires it, behind the usual per-change
+  confirmation. The edit is digest-guarded (refused if the file changed since
+  the preview, or if its formatting does not round-trip byte-identically),
+  atomic through symlinks with permissions preserved, and preceded by a
+  0600 backup of the removed block under `~/.local/state/planeops/backups/`.
+  Project- and repo-scoped wirings are skipped by name; previews, results,
+  and the journal never carry `env` values. Wiring servers in stays manual:
+  `env` blocks hold secrets.
+- Observation records structured wirings per server (client + scope), so the
+  write side targets exactly what was seen instead of re-deriving it.
+
 ### Fixed
 
 - A parked entry no longer reports the `drifted` fact: a parked RunAtLoad

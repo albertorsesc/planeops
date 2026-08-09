@@ -2,7 +2,8 @@
 
 planeops touches MCP twice, in opposite directions: it *observes* the MCP
 servers wired into your AI apps, and it can itself be *queried* over MCP by
-your assistant. Both are read-only.
+your assistant. Observation never writes; the one write the adapter offers,
+unwiring a retired server, is opt-in and gated below.
 
 ## The view: every server, every client, one table
 
@@ -40,6 +41,39 @@ section (`claude mcp add`'s default, private to that directory) and each
 committed `.mcp.json` inside those directories. Scoped wirings show under
 their own label, `claude-code project:~/x` or `claude-code repo:~/x`, so the
 view tells "wired everywhere" from "wired only in one project".
+
+## Unwiring: retire a server and let apply remove it
+
+Retiring an MCP server in the registry declares it should be gone; the wiring
+in each client's config is the leftover. With the opt-in set:
+
+```yaml
+mcp:
+  manage: true
+  sources:
+    - ...
+```
+
+`plane apply` proposes one change per retired-but-still-wired server, naming
+every client file it would edit, and removes the server's block after your
+`y`. The write is deliberately paranoid, because these files belong to other
+programs:
+
+- Only user-scope wirings in configured sources are touched. Project- and
+  repo-scoped wirings are listed as skipped: remove those where they live.
+- The file is re-read at execution and refused if it changed since the
+  preview, byte-for-byte, digest-checked.
+- Only JSON files whose formatting round-trips exactly are edited; a config
+  planeops cannot reproduce byte-identically is refused, never rewritten.
+- The removed block (env included) is backed up first, to
+  `~/.local/state/planeops/backups/`, mode 0600, so an unwire is undoable.
+- The write is atomic, follows symlinks to the real file, and preserves its
+  permissions. Everything except the removed block stays byte-identical.
+
+Previews, results, and the journal name servers and paths only, never `env`
+values. A client already running keeps serving the server until restarted.
+Wiring servers *in* stays manual for now: `env` blocks carry secrets, and
+writing those from a registry needs the secrets seam, not a config editor.
 
 ## The server: let your assistant read the plane
 

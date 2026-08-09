@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from planeops.adapters.mcp.clients import Client
+from planeops.adapters.mcp.clients.flatjson import remove_server
 
 
 def _short(path: str, home: Path) -> str:
@@ -64,4 +65,5 @@ CLIENT = Client(
     key="mcpServers",
     binary="claude",
     scopes=_scoped_servers,
+    remove_server=remove_server,
 )
