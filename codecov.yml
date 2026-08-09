@@ -1,0 +1,19 @@
+# PR feedback from Codecov: a comment showing project + diff coverage, and a
+# project-level status check. `target: auto` compares against the base commit;
+# the threshold forgives sub-half-percent dips so a small refactor cannot flap
+# the check. Neither is a required check: they inform, the gate blocks.
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 0.5%
+        base: auto
+
+comment:
+  layout: "diff, flags, files"
+  behavior: default
+  require_changes: false
+  require_base: false
+  require_head: true
+  hide_project_coverage: false
