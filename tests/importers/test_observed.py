@@ -45,6 +45,29 @@ def test_skips_already_declared_entries(tmp_path):
     assert ids == ["pkg-brew/jq"]  # ripgrep already declared -> not re-proposed
 
 
+def test_skips_an_observation_governed_by_a_declared_entry(tmp_path):
+    # The same rule drift applies: an attributed trace is evidence for a
+    # decision already made, so onboarding must not re-propose it. A stale
+    # attribution (entry gone) proposes normally.
+    reg = tmp_path / "registry"
+    reg.mkdir()
+    (reg / "r.yaml").write_text(
+        "entries:\n"
+        "  - {id: pkg-brew/gh, adapter: pkg-brew, domain: package, "
+        "lifecycle: active, intent: i}\n"
+    )
+    snap = _snapshot(
+        [
+            {"adapter": "footprint", "native_id": "gh",
+             "facts": {"governed_by": "pkg-brew/gh"}},
+            {"adapter": "footprint", "native_id": "warp",
+             "facts": {"governed_by": "manual/gone"}},
+        ]
+    )  # fmt: skip
+    ids = [e["id"] for e in propose_from_snapshot(snap, tmp_path)]
+    assert ids == ["footprint/warp"]
+
+
 def test_dedupes_and_ignores_malformed_items():
     snap = _snapshot(
         [

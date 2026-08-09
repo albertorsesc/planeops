@@ -112,8 +112,10 @@ Result   = {ok: bool, detail: str}
   presence, e.g. a service is present when loaded/enabled, not when its file
   exists; absent fact means observed-at-all is presence), `drifted` (content or
   definition drift, tolerance-routed), `always_on` (will run code at login/on a
-  schedule; drives the ungoverned alert), `stale` (attestation age), and
-  `configured` (secret presence).
+  schedule; drives the ungoverned alert), `stale` (attestation age),
+  `configured` (secret presence), and `governed_by` (the id of a declared
+  entry this observation is evidence for; skips the ungoverned pass while
+  that entry exists, falls back to visible when it is deleted).
 - `Ctx.secrets` carries the redaction gate: a presence-only handle whose
   `get()` raises everywhere except inside the secrets adapter's confirmed
   execute, where the engine substitutes a value-capable handle it builds from

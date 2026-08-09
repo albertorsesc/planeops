@@ -43,9 +43,11 @@
 # home dotfiles) and `os: darwin|linux` (scan only on that system). The same
 # tool across roots merges into one observation (`.ollama` + an app-support
 # `Ollama` is one tool, two footprints), and a configured root is never
-# itself a tool. Stat-only: nothing is opened, so credential-bearing configs
-# contribute their name and shape, never their contents. Omit the section to
-# scan nothing.
+# itself a tool. A tool whose name matches another adapter's declared entry
+# (the `gh` trace when `pkg-brew/gh` is in the registry) is attributed to
+# that entry instead of asking for its own. Stat-only: nothing is opened, so
+# credential-bearing configs contribute their name and shape, never their
+# contents. Omit the section to scan nothing.
 # footprint:
 #   roots:
 #     - {label: xdg-config, path: ~/.config}

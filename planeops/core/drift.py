@@ -174,6 +174,12 @@ def triage(
         if key in declared_ids:
             continue
         obs = observed_by_key[key]
+        governed_by = obs.facts.get("governed_by")
+        if isinstance(governed_by, str) and governed_by in declared_ids:
+            # Evidence attributed to an entry that already governs the tool
+            # (a general fact, like always_on): the decision exists, nothing
+            # to ask. A stale attribution falls through and stays visible.
+            continue
         if obs.facts.get("always_on"):
             report.alerts.append(
                 DriftItem(

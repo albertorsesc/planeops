@@ -296,6 +296,24 @@ def test_ungoverned_always_on_service_alerts():
     assert not rep.ungoverned  # escalated, not double-listed
 
 
+def test_an_observation_governed_by_a_declared_entry_is_not_ungoverned():
+    # A footprint (or any adapter) can attribute its observation to an entry
+    # that already governs the tool; the decision exists, so nothing is asked.
+    e = _entry()  # manual/x
+    obs = {"footprint/x": _obs("footprint/x", governed_by="manual/x", always_on=True)}
+    rep = triage([e], obs, IMPL | {"footprint"})
+    assert not rep.ungoverned
+    assert not [a for a in rep.alerts if a.entry_id == "footprint/x"]
+
+
+def test_a_stale_governed_by_falls_back_to_ungoverned():
+    # Attribution to a deleted entry must not keep hiding the trace: the
+    # decision it pointed at no longer exists.
+    obs = {"footprint/x": _obs("footprint/x", governed_by="manual/gone")}
+    rep = triage([], obs, {"footprint"})
+    assert [i.entry_id for i in rep.ungoverned] == ["footprint/x"]
+
+
 def test_declared_observation_is_not_ungoverned():
     e = _entry()
     rep = triage([e], {"manual/x": _obs("manual/x")}, IMPL)

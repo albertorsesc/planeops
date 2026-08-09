@@ -62,6 +62,12 @@ def propose_from_snapshot(text: str, repo_root: Path | None) -> list[dict[str, A
         entry_id = f"{adapter}/{native}"
         if entry_id in declared or entry_id in seen:
             continue
+        facts_raw = obs.get("facts")
+        governed_by = (
+            facts_raw.get("governed_by") if isinstance(facts_raw, dict) else None
+        )
+        if isinstance(governed_by, str) and governed_by in declared:
+            continue  # attributed to a decision already on record, like drift
         seen.add(entry_id)
         # Seeding must DESCRIBE the machine, never propose changes to it: an
         # asset that is on disk but not active (facts.present False, e.g. an

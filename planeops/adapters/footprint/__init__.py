@@ -28,7 +28,7 @@ from typing import Any
 from planeops.config import section as instance_section
 from planeops.core.contracts import Ctx, Observed
 from planeops.core.paths import resolve_path
-from planeops.core.schema import reject_unknown_keys
+from planeops.core.schema import Entry, reject_unknown_keys
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,18 +121,33 @@ class FootprintAdapter:
                 merged.setdefault(tool_key(child.name), []).append(
                     _footprint(root, child, home)
                 )
-        return [
-            Observed(
-                adapter=self.name,
-                native_id=tool,
-                facts={
-                    "present": True,
-                    "footprints": sorted(prints, key=lambda f: str(f["path"])),
-                },
-                version=None,
+        owners = _attributions(ctx.entries)
+        out: list[Observed] = []
+        for tool, prints in sorted(merged.items()):
+            facts: dict[str, Any] = {
+                "present": True,
+                "footprints": sorted(prints, key=lambda f: str(f["path"])),
+            }
+            if tool in owners:
+                facts["governed_by"] = owners[tool]
+            out.append(
+                Observed(adapter=self.name, native_id=tool, facts=facts, version=None)
             )
-            for tool, prints in sorted(merged.items())
-        ]
+        return out
+
+
+def _attributions(entries: tuple[Entry, ...]) -> dict[str, str]:
+    """tool key -> the id of an entry from ANOTHER adapter whose native id
+    names the same tool: `pkg-brew/gh` owns the `~/.config/gh` trace, so the
+    trace is evidence for a decision already made, not a new question. First
+    match by sorted entry id, so attribution never depends on registry file
+    order."""
+    owners: dict[str, str] = {}
+    for entry in sorted(entries, key=lambda e: e.id):
+        if entry.adapter == "footprint":
+            continue
+        owners.setdefault(tool_key(entry.native_id), entry.id)
+    return owners
 
 
 def _footprint(root: FootprintRoot, child: Path, home: Path) -> dict[str, Any]:
