@@ -14,6 +14,7 @@ import pytest
 
 from planeops.adapters.footprint import ADAPTER, FootprintAdapter
 from planeops.core.contracts import Ctx
+from planeops.core.schema import entry_from_dict
 
 
 class _Plat:
@@ -28,14 +29,22 @@ class _Plat:
         return self._home
 
 
-def _ctx(tmp_path, inst=None, platform_name="fake"):
+def _ctx(tmp_path, inst=None, platform_name="fake", entries=()):
     return Ctx(
         platform=_Plat(tmp_path / "home", platform_name),
         host="h",
         now=datetime(2026, 8, 8),
-        entries=(),
+        entries=tuple(entries),
         repo_root=inst,
     )
+
+
+def _entry(eid, adapter):
+    domain = {"footprint": "footprint"}.get(adapter, "package")
+    return entry_from_dict(
+        {"id": eid, "adapter": adapter, "domain": domain,
+         "lifecycle": "active", "intent": "i"}
+    )  # fmt: skip
 
 
 XDG_ONLY = "footprint:\n  roots:\n    - {label: xdg-config, path: ~/.config}\n"
@@ -236,11 +245,74 @@ def test_discovery_is_stat_only_an_unreadable_file_is_still_observed(tmp_path):
         os.chmod(locked, 0o600)
 
 
+def test_a_unicode_name_folds_case_like_any_other(tmp_path):
+    home, inst = _machine(tmp_path)
+    (home / ".config" / "陽Tool").mkdir()
+    assert "陽tool" in _observe(tmp_path, inst)
+
+
 def test_an_all_dots_name_keeps_its_literal_key(tmp_path):
     # lstrip would empty it; the literal name is the only honest identity.
     home, inst = _machine(tmp_path)
     (home / ".config" / "...").mkdir()
     assert "..." in _observe(tmp_path, inst)
+
+
+def test_a_tool_matching_another_adapters_entry_is_attributed(tmp_path):
+    home, inst = _machine(tmp_path)
+    ctx = _ctx(tmp_path, inst, entries=[_entry("pkg-brew/gh", "pkg-brew")])
+    out = {o.native_id: o for o in ADAPTER.observe(ctx)}
+    assert out["gh"].facts["governed_by"] == "pkg-brew/gh"
+    assert "governed_by" not in out["uv"].facts  # no entry, no attribution
+
+
+def test_attribution_normalizes_the_entry_native_id(tmp_path):
+    # chezmoi/.zshrc governs the ~/.zshrc trace: the dot and case fold away
+    # on the entry side exactly as they do for the tool key.
+    home, inst = _machine(
+        tmp_path,
+        'footprint:\n  roots:\n    - {label: home-dot, path: "~", dot_only: true}\n',
+    )
+    (home / ".zshrc").write_text("")
+    ctx = _ctx(tmp_path, inst, entries=[_entry("chezmoi/.zshrc", "chezmoi")])
+    out = {o.native_id: o for o in ADAPTER.observe(ctx)}
+    assert out["zshrc"].facts["governed_by"] == "chezmoi/.zshrc"
+
+
+def test_a_footprint_entry_never_attributes_itself(tmp_path):
+    # A declared footprint/gh already keeps gh out of ungoverned by id; the
+    # attribution seam exists for OTHER adapters' entries only.
+    home, inst = _machine(tmp_path)
+    ctx = _ctx(tmp_path, inst, entries=[_entry("footprint/gh", "footprint")])
+    out = {o.native_id: o for o in ADAPTER.observe(ctx)}
+    assert "governed_by" not in out["gh"].facts
+
+
+def test_a_retired_owner_still_attributes(tmp_path):
+    # The retired entry IS the decision; its own adapter alerts on the
+    # lingering package, and the trace must not pile a second question on top.
+    home, inst = _machine(tmp_path)
+    entry = entry_from_dict(
+        {"id": "pkg-brew/gh", "adapter": "pkg-brew", "domain": "package",
+         "lifecycle": "retired", "intent": "i"}
+    )  # fmt: skip
+    ctx = _ctx(tmp_path, inst, entries=[entry])
+    out = {o.native_id: o for o in ADAPTER.observe(ctx)}
+    assert out["gh"].facts["governed_by"] == "pkg-brew/gh"
+
+
+def test_attribution_is_deterministic_across_multiple_matches(tmp_path):
+    home, inst = _machine(tmp_path)
+    ctx = _ctx(
+        tmp_path,
+        inst,
+        entries=[
+            _entry("pkg-brew/gh", "pkg-brew"),
+            _entry("manual/gh", "manual"),
+        ],
+    )
+    out = {o.native_id: o for o in ADAPTER.observe(ctx)}
+    assert out["gh"].facts["governed_by"] == "manual/gh"  # first by sorted id
 
 
 def test_the_adapter_is_discovered_and_observe_only(tmp_path):
