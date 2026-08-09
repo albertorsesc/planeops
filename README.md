@@ -58,8 +58,9 @@ change you confirm one at a time.
 
 ## Features
 
-- **Catches what package managers can't**: ungoverned always-on services, an MCP server wired into one client but not the others, a pruned model your tooling depends on.
+- **Catches what package managers can't**: ungoverned always-on services, an MCP server wired into one client (or one project) but not the others, a pruned model your tooling depends on.
 - **One loop, three verbs**: `observe` scans read-only, `drift` diffs desired against observed, `apply` converges with per-change confirmation.
+- **Lifecycles drive the triage**: `parked` is deliberately dormant, so nothing nags while a project sleeps; a finished retirement asks for registry cleanup instead of alerting forever.
 - **No daemon, no open ports**: every command exits; the ambient loop is your OS scheduler running `plane reconcile`.
 - **Onboarding is pruning, not authoring**: `plane init --seed` proposes the registry from what is already installed.
 - **Typos are load errors**: `tolerence:` fails with "did you mean 'tolerance'?", never a silent no-op.
@@ -135,8 +136,8 @@ footprint: [docs/instance.md](https://github.com/albertorsesc/planeops/blob/main
 
 - [SPEC.md](https://github.com/albertorsesc/planeops/blob/main/SPEC.md): the architecture, entry schema, adapter contracts, and exit codes.
 - [docs/instance.md](https://github.com/albertorsesc/planeops/blob/main/docs/instance.md): your instance directory, several machines on one registry, the tool's footprint.
-- [docs/secrets.md](https://github.com/albertorsesc/planeops/blob/main/docs/secrets.md): the secrets flow (declare, `secrets add` per value with the store bootstrapped on first use, `apply` materializes) and how values stay sealed.
-- [docs/mcp.md](https://github.com/albertorsesc/planeops/blob/main/docs/mcp.md): every MCP server across every client in one view, and the read-only server your assistant can query.
+- [docs/secrets.md](https://github.com/albertorsesc/planeops/blob/main/docs/secrets.md): the secrets flow (declare, `secrets add`/`list`/`remove` with the store bootstrapped on first use, `apply` materializes) and how values stay sealed.
+- [docs/mcp.md](https://github.com/albertorsesc/planeops/blob/main/docs/mcp.md): every MCP server across every client in one view, the opt-in unwire of retired servers, and the read-only server your assistant can query.
 - [CHANGELOG.md](https://github.com/albertorsesc/planeops/blob/main/CHANGELOG.md): releases and what is coming.
 
 ## What planeops is not
@@ -160,8 +161,10 @@ and [age](https://github.com/FiloSottile/age) hold the secrets,
 [chezmoi](https://github.com/twpayne/chezmoi) reproduces config files, your
 OS's own scheduler runs the ambient loop, and the package managers you already
 use keep doing the installing. The engine rides on
-[ruamel.yaml](https://sourceforge.net/projects/ruamel-yaml/) (its one runtime
-dependency) and the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
+[ruamel.yaml](https://sourceforge.net/projects/ruamel-yaml/) for the registry,
+[Rich](https://github.com/Textualize/rich) with
+[rich-argparse](https://github.com/hamdanal/rich-argparse) for the console, and
+the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
 for the optional server, and is built with [uv](https://github.com/astral-sh/uv),
 [ruff](https://github.com/astral-sh/ruff), [mypy](https://github.com/python/mypy),
 and [pytest](https://github.com/pytest-dev/pytest). Thanks to all of them.
