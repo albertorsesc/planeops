@@ -37,14 +37,22 @@
 #       key: mcp_servers
 
 # --- footprint adapter: discover tools by the config traces they leave ------
-# Each root: label (the convention's name, shown as the source) and path
-# (`~` expands to home). Every direct child of a root is observed by name,
-# stat-only: nothing is opened, so credential-bearing configs contribute
-# their name and shape, never their contents. Omit the section to scan
-# nothing.
+# Each root: label (the convention's name), path (`~/...` expands to home;
+# home itself must be quoted "~" because YAML reads a bare ~ as null), and
+# optionally `dot_only: true` (scan only dot-children, what makes "~" mean
+# home dotfiles) and `os: darwin|linux` (scan only on that system). The same
+# tool across roots merges into one observation (`.ollama` + an app-support
+# `Ollama` is one tool, two footprints), and a configured root is never
+# itself a tool. Stat-only: nothing is opened, so credential-bearing configs
+# contribute their name and shape, never their contents. Omit the section to
+# scan nothing.
 # footprint:
 #   roots:
 #     - {label: xdg-config, path: ~/.config}
+#     - {label: xdg-data, path: ~/.local/share}
+#     - {label: xdg-state, path: ~/.local/state}
+#     - {label: home-dot, path: "~", dot_only: true}
+#     - {label: app-support, path: ~/Library/Application Support, os: darwin}
 
 # --- import: manifest section -> adapter mapping for `plane import stackfile` -
 # The first rule whose `keyword` appears (case-insensitively) in a section header
