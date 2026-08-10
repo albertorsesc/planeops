@@ -39,6 +39,54 @@ def test_drift_without_json_prints_human_summary_not_json(monkeypatch, capsys, i
     assert code == 0
 
 
+def _grouped_report():
+    """Two adapters, one with rows that agree on their message and one row
+    that disagrees, so both rendering paths appear in a single report."""
+    from planeops.core.report import DriftItem, DriftReport
+
+    rep = DriftReport(host="h", ts="2026-07-28T00:00:00")
+    rep.ungoverned = [
+        DriftItem("manual/a0", "active", "observed but not in the registry"),
+        DriftItem("manual/a1", "active", "observed but not in the registry"),
+        DriftItem("launchd/svc", "active", "observed but not in the registry"),
+    ]
+    rep.alerts = [
+        DriftItem("manual/b0", "retired", "listed retired but still present"),
+        DriftItem("manual/b1", "retired", "listed retired but still present"),
+        DriftItem("secrets/key", "active", "required secret is not configured"),
+    ]
+    return rep
+
+
+def test_a_shared_message_is_stated_once_on_the_group(monkeypatch, capsys, inst):
+    monkeypatch.setattr("planeops.core.drift.run_drift", lambda repo: _grouped_report())
+    main(["--repo", inst, "drift"])
+    out = capsys.readouterr().out
+    assert "manual · listed retired but still present" in out
+    assert out.count("listed retired but still present") == 1
+
+
+def test_the_adapter_prefix_is_hoisted_off_the_rows(monkeypatch, capsys, inst):
+    monkeypatch.setattr("planeops.core.drift.run_drift", lambda repo: _grouped_report())
+    main(["--repo", inst, "drift"])
+    out = capsys.readouterr().out
+    assert "manual/b0" not in out and "b0" in out  # bare under its group
+    assert "launchd/svc" not in out and "svc" in out
+
+
+def test_a_row_that_disagrees_keeps_its_own_message(monkeypatch, capsys, inst):
+    monkeypatch.setattr("planeops.core.drift.run_drift", lambda repo: _grouped_report())
+    main(["--repo", inst, "drift"])
+    assert "required secret is not configured" in capsys.readouterr().out
+
+
+def test_every_adapter_present_gets_its_own_group(monkeypatch, capsys, inst):
+    monkeypatch.setattr("planeops.core.drift.run_drift", lambda repo: _grouped_report())
+    out = (main(["--repo", inst, "drift"]), capsys.readouterr().out)[1]
+    for adapter in ("manual", "launchd", "secrets"):
+        assert adapter in out
+
+
 def test_drift_json_unseeded_emits_a_json_error_object(monkeypatch, capsys, inst):
     # The --json contract holds for every verb: stdout parses as JSON even when
     # the snapshot is missing; the exit code still says operator error.

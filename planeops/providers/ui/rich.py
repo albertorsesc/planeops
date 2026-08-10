@@ -138,6 +138,57 @@ def item(state: str, ident: str, message: str, ident_width: int) -> None:
     _out.print(out)
 
 
+def group(label: str, detail: str = "") -> None:
+    """A group header inside a section: what its items have in common (their
+    adapter, and the one message they all carry), stated once so the list
+    below can be bare names."""
+    out = Text("  ")
+    out.append(label, style="title")
+    if detail:
+        out.append(" · ", style="note")
+        out.append(detail, style="note")
+    _out.print(out)
+
+
+# Packing width: a real terminal's own width, but bounded on a pipe (where the
+# console is deliberately wide) so a packed block stays readable either way.
+_PACK_WIDTH = 100
+
+
+def _pack_widths(names: list[str], columns: int, width: int) -> list[int] | None:
+    """Per-column widths for a row-major grid, or None when it does not fit.
+    Columns are sized to their own longest entry, so one long name costs its
+    column only, not every column."""
+    widths = []
+    for c in range(columns):
+        cells = names[c::columns]  # row-major fill: column c holds every cth name
+        widths.append(max(len(n) for n in cells) + 4)  # symbol, space, padding
+    return widths if sum(widths) <= width else None
+
+
+def packed(state: str, names: list[str]) -> None:
+    """Bare identifiers under a group, packed into aligned columns. A long
+    list of short names is a shape to scan, not a column to read. The layout
+    is computed here rather than delegated, so the same input always packs
+    the same way."""
+    if not names:
+        return
+    width = min(_out.width, _PACK_WIDTH) - 4  # the block's own indent
+    columns, widths = 1, [max(len(n) for n in names) + 4]
+    for candidate in range(min(len(names), 8), 1, -1):
+        fit = _pack_widths(names, candidate, width)
+        if fit is not None:
+            columns, widths = candidate, fit
+            break
+    for start in range(0, len(names), columns):
+        row = names[start : start + columns]
+        out = Text("    ")
+        for col, name in enumerate(row):
+            out.append(_SYMBOL[state] + " ", style=_STATE_STYLE[state])
+            out.append(name.ljust(widths[col] - 2))
+        _out.print(Text(out.plain.rstrip(), spans=out.spans))
+
+
 def hint(text: str) -> None:
     """A dim indented footnote under a section (shared guidance, truncation
     notes, navigation) on stdout."""
