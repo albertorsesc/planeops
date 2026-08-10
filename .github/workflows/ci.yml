@@ -39,6 +39,13 @@ jobs:
             exit 1
           fi
 
+      # The other half: a release PR's NUMBER must agree with its notes, so a
+      # break can never ship as a patch and the reserved slot cannot move
+      # without one. Runs on every PR, since the version and the changelog are
+      # in the tree whatever the title says.
+      - name: The version bump agrees with its changelog section
+        run: python3 scripts/check_version_bump.py
+
   gate:
     runs-on: ubuntu-latest
     permissions:

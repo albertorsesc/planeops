@@ -99,7 +99,12 @@ Versioning is [SemVer](https://semver.org) with a [Keep a Changelog](https://kee
 (`Added`/`Changed`/`Fixed`/`Deprecated`/`Removed`/`Security`), and prefix any breaking
 entry with **BREAKING:**. Pre-1.0 (while `0.x`): a breaking change bumps the **minor**
 (`0.MINOR.0`); features and fixes bump the **patch** (`0.x.PATCH`). After 1.0, standard
-SemVer (breaking → major).
+SemVer (breaking → major). One meaning carries through: the slot that moves is the one
+that says "a contract moved", which is the minor until 1.0 and the major after it, so a
+pin like `~=0.10.0` takes every fix and feature and stops exactly where reading is
+required. Releases up to and including `0.10.0` bumped the minor for features too; from
+`0.10.1` on, the minor is reserved for breaking changes as written here. CI enforces the
+bump against the `Unreleased` sections, so the rule is checked rather than remembered.
 
 The first published release is `0.1.0`, per the [SemVer FAQ](https://semver.org/#faq).
 `1.0.0` is a stability commitment, deliberately deferred: it is cut when the registry
