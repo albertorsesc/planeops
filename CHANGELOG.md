@@ -6,6 +6,16 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- CI checks a release's version bump against its own changelog section, so
+  the numbering rule is enforced rather than remembered: a BREAKING entry
+  must move the slot reserved for it (the minor while 0.x, the major from
+  1.0), and moving that slot without one is refused. `scripts/check_version_bump.py`
+  runs the same check locally. Releases through 0.10.0 bumped the minor for
+  features before the rule was written down; they are grandfathered, and the
+  check applies from 0.10.1 on.
+
 ### Fixed
 
 - An active entry whose adapter reports `present: False` now alerts "expected
