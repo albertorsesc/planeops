@@ -6,7 +6,9 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Added
+## [0.10.1] - 2026-08-10
+
+### Changed
 
 - CI checks a release's version bump against its own changelog section, so
   the numbering rule is enforced rather than remembered: a BREAKING entry
@@ -639,7 +641,8 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   shell prompt kept showing stale state, the exact failure the ambient loop exists to
   prevent; `plane apply` already treated it as a change, so drift and apply now agree.
 
-[Unreleased]: https://github.com/albertorsesc/planeops/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/albertorsesc/planeops/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/albertorsesc/planeops/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/albertorsesc/planeops/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/albertorsesc/planeops/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/albertorsesc/planeops/compare/v0.7.0...v0.8.0
