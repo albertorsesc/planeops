@@ -116,7 +116,38 @@ def test_it_reads_this_repo_s_own_changelog():
     assert body.strip()  # the newest release has notes
 
 
-def test_breaking_is_recognised_in_both_spellings():
+def test_breaking_is_recognised_in_every_spelling_the_project_uses():
     assert guard.declares_breaking("- **BREAKING:** the schema moved")
+    assert guard.declares_breaking(
+        "- **BREAKING (pre-1.0):** the YAML dependency is ruamel.yaml"
+    )  # the form 0.1.0 actually used
     assert guard.declares_breaking("BREAKING CHANGE: the schema moved")
     assert not guard.declares_breaking("- added a non-breaking thing")
+
+
+def test_prose_about_breaking_changes_is_not_a_breaking_change():
+    # The guard's own release notes describe the rule, so they contain the
+    # word. A bare-substring test called that a break and refused the release
+    # it was shipping in. The marker is a bolded entry prefix, not the word.
+    notes = (
+        "### Changed\n\n"
+        "- CI checks a release's version bump against its own changelog\n"
+        "  section: a BREAKING entry must move the slot reserved for it, and\n"
+        "  moving that slot without one is refused.\n"
+    )
+    assert not guard.declares_breaking(notes)
+    assert guard.check("0.10.0", "0.10.1", notes) == []
+
+
+def test_a_real_breaking_entry_beside_ordinary_prose_still_counts():
+    notes = (
+        "### Changed\n\n"
+        "- an ordinary entry that mentions the word BREAKING in passing\n"
+        "- **BREAKING:** the registry schema moved\n"
+    )
+    assert guard.declares_breaking(notes)
+
+
+def test_this_repo_s_own_first_release_is_still_read_as_breaking():
+    text = (Path(__file__).resolve().parent.parent / "CHANGELOG.md").read_text()
+    assert guard.declares_breaking(guard.section_body(text, "0.1.0"))
