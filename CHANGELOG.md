@@ -6,6 +6,18 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- An active entry whose adapter reports `present: False` now alerts "expected
+  present, not observed", the same as observing nothing at all. Only the
+  retired path consulted that fact, so a booted-out service the adapter had
+  looked at produced a soft report at most, and with `tolerance: auto` it was
+  folded into silence: the one thing the loop exists to catch. The alert is
+  structural, so tolerance cannot fold it, and the soft signals below it are
+  skipped because they describe a thing that is not there. A parked entry
+  stays silent (dormancy is its expected state) and an unconfigured active
+  secret keeps its own more specific message.
+
 ## [0.10.0] - 2026-08-09
 
 ### Added

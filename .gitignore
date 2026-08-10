@@ -11,6 +11,10 @@ instance.yaml
 rehearsal/
 .dockerignore
 
+# local-only probe scripts: hypotheses tested against the real machine before a
+# design is committed. Nothing shipped references this path. (hygiene-ok)
+storage/
+
 # python
 .venv/
 __pycache__/

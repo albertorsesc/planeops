@@ -125,13 +125,27 @@ def triage(
             else:
                 report.report.append(_item(entry, "parked but not observed"))
         else:
-            if obs.facts.get("configured") is False and entry.lifecycle in (
+            unconfigured = obs.facts.get("configured") is False and entry.lifecycle in (
                 Lifecycle.active,
                 Lifecycle.maintain,
-            ):
+            )
+            if unconfigured:
                 # A parked secret is deliberately dormant: unconfigured is its
                 # expected state, not a violation.
                 report.alerts.append(_item(entry, "required secret is not configured"))
+            elif not bool(obs.facts.get("present", True)) and entry.lifecycle in (
+                Lifecycle.active,
+                Lifecycle.maintain,
+            ):
+                # The adapter looked and found nothing present (a service booted
+                # out, an asset gone), which is the same violation as observing
+                # nothing at all. Structural, so tolerance can never fold it,
+                # and second to the unconfigured branch because that message
+                # names the domain's own remedy. The soft signals below describe
+                # a thing that is not there, so they are skipped exactly as the
+                # nothing-observed branch skips them.
+                report.alerts.append(_item(entry, "expected present, not observed"))
+                continue
             if obs.facts.get("stale"):
                 _soft_section(report, entry.tolerance).append(
                     _item(

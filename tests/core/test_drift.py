@@ -41,6 +41,41 @@ def test_active_but_absent_is_alert():
     assert "not observed" in rep.alerts[0].message
 
 
+def test_active_and_observed_as_absent_is_the_same_alert():
+    # An adapter that looked and found nothing present says so with the
+    # `present` fact. That is the same violation as not observing it at all: a
+    # service that was booted out is not running, whatever its plist says.
+    e = _entry()
+    rep = triage([e], {"manual/x": _obs("manual/x", present=False)}, IMPL)
+    assert [a.message for a in rep.alerts] == ["expected present, not observed"]
+
+
+def test_an_absent_active_entry_alerts_even_with_a_soft_signal():
+    # tolerance routes SOFT signals; it must never fold a presence violation
+    # into silence, so `drifted` riding along cannot downgrade the alert.
+    e = _entry(tolerance="auto")
+    obs = {"manual/x": _obs("manual/x", present=False, drifted=True)}
+    rep = triage([e], obs, IMPL)
+    assert [a.message for a in rep.alerts] == ["expected present, not observed"]
+    assert not rep.auto_folded
+
+
+def test_a_parked_entry_observed_as_absent_stays_silent():
+    # Parked means deliberately dormant, so absence is its expected state.
+    e = _entry(lifecycle="parked")
+    rep = triage([e], {"manual/x": _obs("manual/x", present=False)}, IMPL)
+    assert not rep.alerts and not rep.report
+
+
+def test_an_unconfigured_active_secret_keeps_its_own_message():
+    # The secrets adapter sets present and configured together; the
+    # domain-specific message is the more useful one, so it still wins.
+    e = _entry(id="secrets/key", adapter="secrets", domain="secret")
+    obs = {"secrets/key": _obs("secrets/key", present=False, configured=False)}
+    rep = triage([e], obs, {"secrets"})
+    assert [a.message for a in rep.alerts] == ["required secret is not configured"]
+
+
 def test_retired_but_present_is_alert():
     e = _entry(lifecycle="retired")
     rep = triage([e], {"manual/x": _obs("manual/x")}, IMPL)

@@ -110,7 +110,9 @@ Result   = {ok: bool, detail: str}
   contract only invited None-guards for a state production never produces).
 - General facts the triage understands from ANY adapter: `present` (semantic
   presence, e.g. a service is present when loaded/enabled, not when its file
-  exists; absent fact means observed-at-all is presence), `drifted` (content or
+  exists; absent fact means observed-at-all is presence, and `present: False`
+  on an active/maintain entry is the same structural alert as observing
+  nothing at all), `drifted` (content or
   definition drift, tolerance-routed), `always_on` (will run code at login/on a
   schedule; drives the ungoverned alert), `stale` (attestation age),
   `configured` (secret presence), and `governed_by` (the id of a declared
