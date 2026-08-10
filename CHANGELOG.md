@@ -18,6 +18,11 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The version guard reads a declared break, not the word: it looks for the
+  bolded entry prefix CONTRIBUTING mandates (or the commit-footer spelling)
+  rather than any occurrence of "BREAKING". A bare substring match meant
+  release notes that merely described the rule were read as declaring a
+  break, which refused the very release introducing the guard.
 - An active entry whose adapter reports `present: False` now alerts "expected
   present, not observed", the same as observing nothing at all. Only the
   retired path consulted that fact, so a booted-out service the adapter had

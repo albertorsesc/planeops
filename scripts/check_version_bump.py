@@ -56,10 +56,16 @@ def section_body(text: str, version: str) -> str:
     return "\n".join(out)
 
 
+# A break is DECLARED by the marker CONTRIBUTING mandates: a bolded prefix on
+# the entry itself (`- **BREAKING:**`, or `- **BREAKING (pre-1.0):**` as 0.1.0
+# wrote it), or the commit-footer spelling. Anchored on purpose: the bare word
+# appears in ordinary prose about the rule, and matching that made the guard
+# refuse the very release that introduced it.
+BREAKING_MARKER = re.compile(r"^\s*[-*]\s*\*\*BREAKING\b|^\s*BREAKING CHANGE:", re.M)
+
+
 def declares_breaking(body: str) -> bool:
-    """A break is declared by the marker CONTRIBUTING mandates, in either the
-    prose prefix (**BREAKING:**) or the commit-footer spelling."""
-    return "BREAKING" in body
+    return bool(BREAKING_MARKER.search(body))
 
 
 def moved_slot(previous: str, current: str) -> str:
