@@ -31,9 +31,11 @@ def _cmd(args: argparse.Namespace) -> int:
     return 2 if report.alert_count else 0
 
 
-# Sections over this size truncate on screen: the terminal view is triage,
-# DRIFT.md is the archive.
-_SECTION_CAP = 15
+# Groups truncate on screen: the terminal view is triage, DRIFT.md is the
+# archive. The budget is ROWS, not items, so a group of bare names packed
+# several to a row shows far more of itself than one carrying a message each.
+_LINE_CAP = 15
+_PACKED_CAP = 48
 
 
 def _render(report, repo) -> None:  # type: ignore[no-untyped-def]
@@ -62,18 +64,30 @@ def _render(report, repo) -> None:  # type: ignore[no-untyped-def]
         if not items:
             return
         ui.section(name, len(items))
-        width = min(max(len(i.entry_id) for i in items), 40)
-        messages = {i.message for i in items}
-        if len(items) > 1 and len(messages) == 1:
-            # Every item says the same thing: say it once, list the ids.
-            for i in items[:_SECTION_CAP]:
-                ui.item(item_state, i.entry_id, "", width)
-            ui.hint(messages.pop())
-        else:
-            for i in items[:_SECTION_CAP]:
-                ui.item(item_state, i.entry_id, i.message, width)
-        if len(items) > _SECTION_CAP:
-            ui.hint(f"... and {len(items) - _SECTION_CAP} more (see DRIFT.md)")
+        # Group by the id's own adapter segment: an id is `adapter/native_id`
+        # for every adapter, so the grouping needs no per-adapter knowledge.
+        groups: dict[str, list] = {}  # type: ignore[type-arg]
+        for i in items:
+            groups.setdefault(i.entry_id.partition("/")[0], []).append(i)
+        dropped = 0
+        for adapter, rows in groups.items():
+            messages = {r.message for r in rows}
+            packable = len(messages) == 1
+            shown = rows[: _PACKED_CAP if packable else _LINE_CAP]
+            dropped += len(rows) - len(shown)
+            bare = [r.entry_id.partition("/")[2] or r.entry_id for r in shown]
+            if packable:
+                # One shared message: say it on the header, pack the names.
+                ui.group(adapter, messages.pop())
+                ui.packed(item_state, bare)
+            else:
+                # Each row carries its own message, so each needs its own line.
+                ui.group(adapter)
+                width = min(max(len(b) for b in bare), 40)
+                for r, b in zip(shown, bare, strict=True):
+                    ui.item(item_state, b, r.message, width)
+        if dropped:
+            ui.hint(f"... and {dropped} more (see DRIFT.md)")
 
     sec("alerts", report.alerts, "alert")
     sec("reports", report.report, "report")

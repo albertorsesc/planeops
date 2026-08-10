@@ -6,6 +6,15 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `plane drift` groups each section by the observing adapter, states a shared
+  message once on the group header, and packs the bare ids into columns sized
+  per column. A 16-item section reads as four rows instead of sixteen, and
+  nothing is truncated where it used to be. The grouping comes from the id's
+  own `adapter/native_id` shape, so every adapter, present and future, gets it
+  without the renderer naming any of them.
+
 ### Changed
 
 - The footprint conventions the example instance recommends no longer include
