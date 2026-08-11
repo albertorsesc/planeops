@@ -6,6 +6,23 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- A harness adapter: code plugged into an AI harness, starting with hooks.
+  Profiles are configuration (`harness.profiles` in instance.yaml); which
+  file holds a tool's settings, and how that file's schema names its hooks,
+  lives in a harness leaf, so the adapter names no tool and supporting
+  another is dropping a module in. A hook runs code unprompted, so it
+  observes `always_on` and an undeclared one alerts through the pass that
+  already catches self-installing daemons. Identity is kind, event, and the
+  script it runs; the command string is never recorded, because a shell line
+  can carry a token and the script path is the identity anyway. `present`
+  means the hook will actually run, so one whose script is gone is wired but
+  broken, and resolvability is the test rather than the executable bit (a
+  script passed to a runtime is normally not executable). Each hook records
+  the harness that runs it and the config dirs that wire it, so several
+  profiles of the same tool stay distinguishable.
+
 ## [0.10.1] - 2026-08-10
 
 ### Changed
