@@ -14,6 +14,7 @@ from typing import Any
 from planeops import __version__
 from planeops.core.contracts import Adapter, Ctx, Observed, Platform
 from planeops.core.discovery import discover_adapters
+from planeops.core.facts import check_facts
 from planeops.core.registry import Registry, load_registry
 from planeops.core.statefile import atomic_write, read_json_file
 from planeops.platform import current_platform
@@ -122,7 +123,15 @@ def run_observe(
     failed: list[dict[str, str]] = []
     for name, adapter in adapters.items():
         try:
-            observed.extend(adapter.observe(ctx))
+            produced = adapter.observe(ctx)
+            # Checked here, at the source, so a fact that would silently do
+            # nothing (a typo of a general one) or silently lie (a `present`
+            # that is a string) fails as this adapter's scan rather than as a
+            # missing alert nobody can trace back. It lands in `failed` with
+            # the others, so one bad adapter still cannot sink the scan.
+            for obs in produced:
+                check_facts(obs.adapter, obs.native_id, obs.facts)
+            observed.extend(produced)
         except Exception as exc:  # one bad adapter must not sink the whole scan
             failed.append({"adapter": name, "error": str(exc)})
     observed = _drop_unmanaged(observed, registry)
