@@ -66,6 +66,19 @@
 #     - {label: xdg-state, path: ~/.local/state}
 #     - {label: home-dot, path: "~", dot_only: true}
 
+# --- harness adapter: code plugged into an AI harness (hooks today) ---------
+# Each profile: label (a harness planeops knows how to read) and path (that
+# profile's config dir; `~/...` expands to home). A hook runs code on its own
+# on every tool call, so an undeclared one alerts the way any ungoverned
+# always-on thing does. Identity is kind/event/script; the command STRING is
+# never recorded, since a shell line can carry a token. Several profiles
+# sharing a hook observe it once, listed against each. Omit the section to
+# scan nothing.
+# harness:
+#   profiles:
+#     - {label: claude-code, path: ~/.claude}
+#     - {label: claude-code, path: ~/.claude-work}
+
 # --- import: manifest section -> adapter mapping for `plane import stackfile` -
 # The first rule whose `keyword` appears (case-insensitively) in a section header
 # wins. A section that matches no rule imports as `manual`, for you to sort out.

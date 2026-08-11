@@ -16,6 +16,7 @@ import pytest
 from planeops._run import RunResult
 from planeops.adapters.chezmoi import ChezmoiAdapter
 from planeops.adapters.footprint import FootprintAdapter
+from planeops.adapters.harness import HarnessAdapter
 from planeops.adapters.launchd import LaunchdAdapter
 from planeops.adapters.manual import ManualAdapter
 from planeops.adapters.mcp import McpAdapter
@@ -54,6 +55,7 @@ def _hermetic_adapters(tmp_path):
         "secrets": SecretsAdapter(),
         "systemd": SystemdAdapter(run=_empty_run, units_dir=empty),
         "footprint": FootprintAdapter(),
+        "harness": HarnessAdapter(harnesses={}),
     }
 
 
