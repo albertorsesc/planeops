@@ -14,6 +14,7 @@ from planeops.providers import ui
 
 
 def _cmd_init(args: argparse.Namespace) -> int:
+    from planeops.core.prompt import ask
     from planeops.secrets import BootstrapsStore
     from planeops.secrets.resolve import resolve_provider
 
@@ -31,10 +32,8 @@ def _cmd_init(args: argparse.Namespace) -> int:
     for line in provider.bootstrap_preview(repo, age_key_file=age_key):
         ui.line(f"  {line}")
     if not args.yes:
-        try:
-            answer = input("proceed? (y/N) ")
-        except (EOFError, OSError):
-            answer = ""
+        # Nobody to ask reads as an empty line, which the `(y/N)` declines.
+        answer = ask("proceed? (y/N) ") or ""
         if answer.strip().lower()[:1] != "y":
             ui.note("not initialized (use --yes to run non-interactively)")
             return 0
@@ -45,6 +44,7 @@ def _cmd_init(args: argparse.Namespace) -> int:
 
 
 def _cmd_add(args: argparse.Namespace) -> int:
+    from planeops.core.prompt import ask
     from planeops.core.schema import valid_secret_name
     from planeops.secrets import AcceptsValues, BootstrapsStore
     from planeops.secrets.resolve import resolve_provider, resolve_store
@@ -81,10 +81,7 @@ def _cmd_add(args: argparse.Namespace) -> int:
         for line in provider.bootstrap_preview(repo, age_key_file=age_key):
             ui.line(f"  {line}")
         if not args.yes:
-            try:
-                answer = input("initialize? (y/N) ")
-            except (EOFError, OSError):
-                answer = ""
+            answer = ask("initialize? (y/N) ") or ""
             if answer.strip().lower()[:1] != "y":
                 ui.note("not initialized; nothing written")
                 return 0
@@ -134,6 +131,7 @@ def _cmd_list(args: argparse.Namespace) -> int:
 
 
 def _cmd_remove(args: argparse.Namespace) -> int:
+    from planeops.core.prompt import ask
     from planeops.core.schema import valid_secret_name
     from planeops.secrets import RemovesValues
     from planeops.secrets.resolve import resolve_store
@@ -153,10 +151,7 @@ def _cmd_remove(args: argparse.Namespace) -> int:
     for line in store.remove_preview(name):
         ui.line(line)
     if not args.yes:
-        try:
-            answer = input("remove? (y/N) ")
-        except (EOFError, OSError):
-            answer = ""
+        answer = ask("remove? (y/N) ") or ""
         if answer.strip().lower()[:1] != "y":
             ui.note("not removed (use --yes to run non-interactively)")
             return 0

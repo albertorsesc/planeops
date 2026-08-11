@@ -114,6 +114,23 @@ other people's machines depend on them staying put, not at any feature milestone
 Open a PR against `main`; the template lists what to confirm, and the body should
 state the change type and any breaking impact (and the version bump it implies).
 
+## Running it without a human
+
+Every verb that can change something asks first, and prompts read stdin like
+any other program: a terminal answers, and so does a pipe (`printf 'y\n' |
+plane apply`). An answer piped in is still an answer, and the diff is still
+rendered, so nothing is bypassed.
+
+Automation should say there is nobody to ask, by passing the verb's flag
+(`--yes`, `--no-seed`) or by closing stdin (`plane init . </dev/null`). Both
+take the conservative branch: decline the change, skip the seeding, refuse to
+guess a path. Leaving stdin open with no answer coming blocks, exactly as any
+program reading stdin does, and that is the one shape to avoid in a script.
+
+`plane apply` has no `--yes` on purpose. Unattended convergence would undo the
+one promise the tool makes, that nothing writes without a rendered diff and a
+yes. Answering it from a pipe is possible and deliberately manual.
+
 ## Branching and releasing
 
 `main` is the only long-lived branch. It stays green, it is always releasable, and

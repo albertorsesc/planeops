@@ -24,6 +24,7 @@ from planeops.core.contracts import (
 )
 from planeops.core.discovery import discover_adapters
 from planeops.core.observe import load_observed, load_snapshot
+from planeops.core.prompt import ask
 from planeops.core.registry import load_registry
 from planeops.core.schema import Entry, Owner
 from planeops.secrets import SecretsHandle, SecretsStore, materialization_handle
@@ -79,13 +80,11 @@ def render_change(change: Change) -> None:
 
 def prompt_confirm(change: Change) -> str:
     render_change(change)
-    try:
-        answer = input(
-            f"apply {change.entry_id} [{change.kind}]? "
-            "(y=yes / n=no / a=all in domain) "
-        )
-    except EOFError:
-        return "n"  # non-interactive: never mutate without an explicit yes
+    answer = ask(
+        f"apply {change.entry_id} [{change.kind}]? (y=yes / n=no / a=all in domain) "
+    )
+    if answer is None:
+        return "n"  # nobody to ask: never mutate without an explicit yes
     answer = answer.strip().lower()
     return answer[:1] if answer else "n"
 

@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 
 from planeops.cli._text import n_entries
+from planeops.core.prompt import ask
 
 
 def _should_seed(args: argparse.Namespace) -> bool:
@@ -15,10 +16,9 @@ def _should_seed(args: argparse.Namespace) -> bool:
         return False
     if args.seed:
         return True
-    try:
-        answer = input("seed the registry from this machine now? (Y/n) ")
-    except (EOFError, OSError):
-        return False  # non-interactive without --seed: leave the registry empty
+    answer = ask("seed the registry from this machine now? (Y/n) ")
+    if answer is None:
+        return False  # nobody to ask, and no --seed: leave the registry empty
     return answer.strip().lower()[:1] != "n"
 
 
@@ -54,9 +54,8 @@ def _resolve_target(args: argparse.Namespace) -> Path | None:
     default = Path.home() / "planeops"
     if args.yes:
         return default
-    try:
-        answer = input(f"create the instance at {default}? (path or Enter to accept) ")
-    except (EOFError, OSError):
+    answer = ask(f"create the instance at {default}? (path or Enter to accept) ")
+    if answer is None:
         from planeops.providers import ui
 
         ui.err(

@@ -21,6 +21,7 @@ def _cmd(args: argparse.Namespace) -> int:
     import shutil
 
     from planeops.cli.instance import instance_root
+    from planeops.core.prompt import ask
     from planeops.core.statefile import atomic_write
     from planeops.importers import render_proposal
     from planeops.platform import current_platform
@@ -69,10 +70,9 @@ def _cmd(args: argparse.Namespace) -> int:
     entry_doc: dict[str, object] = {"entries": job.entries}
     ui.line("    " + yaml.dump(entry_doc).rstrip().replace("\n", "\n    "))
     if not args.yes:
-        try:
-            answer = input("proceed? (y/N) ")
-        except (EOFError, OSError):
-            answer = ""
+        # Nobody to ask reads as an empty line, which the `(y/N)` below
+        # declines: writing a timer is never the default.
+        answer = ask("proceed? (y/N) ") or ""
         if answer.strip().lower()[:1] != "y":
             ui.note("not written (use --yes to write non-interactively)")
             return 0
