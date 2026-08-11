@@ -118,6 +118,11 @@ Result   = {ok: bool, detail: str}
   `configured` (secret presence), and `governed_by` (the id of a declared
   entry this observation is evidence for; skips the ungoverned pass while
   that entry exists, falls back to visible when it is deleted).
+- Those six names, and their types, are checked as observe collects them. A
+  fact named close enough to one of them to be a typo, or a general fact
+  carrying the wrong type, fails that adapter's scan into `failed` with the
+  reason. Any other name an adapter wants to record passes untouched: the
+  facts map stays open, and only the vocabulary the triage acts on is fixed.
 - `Ctx.secrets` carries the redaction gate: a presence-only handle whose
   `get()` raises everywhere except inside the secrets adapter's confirmed
   execute, where the engine substitutes a value-capable handle it builds from
