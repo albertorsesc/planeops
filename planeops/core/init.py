@@ -41,7 +41,20 @@ def init_instance(
         actions.append(f"created {reg}/")
 
     instance_yaml = inst / "instance.yaml"
-    if not instance_yaml.exists():
+    if instance_yaml.exists():
+        # An instance predating an adapter never hears that the adapter has a
+        # section, because this file is written once and then left alone. Say
+        # what is unadopted; `--sections` hands over the block.
+        from planeops.core.sections import missing_sections
+
+        missing = missing_sections(instance_yaml.read_text())
+        if missing:
+            names = ", ".join(name for name, _ in missing)
+            actions.append(
+                f"kept {instance_yaml} ({names} not configured; "
+                f"see `plane init --sections`)"
+            )
+    else:
         instance_yaml.write_text(_starter_instance_yaml())
         actions.append(f"wrote {instance_yaml}")
 
