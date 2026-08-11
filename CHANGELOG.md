@@ -6,6 +6,17 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Every prompt now answers the same way when there is nobody to ask. Nine
+  sites each caught their own idea of a missing stdin, and none caught the
+  `RuntimeError` Python raises when the descriptor itself is gone, so a verb
+  run without stdin ended in a traceback rather than a decline. They share
+  one helper: an answer comes back from a terminal or a pipe, and `None`
+  comes back when stdin has ended, is detached, or is closed, which each
+  caller turns into its conservative branch. Piped answers keep working
+  deliberately, since `plane apply` has no flag that would replace them.
+
 ## [0.10.2] - 2026-08-10
 
 ### Added

@@ -11,6 +11,7 @@ from planeops.cli.instance import instance_root
 
 
 def _cmd(args: argparse.Namespace) -> int:
+    from planeops.core.prompt import ask
     from planeops.importers import discover_importers, render_proposal, write_proposal
     from planeops.providers import ui
 
@@ -53,10 +54,9 @@ def _cmd(args: argparse.Namespace) -> int:
     target = repo / "registry" / "imported.yaml"
     if not args.yes:  # show the proposal and confirm before mutating the registry
         print(render_proposal(entries), end="")  # pipeable YAML, no styling
-        try:
-            answer = input(f"write {n_entries(len(entries))} to {target}? (y/N) ")
-        except (EOFError, OSError):
-            answer = ""  # no readable stdin: never write without an explicit --yes
+        # Nobody to ask reads as an empty line: never write without an
+        # explicit yes, or `--yes`.
+        answer = ask(f"write {n_entries(len(entries))} to {target}? (y/N) ") or ""
         if answer.strip().lower()[:1] != "y":
             ui.note("not written (use --yes to write non-interactively)")
             return 0
