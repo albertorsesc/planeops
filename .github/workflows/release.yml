@@ -1,10 +1,12 @@
 name: Release
 
-# Tag-driven: `git tag vX.Y.Z && git push origin vX.Y.Z` runs the full gate,
-# builds from the clean checkout, publishes to PyPI via Trusted Publishing
-# (OIDC; the publish action generates PEP 740 attestations), and creates a
-# GitHub Release whose notes are that version's CHANGELOG section, artifacts
-# attached.
+# Tag-driven: `git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z` runs the
+# full gate, builds from the clean checkout, publishes to PyPI via Trusted
+# Publishing (OIDC; the publish action generates PEP 740 attestations), and
+# creates a GitHub Release whose notes are that version's CHANGELOG section,
+# artifacts attached. The tag is ANNOTATED so the object carries who tagged
+# it, when, and why: a lightweight tag is a bare pointer, and this one is what
+# authorizes a publish.
 
 on:
   push:
@@ -17,11 +19,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # Full history: the ancestry check below needs main, and a shallow
+      # checkout cannot answer whether this commit is on it.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
       - name: Install uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: true
+
+      # Everything that can refuse runs BEFORE anything that cannot be undone.
+      # A published version number is spent forever, so a tag on a commit that
+      # never went through a PR, or notes that do not exist, must fail here and
+      # not after the upload.
+      - name: Tag must point at a commit on main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --quiet origin main
+          git merge-base --is-ancestor "${GITHUB_SHA}" origin/main || {
+            echo "::error::tag ${GITHUB_REF_NAME} is not on main; releases ship reviewed history" >&2
+            exit 1
+          }
       - name: Full gate
         run: make check
       - name: Tag must match the package version
@@ -32,12 +51,32 @@ jobs:
             echo "tag ${GITHUB_REF_NAME} != package version ${version}" >&2
             exit 1
           }
+      - name: Bump must agree with its changelog section
+        run: python3 scripts/check_version_bump.py
+      - name: This version's notes must exist
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="## [${version}]" '
+            index($0, v) == 1 { f = 1; next }
+            /^## \[/ || /^\[.+\]: / { f = 0 }
+            f
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::no CHANGELOG section for ${version}" >&2
+            exit 1
+          fi
       - name: Build wheel and sdist
         run: uv build
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dist
           path: dist/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: notes
+          path: notes.md
           if-no-files-found: error
 
   pypi:
@@ -60,24 +99,15 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: dist
           path: dist/
-      - name: Extract this version's notes from the changelog
-        run: |
-          set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
-          awk -v v="## [${version}]" '
-            index($0, v) == 1 { f = 1; next }
-            /^## \[/ || /^\[.+\]: / { f = 0 }
-            f
-          ' CHANGELOG.md > notes.md
-          if [ ! -s notes.md ]; then
-            echo "no CHANGELOG section for ${version}" >&2
-            exit 1
-          fi
+      # The notes were extracted and proven non-empty in `build`, before
+      # anything was published; this job only carries them.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: notes
       - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
