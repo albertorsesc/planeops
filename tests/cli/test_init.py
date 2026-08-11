@@ -130,3 +130,58 @@ def test_explicit_hidden_nested_path_works(tmp_path, monkeypatch):
     target = tmp_path / "home" / ".config" / "custom" / "spot"
     assert main(["init", str(target), "--no-seed"]) == 0
     assert (target / ".planeops").exists()
+
+
+# ---- adopting sections an older instance never heard of ----
+
+
+def _instance(tmp_path, body: str) -> Path:
+    inst = tmp_path / "inst"
+    (inst / "registry").mkdir(parents=True)
+    (inst / ".planeops").write_text("")
+    (inst / "instance.yaml").write_text(body)
+    return inst
+
+
+def test_sections_prints_only_what_the_instance_lacks(tmp_path, capsys):
+    inst = _instance(tmp_path, "secrets:\n  store: sops\n")
+    assert main(["init", str(inst), "--sections"]) == 0
+    out = capsys.readouterr().out
+    assert "secrets:" not in out.replace("# --- secrets", "")  # already configured
+    assert "footprint:" in out and "harness:" in out  # not yet adopted
+
+
+def test_sections_output_is_appendable_and_still_parses(tmp_path, capsys):
+    from planeops.providers import yaml
+
+    inst = _instance(tmp_path, "secrets:\n  store: sops\n")
+    assert main(["init", str(inst), "--sections"]) == 0
+    appended = (inst / "instance.yaml").read_text() + capsys.readouterr().out
+    parsed = yaml.load(appended)
+    assert isinstance(parsed, dict) and "secrets" in parsed
+
+
+def test_sections_says_so_when_nothing_is_missing(tmp_path, capsys):
+    from planeops.core.sections import documented_sections
+
+    body = "".join(f"{name}:\n  x: 1\n" for name in documented_sections())
+    inst = _instance(tmp_path, body)
+    assert main(["init", str(inst), "--sections"]) == 0
+    assert "already configures every documented section" in capsys.readouterr().out
+
+
+def test_sections_writes_nothing(tmp_path, capsys):
+    inst = _instance(tmp_path, "secrets:\n  store: sops\n")
+    before = (inst / "instance.yaml").read_text()
+    assert main(["init", str(inst), "--sections"]) == 0
+    assert (inst / "instance.yaml").read_text() == before  # the file is the operator's
+
+
+def test_re_running_init_names_the_unadopted_sections(tmp_path, monkeypatch, capsys):
+    # Discoverability: you find out a section exists by re-running the command
+    # you already know, not by diffing the shipped example by eye.
+    _no_seed_env(monkeypatch, tmp_path)
+    inst = _instance(tmp_path, "secrets:\n  store: sops\n")
+    assert main(["init", str(inst), "--no-seed"]) == 0
+    out = capsys.readouterr().out
+    assert "not configured" in out and "--sections" in out

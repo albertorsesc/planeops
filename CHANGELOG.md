@@ -6,6 +6,18 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `plane init --sections` prints the documented instance.yaml sections your
+  instance does not set, ready to append (`>> instance.yaml`). An instance
+  created before an adapter existed never heard that the adapter has a
+  section, because the starter file is written once and then left alone; the
+  only hint was diffing the shipped example by eye. Re-running `plane init`
+  on an existing instance now names the unadopted sections too, so the
+  command you already know is what tells you. It writes nothing: the file is
+  yours, and a config that edits itself is one you no longer know the shape
+  of.
+
 ### Fixed
 
 - Every prompt now answers the same way when there is nobody to ask. Nine

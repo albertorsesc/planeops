@@ -66,10 +66,39 @@ def _resolve_target(args: argparse.Namespace) -> Path | None:
     return Path(answer.strip()).expanduser() if answer.strip() else default
 
 
+def _print_sections(args: argparse.Namespace) -> int:
+    """Hand over the blocks an existing instance has not adopted, on stdout so
+    `>> instance.yaml` works. Nothing is written here: the file is the
+    operator's, and a config that edits itself is one they no longer know."""
+    from planeops.cli.instance import instance_root
+    from planeops.core.sections import missing_sections
+    from planeops.providers import ui
+
+    repo = Path(args.path).expanduser() if args.path else instance_root(args)
+    instance_yaml = repo / "instance.yaml"
+    text = instance_yaml.read_text() if instance_yaml.is_file() else ""
+    missing = missing_sections(text)
+    if not missing:
+        ui.good(f"{instance_yaml} already configures every documented section")
+        return 0
+    ui.note(
+        f"# {len(missing)} section(s) this build documents that "
+        f"{instance_yaml} does not set."
+    )
+    ui.note(f"# Append with: plane init --sections >> {instance_yaml}")
+    for _, block in missing:
+        print()
+        print(block, end="")
+    return 0
+
+
 def _cmd(args: argparse.Namespace) -> int:
     from planeops.core.init import init_instance
     from planeops.core.locate import config_home
     from planeops.providers import ui
+
+    if args.sections:
+        return _print_sections(args)
 
     path = _resolve_target(args)
     if path is None:
@@ -117,5 +146,11 @@ def register(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     )
     p.add_argument(
         "--no-seed", action="store_true", help="scaffold only; don't offer to seed"
+    )
+    p.add_argument(
+        "--sections",
+        action="store_true",
+        help="print the documented instance.yaml sections this instance has not "
+        "adopted, for pasting (append with >>); writes nothing",
     )
     p.set_defaults(func=_cmd)
