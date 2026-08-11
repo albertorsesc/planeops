@@ -3,7 +3,11 @@ name: CI
 on:
   push:
     branches: [main]
+  # `edited` is included because the changelog guard reads the PR TITLE: without
+  # it, a PR can be opened as `chore:`, pass, then be retitled `feat:` and merge
+  # on a check that never saw the new title. The heavy jobs skip that event.
   pull_request:
+    types: [opened, synchronize, reopened, edited]
 
 # The workflow only reads the repo; never grant the default write token.
 permissions:
@@ -32,12 +36,38 @@ jobs:
             feat*|fix*) ;;
             *) echo "not a feat/fix PR; no changelog entry required"; exit 0 ;;
           esac
-          if git diff --name-only "$BASE"...HEAD | grep -qx 'CHANGELOG.md'; then
-            echo "CHANGELOG.md updated"
+          # The UNRELEASED section must gain content. Touching the file proves
+          # nothing (a typo fix in an old release satisfied both a path check
+          # and a naive added-line count), and the Unreleased section is the
+          # only part that decides the next version's bump.
+          unreleased() {
+            git show "$1:CHANGELOG.md" 2>/dev/null | awk '
+              /^## \[Unreleased\]/ { f = 1; next }
+              /^## \[/ { f = 0 }
+              f
+            ' | grep -c '[^[:space:]]' || true
+          }
+          before="$(unreleased "$BASE")"
+          after="$(unreleased HEAD)"
+          if [ "$after" -gt "$before" ]; then
+            echo "the Unreleased section grew from $before to $after line(s)"
           else
             echo "::error::a feat/fix PR must add its entry to CHANGELOG.md's Unreleased section (it decides the next version bump)"
             exit 1
           fi
+          # A break is declared twice or not at all: the `!` in the subject and
+          # the marker in the notes have to agree, or the version guard reads a
+          # break as an ordinary change and lets it ship in the patch slot.
+          case "$TITLE" in
+            feat!*|fix!*|feat\(*\)!*|fix\(*\)!*)
+              if git diff -U0 "$BASE"...HEAD -- CHANGELOG.md |
+                 grep -qE '^\+\s*[-*]\s*\*\*BREAKING'; then
+                echo "breaking change declared in both the subject and the notes"
+              else
+                echo "::error::a breaking PR (feat!/fix!) must add a **BREAKING:** entry to CHANGELOG.md, since the release guard reads the notes, not the subject"
+                exit 1
+              fi ;;
+          esac
 
       # The other half: a release PR's NUMBER must agree with its notes, so a
       # break can never ship as a patch and the reserved slot cannot move
@@ -47,6 +77,7 @@ jobs:
         run: python3 scripts/check_version_bump.py
 
   gate:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -79,9 +110,14 @@ jobs:
       - name: Tests
         run: uv run --frozen pytest -q --cov=planeops --cov-report=xml
 
-      # One upload per run: both matrix legs measure the same tree.
+      # One upload per run: both matrix legs measure the same tree. Skipped for
+      # a PR from a fork, which by design receives no OIDC token however the
+      # permission is declared; without this the required gate would fail for
+      # every outside contributor, and coverage is not worth that.
       - name: Upload coverage
-        if: matrix.python-version == '3.12'
+        if: >-
+          matrix.python-version == '3.12' &&
+          github.event.pull_request.head.repo.fork != true
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           use_oidc: true
@@ -91,6 +127,7 @@ jobs:
   # Linux parity: run the real-tool integration tests against actual
   # sops/age/chezmoi and (via a systemd --user session) systemctl.
   integration:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     env:
       SOPS_VERSION: "3.13.3"
@@ -147,6 +184,7 @@ jobs:
   # macOS parity: the launchd integration test runs against the real launchctl,
   # plus the sops/age/chezmoi integrations with the real tools from brew.
   integration-macos:
+    if: github.event.action != 'edited'
     runs-on: macos-15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

@@ -113,3 +113,103 @@ other people's machines depend on them staying put, not at any feature milestone
 
 Open a PR against `main`; the template lists what to confirm, and the body should
 state the change type and any breaking impact (and the version bump it implies).
+
+## Branching and releasing
+
+`main` is the only long-lived branch. It stays green, it is always releasable, and
+merging to it publishes nothing.
+
+If you are not a maintainer, fork the repository, branch in your fork, and open
+the pull request from there. That is the normal path and nothing below asks you
+to have push access here. Two things surprise first-time contributors, and
+neither is about your change: CI does not start until a maintainer approves the
+run, and it needs approving again after each push, so a pending check usually
+means it is waiting on a person. Coverage upload is also skipped for fork pull
+requests, because GitHub does not issue the token it needs to a fork, by design.
+
+Maintainers branch in this repository instead of forking, and the rest is the
+same. Branches are named for their type (`feat/`, `fix/`, `docs/`, `ci/`,
+`chore/`), one branch is one pull request, it is squash-merged, and the remote
+branch is deleted on merge. Take one at a time; if something has to wait, push
+the branch so the work is not only on your machine.
+
+Squash merging means a local branch's tip never enters `main`'s history, so
+`git branch -d` refuses it and `git branch --merged` never lists it. The state
+worth looking for is the one auto-delete creates, an upstream that is gone:
+
+```console
+$ git fetch --prune
+$ git branch -vv | grep ': gone]'   # each of these is safe to delete
+```
+
+There is no `develop` branch and there are no `release/` branches. An integration
+branch exists to answer "is this collection of changes shippable", and the tag
+already answers it: nothing reaches PyPI until a version is deliberately tagged,
+so `main` carries no risk that a second branch would absorb.
+
+### Publishing
+
+Publishing is a deliberate act, never a side effect of merging.
+
+1. Open a `chore(release):` PR that bumps `__version__` and moves the `Unreleased`
+   entries into a new `## [X.Y.Z] - DATE` section.
+2. Merge it.
+3. Tag the merge commit and push the tag.
+
+```console
+$ git switch main && git pull
+$ git tag -a vX.Y.Z -m "vX.Y.Z"
+$ git push origin vX.Y.Z
+```
+
+Tags are annotated, so the object records who cut the release and when; a
+lightweight tag is a bare pointer, and this one authorizes a publish. A pushed
+`v*` tag can be neither moved nor deleted, by repository rule. If a tag is wrong,
+the answer is a new version, never a repointed one.
+
+The tag runs everything that can refuse before anything that cannot be undone:
+the tagged commit must be on `main`, the full gate must pass against the tagged
+tree, the tag must match `__version__`, the bump must agree with its changelog
+section, and that section must exist. Only then does it build, publish through
+Trusted Publishing, and create the GitHub Release from those same notes.
+
+Publishing on a tag push rather than on a GitHub Release keeps the changelog as
+the one source of the release notes. The cost is that a tag push is the last
+human step before an irreversible one, which is why those checks run first.
+
+### When a release is broken
+
+Fix forward, then yank, and never delete from PyPI: a version number that has
+been used can never be reused.
+
+1. Land the fix on `main` and release it as the next patch.
+2. Once the fix is published, yank the broken version, with a reason that names
+   the symptom. That sentence is what pip prints to whoever lands on it.
+3. Note the yank in that version's changelog section. The section stays; history
+   is not rewritten.
+
+Yanking is not deletion. The file is still served and an exact pin like
+`planeops==0.10.3` still resolves to it with a warning, which is the point:
+nobody who pinned exactly is broken, and nobody new arrives. It is a hint to the
+resolver, so it is not on its own an answer to a security problem.
+
+A maintenance branch is not part of this. Three things must be true at once
+before one exists: a published `X.Y.Z` has a defect, someone is on that line and
+cannot move off it, and `main`'s tip cannot be released as the fix because it
+carries work that is not ready. Any two of those and the answer is still to fix
+on `main` and release from `main`. When all three hold, the branch is cut from
+the tag rather than from `main` (`git switch -c release/0.10 v0.10.2`), announced
+in the changelog when it opens and when the line ends, and deleted then. Until
+that day there is one supported line, and it is whatever `main` last released.
+
+### What to expect
+
+Fixes, documentation, and tests are welcome as a pull request directly. For a new
+adapter, or anything touching the registry schema, the CLI, the config format, or
+an adapter contract, open an issue first: the design invariants above are not
+negotiable, and finding that out after writing the code wastes your evening.
+
+This is maintained by one person. Expect a first response within a week, and say
+so on the pull request if two weeks pass, because it means it was missed.
+Security issues go to the private channel in [`SECURITY.md`](SECURITY.md), never
+a public issue.
