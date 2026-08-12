@@ -37,11 +37,7 @@ class PkgNvmAdapter:
             if not child.is_dir():
                 continue
             version = child.name[1:] if child.name.startswith("v") else child.name
-            out.append(
-                Observed(
-                    adapter=self.name, native_id=version, facts={}, version=version
-                )
-            )
+            out.append(Observed.of(self.name, version, version=version))
         return out
 
 

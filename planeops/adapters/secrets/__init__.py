@@ -64,18 +64,15 @@ class SecretsAdapter:
             return []
         declared = {e.native_id for e in ctx.entries if e.adapter == self.name}
         out = [
-            Observed(
-                adapter=self.name,
-                native_id=name,
-                # `present` declares what presence MEANS for this domain: a
-                # secret is present when its value is in the store, so a
-                # retired-but-unconfigured secret is conformant and a retired
-                # one whose value lingers correctly flags for removal.
-                facts={
-                    "configured": (present := reader.exists(name)),
-                    "present": present,
-                },
-                version=None,
+            # `present` declares what presence MEANS for this domain: a secret
+            # is present when its value is in the store, so a retired-but-
+            # unconfigured secret is conformant and a retired one whose value
+            # lingers correctly flags for removal.
+            Observed.of(
+                self.name,
+                name,
+                configured=(present := reader.exists(name)),
+                present=present,
             )
             for name in sorted(declared)
         ]
@@ -84,12 +81,7 @@ class SecretsAdapter:
         # ungoverned instead of the mirror staying silent about it.
         stored = reader.keys() if isinstance(reader, _Enumerator) else None
         out.extend(
-            Observed(
-                adapter=self.name,
-                native_id=name,
-                facts={"configured": True, "present": True},
-                version=None,
-            )
+            Observed.of(self.name, name, configured=True, present=True)
             for name in sorted(stored or set())
             if name not in declared
         )

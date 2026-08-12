@@ -43,11 +43,11 @@ class ManualAdapter:
             attested_at = prior.facts.get("attested_at") if prior else None
             stale = _is_stale(attested_at, ctx.now)
 
-        return Observed(
-            adapter=self.name,
-            native_id=entry.native_id,
-            facts={"attested_at": attested_at, "stale": stale},
-            version=None,
+        return Observed.of(
+            self.name,
+            entry.native_id,
+            stale=stale,
+            detail={"attested_at": attested_at},
         )
 
 

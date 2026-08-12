@@ -230,10 +230,10 @@ class McpAdapter:
                     _merge(f"{source.label} {scope}", source, mapping, scope)
 
         return [
-            Observed(
-                adapter=self.name,
-                native_id=server_name,
-                facts={
+            Observed.of(
+                self.name,
+                server_name,
+                detail={
                     "sources": sorted(merged[server_name]["sources"]),
                     "wirings": [
                         {"client": c, "scope": s}
@@ -246,7 +246,6 @@ class McpAdapter:
                         else {}
                     ),
                 },
-                version=None,
             )
             for server_name in sorted(merged)
         ]

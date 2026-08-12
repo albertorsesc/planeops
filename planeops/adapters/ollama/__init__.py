@@ -48,11 +48,8 @@ class OllamaAdapter:
         if res.code != 0:
             return []  # ollama absent or errored: report nothing rather than crash
         return [
-            Observed(
-                adapter=self.name,
-                native_id=name,
-                facts={"size": meta["size"]},
-                version=meta["id"],
+            Observed.of(
+                self.name, name, version=meta["id"], detail={"size": meta["size"]}
             )
             for name, meta in parse_ollama_list(res.out).items()
         ]

@@ -118,11 +118,18 @@ Result   = {ok: bool, detail: str}
   `configured` (secret presence), and `governed_by` (the id of a declared
   entry this observation is evidence for; skips the ungoverned pass while
   that entry exists, falls back to visible when it is deleted).
-- Those six names, and their types, are checked as observe collects them. A
-  fact named close enough to one of them to be a typo, or a general fact
-  carrying the wrong type, fails that adapter's scan into `failed` with the
-  reason. Any other name an adapter wants to record passes untouched: the
-  facts map stays open, and only the vocabulary the triage acts on is fixed.
+- An adapter states those six through `Observed.of`, which names them as
+  keyword arguments, so a misspelling is an unexpected argument the type
+  checker reports at the line that wrote it. Its `detail=` carries everything
+  else the domain records, untouched. An unset argument writes no fact, which
+  is the domain having no opinion; `present=False` is the domain saying no.
+- Observe re-checks the six as it collects them, because an adapter is a
+  discovery seam and third-party ones are never type-checked here. A general
+  name written with different case or separators (`alwayson`, `always-on`), or
+  a general fact carrying the wrong type, fails that adapter's scan into
+  `failed` with the reason. The rule is exact rather than approximate, so
+  `present_at` and `configured_by` stay ordinary domain facts: the map is open,
+  and only the vocabulary the triage acts on is fixed.
 - `Ctx.secrets` carries the redaction gate: a presence-only handle whose
   `get()` raises everywhere except inside the secrets adapter's confirmed
   execute, where the engine substitutes a value-capable handle it builds from

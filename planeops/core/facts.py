@@ -9,21 +9,29 @@ is never called out. A `present` that is the string "no" is worse, because
 `bool("no")` is true and the fact then means the opposite of what it says.
 
 So this checks the two things that are decidable without closing the door:
-a name close enough to a general fact to be a typo of it, and a general fact
-carrying the wrong type. Anything else an adapter wants to record passes
-untouched, which is why `pid`, `wirings` and `footprints` are none of this
-module's business.
+a general fact carrying the wrong type, and a name that is one of the general
+ones written with different case or separators. The second rule is deliberately
+exact rather than approximate, because `present_at` and `configured_by` are the
+ordinary way to name a related domain fact and must keep working. Whatever an
+adapter wants to record of its own passes untouched, which is why `pid`,
+`wirings` and `footprints` are none of this module's business.
+
+This is the guard for the adapter seam, where third-party code produces facts
+the engine never sees at type-check time. First-party adapters go through
+`Observed.of`, whose keyword arguments turn the same mistakes into mypy errors
+at the call site, and which catches the misspellings an exact rule cannot.
 """
 
 from __future__ import annotations
 
-import difflib
+import re
 from collections.abc import Mapping
 from typing import Any
 
 # Name -> the type the triage expects. Every reader in core keys off one of
 # these, so this table is the vocabulary, and adding to it means teaching the
-# triage to act on it.
+# triage to act on it. `Observed.of` mirrors this table as its keyword
+# arguments, and a test pins the two together.
 GENERAL: dict[str, type] = {
     "present": bool,  # semantic presence; absent fact means observed IS present
     "drifted": bool,  # content or definition drift, tolerance-routed
@@ -33,10 +41,17 @@ GENERAL: dict[str, type] = {
     "governed_by": str,  # id of the declared entry this is evidence for
 }
 
-# Close enough to be a typo, far enough that no shipped adapter fact trips it.
-# Measured against every fact name in the tree: the nearest miss is well below
-# this, so the check refuses typos without narrowing what an adapter may say.
-_TYPO_CUTOFF = 0.8
+_SEPARATORS = re.compile(r"[^a-z0-9]+")
+
+
+def _canonical(name: str) -> str:
+    """A fact name reduced to letters and digits, so the spellings a person
+    reaches for (`alwayson`, `always-on`, `Always On`) land on one key while a
+    name with anything more to it (`always_running`) stays distinct."""
+    return _SEPARATORS.sub("", name.lower())
+
+
+_BY_CANONICAL: dict[str, str] = {_canonical(name): name for name in GENERAL}
 
 
 def check_facts(adapter: str, native_id: str, facts: Mapping[str, Any]) -> None:
@@ -53,10 +68,10 @@ def check_facts(adapter: str, native_id: str, facts: Mapping[str, Any]) -> None:
                     f"{expected.__name__}, got {type(value).__name__} ({value!r})"
                 )
             continue
-        close = difflib.get_close_matches(str(key), GENERAL, n=1, cutoff=_TYPO_CUTOFF)
-        if close:
+        intended = _BY_CANONICAL.get(_canonical(str(key)))
+        if intended is not None:
             raise ValueError(
                 f"{adapter}/{native_id}: fact {key!r} is not one the triage "
-                f"reads; did you mean {close[0]!r}? (an adapter may record any "
+                f"reads; write it as {intended!r} (an adapter may record any "
                 f"other name it likes)"
             )

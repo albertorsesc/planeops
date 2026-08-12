@@ -89,20 +89,20 @@ class SystemdAdapter:
             # `alert` (dead heartbeat) while a plain unit reports it.
             drifted = enabled_word == "disabled" or (enabled and not active)
             out.append(
-                Observed(
-                    adapter=self.name,
-                    native_id=unit,
-                    facts={
+                Observed.of(
+                    self.name,
+                    unit,
+                    drifted=drifted,
+                    # Drift's ungoverned pass reads this: an enabled unit starts
+                    # at login, so undeclared it must alert.
+                    always_on=enabled,
+                    # Semantic presence for drift's retired check: a unit is
+                    # "present" when it will run or is running, not when its
+                    # file exists on disk.
+                    present=enabled or active,
+                    detail={
                         "enabled": enabled,
                         "active": active,
-                        "drifted": drifted,
-                        # General fact for drift's ungoverned pass: an enabled
-                        # unit starts at login, so undeclared it must alert.
-                        "always_on": enabled,
-                        # Semantic presence for drift's retired check: a unit is
-                        # "present" when it will run or is running, not when its
-                        # file exists on disk.
-                        "present": enabled or active,
                         # Where the unit's output goes; carried so a seeded
                         # manifest knows without hand-hunting.
                         "logs": [f"journalctl --user -u {unit}"],

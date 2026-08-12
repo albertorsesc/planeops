@@ -48,7 +48,7 @@ class PkgBrewAdapter:
         if res.code != 0:
             return []  # brew absent or errored: report nothing rather than crash
         return [
-            Observed(adapter=self.name, native_id=name, facts={}, version=version)
+            Observed.of(self.name, name, version=version)
             for name, version in parse_brew_versions(res.out).items()
         ]
 

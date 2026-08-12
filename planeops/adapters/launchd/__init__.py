@@ -109,24 +109,24 @@ class LaunchdAdapter:
             # reconcile schedule marks it `alert` while a plain service reports it.
             wants_loaded = meta["run_at_load"] or meta["keepalive"] or meta["scheduled"]
             out.append(
-                Observed(
-                    adapter=self.name,
-                    native_id=label,
-                    facts={
+                Observed.of(
+                    self.name,
+                    label,
+                    drifted=bool(wants_loaded and not is_loaded),
+                    # Drift's ungoverned pass reads this: the agent will run code
+                    # (login/keepalive/interval) even if it is not loaded right
+                    # now, so undeclared it must alert.
+                    always_on=bool(wants_loaded),
+                    # Semantic presence for drift's retired check: a service is
+                    # "present" when loaded, not when its file exists, so
+                    # retired+booted-out+file-on-disk reads as converged.
+                    present=is_loaded,
+                    detail={
                         "loaded": is_loaded,
                         "running": is_loaded and pid is not None,
                         "pid": pid,
                         "keepalive": meta["keepalive"],
                         "run_at_load": meta["run_at_load"],
-                        "drifted": bool(wants_loaded and not is_loaded),
-                        # General fact for drift's ungoverned pass: this agent
-                        # will run code (login/keepalive/interval) even if it is
-                        # not loaded right now, so undeclared it must alert.
-                        "always_on": bool(wants_loaded),
-                        # Semantic presence for drift's retired check: a service
-                        # is "present" when loaded, not when its file exists, so
-                        # retired+booted-out+file-on-disk reads as converged.
-                        "present": is_loaded,
                         "plist_path": str(plist_path),
                         **({"logs": meta["logs"]} if meta["logs"] else {}),
                     },

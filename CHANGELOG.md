@@ -9,14 +9,17 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - An adapter that misspells one of the six facts the triage reads (`present`,
-  `drifted`, `always_on`, `stale`, `configured`, `governed_by`) now fails its
-  own scan and says which name it meant, instead of scanning clean. The facts
-  map is open by design, so `alwayson` was not an error, it was simply a fact
-  nobody reads: the service still ran at login and nothing said so. A general
-  fact of the wrong type is refused for the same reason, since `bool("no")` is
-  true and a `present` of `"no"` reads as the opposite of what it says.
-  Everything an adapter records of its own is untouched, and a refusal lands
-  in the snapshot's `failed` list, so one bad adapter still cannot sink a scan.
+  `drifted`, `always_on`, `stale`, `configured`, `governed_by`) no longer scans
+  clean. The facts map is open by design, so `alwayson` was not an error, it
+  was simply a fact nobody reads: the service still ran at login and nothing
+  said so. Adapters now state those six as named arguments to `Observed.of`,
+  where a misspelling is a type error at the line that wrote it, and observe
+  re-checks them as it collects, which is what covers an adapter the engine
+  never type-checked. A general fact of the wrong type is refused for the same
+  reason, since `bool("no")` is true and a `present` of `"no"` reads as the
+  opposite of what it says. Everything an adapter records of its own is
+  untouched, `present_at` and `configured_by` included, and a refusal lands in
+  the snapshot's `failed` list, so one bad adapter cannot sink a scan.
 
 ## [0.10.3] - 2026-08-11
 

@@ -2,9 +2,14 @@
 
 `Observed.facts` is deliberately open: an adapter records whatever its domain
 needs, and the engine reads the handful of names it acts on. That openness is
-what makes a typo dangerous, because a fact the triage never reads is a fact
-that silently does nothing, and a `present` that is a string is worse than
+what makes a misspelling dangerous, because a fact the triage never reads is a
+fact that silently does nothing, and a `present` that is a string is worse than
 missing: it reads as the opposite of what it says.
+
+The runtime check guards the adapter seam, where third-party code the engine
+cannot inspect ahead of time produces facts. First-party adapters are held to
+the same vocabulary earlier and more strictly by `Observed.of`, whose keyword
+arguments make a misspelling a type error; see `test_contracts.py`.
 """
 
 import pytest
@@ -31,18 +36,64 @@ def test_a_general_fact_of_the_right_type_passes():
 
 
 @pytest.mark.parametrize(
-    "typo", ["alwayson", "always-on", "Present", "presnt", "governedby", "stale_"]
+    "spelling",
+    [
+        "alwayson",
+        "always-on",
+        "always on",
+        "Always_On",
+        "ALWAYS_ON",
+        "Present",
+        "governedby",
+        "governed-by",
+        "stale_",
+        "_present",
+    ],
 )
-def test_a_near_miss_of_a_general_fact_is_refused(typo):
-    # This is the whole point: a name the triage will never read, close enough
-    # to one it would, means the adapter author meant the real one.
-    with pytest.raises(ValueError, match="did you mean"):
-        check_facts("some", "thing", {typo: True})
+def test_another_spelling_of_a_general_fact_is_refused(spelling):
+    # Case and separators are the whole difference here, so the author plainly
+    # meant the general fact and would otherwise get silence.
+    with pytest.raises(ValueError, match="write it as"):
+        check_facts("some", "thing", {spelling: True})
 
 
 def test_the_refusal_names_the_adapter_and_the_observation():
     with pytest.raises(ValueError, match="some/thing"):
         check_facts("some", "thing", {"alwayson": True})
+
+
+def test_the_refusal_names_the_spelling_the_triage_reads():
+    with pytest.raises(ValueError, match="'always_on'"):
+        check_facts("some", "thing", {"alwayson": True})
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "present_at",
+        "presence",
+        "last_present",
+        "configured_at",
+        "configured_by",
+        "governed_by_id",
+        "drifted_at",
+        "drift",
+        "stale_after",
+        "always_running",
+    ],
+)
+def test_a_longer_name_built_from_a_general_one_is_a_fact_of_its_own(name):
+    # A companion timestamp or owner is the ordinary way to name a related
+    # domain fact, and every one of these is a different fact rather than a
+    # misspelling, so the check must leave them alone.
+    check_facts("some", "thing", {name: "x"})
+
+
+def test_a_dropped_letter_is_left_to_the_typed_constructor():
+    # `presnt` is a real mistake, and no rule that also lets `present_at`
+    # through can see it. `Observed.of` refuses it at the call site instead,
+    # where mypy reads it as an unexpected keyword argument.
+    check_facts("some", "thing", {"presnt": True})
 
 
 @pytest.mark.parametrize("value", ["no", "false", "", 0, 1, None, [], {}])

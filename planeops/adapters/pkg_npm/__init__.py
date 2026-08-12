@@ -55,7 +55,7 @@ class PkgNpmAdapter:
         # valid JSON, so parse the output regardless of the exit code.
         res = self._run(["npm", "ls", "-g", "--depth=0", "--json"])
         return [
-            Observed(adapter=self.name, native_id=name, facts={}, version=version)
+            Observed.of(self.name, name, version=version)
             for name, version in parse_npm_globals(res.out).items()
         ]
 
