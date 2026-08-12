@@ -1,10 +1,11 @@
 """The MCP server: exposes planeops's read verbs as tools over stdio.
 
-Four tools, thin wrappers over planeops.mcp_server.tools: `planeops_observe` rescans
+Five tools, thin wrappers over planeops.mcp_server.tools: `planeops_observe` rescans
 the machine and records a snapshot (a writer, so annotated not-read-only,
-not-idempotent); `planeops_drift`, `planeops_status`, and `planeops_mcp` are pure
-reads (read-only + idempotent) that report drift, the last recorded drift without
-rescanning, and the cross-client MCP view. None converges the managed machine. There
+not-idempotent); `planeops_drift`, `planeops_status`, `planeops_mcp`, and
+`planeops_secrets_list` are pure reads (read-only + idempotent) that report drift, the
+last recorded drift without rescanning, the cross-client MCP view, and the secret
+names present in the store. None converges the managed machine. There
 are deliberately NO mutation tools: apply stays behind the CLI's per-change
 confirmation gate, so an assistant can read state but never converge it unattended.
 
