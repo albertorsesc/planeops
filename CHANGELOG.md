@@ -6,6 +6,8 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-08-11
+
 ### Fixed
 
 - An adapter that misspells one of the six facts the triage reads (`present`,
@@ -700,7 +702,8 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   shell prompt kept showing stale state, the exact failure the ambient loop exists to
   prevent; `plane apply` already treated it as a change, so drift and apply now agree.
 
-[Unreleased]: https://github.com/albertorsesc/planeops/compare/v0.10.3...HEAD
+[Unreleased]: https://github.com/albertorsesc/planeops/compare/v0.10.4...HEAD
+[0.10.4]: https://github.com/albertorsesc/planeops/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/albertorsesc/planeops/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/albertorsesc/planeops/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/albertorsesc/planeops/compare/v0.10.0...v0.10.1
