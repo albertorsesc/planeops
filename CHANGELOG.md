@@ -12,10 +12,10 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   skipped `.zshrc.bak` but asked about `.zshrc.bak-20260727`,
   `.zshrc.bak.pre-qwen8b`, and `.openclaw.archive-20260722`, because the
   default patterns matched the bare suffix and nothing after it, while the way
-  anyone actually names a backup is to append what it was taken for. The
-  patterns now cover a following `.` or `-`, and they stay anchored on that
-  separator so a real tool called `bakery` or `archivebox` is never silently
-  skipped.
+  anyone actually names a backup is to append what it was taken for. Those
+  three spellings are filtered now, each pattern anchored on the separator
+  that follows the backup word so a real tool called `bakery` or `archivebox`
+  is never silently skipped.
 
 ## [0.10.4] - 2026-08-11
 
