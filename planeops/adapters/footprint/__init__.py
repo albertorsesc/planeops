@@ -73,9 +73,23 @@ IGNORED_BY_DEFAULT: tuple[str, ...] = (
     ".bash_sessions",
     ".zcompdump*",
     "*_history",
+    # Backups, both bare and carrying what they were taken for: a date, a
+    # version, the change they precede. Each word is anchored on the separator
+    # that follows it, so `.bakery` and `.archivebox` stay tools; an
+    # unanchored `*.bak*` would silently skip them, and a skipped tool is the
+    # one outcome this adapter exists to prevent.
     "*.bak",
+    "*.bak.*",
+    "*.bak-*",
     "*.backup",
+    "*.backup.*",
+    "*.backup-*",
     "*.old",
+    "*.old.*",
+    "*.old-*",
+    "*.archive",
+    "*.archive.*",
+    "*.archive-*",
     "*~",
     "._*",
     "*.sw?",

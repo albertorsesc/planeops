@@ -468,6 +468,64 @@ def test_the_default_patterns_never_hide_login_wiring(tmp_path):
         assert not hits, f"{name} is matched by {hits}"
 
 
+def test_a_dated_backup_never_becomes_a_question(tmp_path):
+    # The level this is felt at: an undated backup was debris, and the same
+    # file with the date appended became a tool the report asked about.
+    home, inst = _machine(
+        tmp_path,
+        'footprint:\n  roots:\n    - {label: home-dot, path: "~", dot_only: true}\n',
+    )
+    (home / ".zshrc.bak").write_text("")
+    (home / ".zshrc.bak-20260727").write_text("")
+    (home / ".zshrc.bak.pre-qwen8b").write_text("")
+    (home / ".openclaw.archive-20260722").mkdir()
+    (home / ".zshrc").write_text("")
+    out = _observe(tmp_path, inst)
+    assert "zshrc" in out  # the real config still shows up
+    assert [k for k in out if "bak" in k or "archive" in k] == []
+
+
+def test_a_backup_keeps_being_debris_when_it_is_dated(tmp_path):
+    # A backup is rarely named `foo.bak`. It is named for the day it was taken
+    # or the thing it precedes, and every one of these is the same non-tool as
+    # the bare suffix the list already knew about.
+    import fnmatch
+
+    from planeops.adapters.footprint import IGNORED_BY_DEFAULT
+
+    dated = (
+        ".claude.json.bak-embedmodel-20260812",
+        ".zshrc.bak-20260727",
+        ".zshrc.bak.pre-qwen8b",
+        ".openclaw.archive-20260722",
+        ".config.backup-20260101",
+        ".vimrc.old-2026",
+    )
+    for name in dated:
+        hits = [p for p in IGNORED_BY_DEFAULT if fnmatch.fnmatchcase(name, p)]
+        assert hits, f"{name} is matched by nothing"
+
+
+def test_a_tool_whose_name_merely_starts_with_a_backup_word_survives(tmp_path):
+    # The reason the patterns anchor on a separator: `*.bak*` would swallow a
+    # real tool called bakery, and a footprint adapter that silently skips a
+    # tool is worse than one that asks about debris.
+    import fnmatch
+
+    from planeops.adapters.footprint import IGNORED_BY_DEFAULT
+
+    real = (
+        ".bakery",
+        ".backupninja",
+        ".oldschool",
+        ".archivebox",
+        ".bakfile",
+    )
+    for name in real:
+        hits = [p for p in IGNORED_BY_DEFAULT if fnmatch.fnmatchcase(name, p)]
+        assert not hits, f"{name} is matched by {hits}"
+
+
 def test_the_ignore_list_extends_the_defaults(tmp_path):
     home, inst = _machine(
         tmp_path,
