@@ -168,10 +168,22 @@ class HarnessAdapter:
             data = _read(config)
             for event, command in harness.hooks(data):
                 _merge(merged, commands, profile, event, command, home)
-        return [
-            Observed(adapter=self.name, native_id=native, facts=facts, version=None)
-            for native, facts in sorted(merged.items())
-        ]
+        out: list[Observed] = []
+        for native, facts in sorted(merged.items()):
+            script = script_of(commands[native])
+            out.append(
+                Observed.of(
+                    self.name,
+                    native,
+                    # A hook whose script has gone is still wired and will still
+                    # fire, so it is the script that is absent, not the hook.
+                    present=script is None or script.exists(),
+                    # Wired is enough: the event fires without anyone asking.
+                    always_on=True,
+                    detail=facts,
+                )
+            )
+        return out
 
 
 def _read(config: Path) -> dict[str, Any]:
@@ -210,9 +222,7 @@ def _merge(
     entry = merged.setdefault(
         native,
         {
-            "present": script is None or script.exists(),
             "kind": "hook",
-            "always_on": True,
             "event": event,
             # The tool, then the config dirs of that tool that wire this hook.
             # A label names the harness, and one machine commonly runs several

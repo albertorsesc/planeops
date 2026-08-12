@@ -9,11 +9,13 @@ declared yet.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, Protocol, TypeGuard, runtime_checkable
 
+from planeops.core.facts import GENERAL, check_facts
 from planeops.core.schema import Entry
 from planeops.secrets import SecretsHandle
 
@@ -26,6 +28,55 @@ class Observed:
     native_id: str
     facts: dict[str, Any]
     version: str | None = None
+
+    @classmethod
+    def of(
+        cls,
+        adapter: str,
+        native_id: str,
+        *,
+        version: str | None = None,
+        present: bool | None = None,
+        drifted: bool | None = None,
+        always_on: bool | None = None,
+        stale: bool | None = None,
+        configured: bool | None = None,
+        governed_by: str | None = None,
+        detail: Mapping[str, Any] | None = None,
+    ) -> Observed:
+        """An observation whose general facts are named rather than spelled.
+
+        The facts an adapter records are its own business except for the six
+        the triage acts on, and those arrive here as arguments so that writing
+        `alwayson=True` is an unexpected keyword argument the type checker
+        reports at this line. Spelled into a dict it would be a legal fact that
+        nothing reads, and the service it describes would go unmentioned.
+
+        An argument left unset records no fact at all, which is how a domain
+        says it has no opinion; `present=False` is the domain saying no. The
+        rest of the domain's facts go through `detail` and are untouched.
+        """
+        general: dict[str, Any] = {
+            "present": present,
+            "drifted": drifted,
+            "always_on": always_on,
+            "stale": stale,
+            "configured": configured,
+            "governed_by": governed_by,
+        }
+        for name in GENERAL:
+            if name in (detail or {}):
+                raise ValueError(
+                    f"{adapter}/{native_id}: pass the general fact {name!r} as "
+                    f"an argument, not in `detail`, so a misspelling of it is "
+                    f"an error rather than a fact nothing reads"
+                )
+        facts: dict[str, Any] = dict(detail or {})
+        # `is not None` and not truthiness: `present=False` is the whole reason
+        # the retired check can tell a departed service from an absent domain.
+        facts.update({k: v for k, v in general.items() if v is not None})
+        check_facts(adapter, native_id, facts)
+        return cls(adapter=adapter, native_id=native_id, facts=facts, version=version)
 
     @property
     def key(self) -> str:

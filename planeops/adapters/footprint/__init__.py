@@ -213,14 +213,17 @@ class FootprintAdapter:
         owners = _attributions(ctx.entries, self.name)
         out: list[Observed] = []
         for tool, prints in sorted(merged.items()):
-            facts: dict[str, Any] = {
-                "present": True,
-                "footprints": sorted(prints, key=lambda f: str(f["path"])),
-            }
-            if tool in owners:
-                facts["governed_by"] = owners[tool]
             out.append(
-                Observed(adapter=self.name, native_id=tool, facts=facts, version=None)
+                Observed.of(
+                    self.name,
+                    tool,
+                    present=True,
+                    # A trace whose tool another adapter already declares is
+                    # evidence for a decision made, so it names that entry; an
+                    # unclaimed trace names nothing and stays a question.
+                    governed_by=owners.get(tool),
+                    detail={"footprints": sorted(prints, key=lambda f: str(f["path"]))},
+                )
             )
         return out
 

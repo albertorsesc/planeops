@@ -69,12 +69,7 @@ class ChezmoiAdapter:
             return []  # chezmoi absent or errored: report nothing rather than crash
         drifted = parse_chezmoi_status(self._run(["chezmoi", "status"]).out)
         return [
-            Observed(
-                adapter=self.name,
-                native_id=path,
-                facts={"drifted": path in drifted},
-                version=None,
-            )
+            Observed.of(self.name, path, drifted=path in drifted)
             for path in parse_chezmoi_managed(managed.out)
         ]
 
