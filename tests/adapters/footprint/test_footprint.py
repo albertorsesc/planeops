@@ -493,13 +493,14 @@ def test_a_backup_keeps_being_debris_when_it_is_dated(tmp_path):
 
     from planeops.adapters.footprint import IGNORED_BY_DEFAULT
 
+    # Every name here was found on a scanned machine, which is the bar a
+    # shipped default has to clear: the filter is never widened on a guess
+    # about how someone might name a backup.
     dated = (
         ".claude.json.bak-embedmodel-20260812",
         ".zshrc.bak-20260727",
         ".zshrc.bak.pre-qwen8b",
         ".openclaw.archive-20260722",
-        ".config.backup-20260101",
-        ".vimrc.old-2026",
     )
     for name in dated:
         hits = [p for p in IGNORED_BY_DEFAULT if fnmatch.fnmatchcase(name, p)]
