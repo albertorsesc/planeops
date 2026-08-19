@@ -19,6 +19,12 @@ class DriftItem:
     entry_id: str
     lifecycle: str
     message: str
+    # Why the entry exists, and what would retire it, carried from the
+    # declaration so the remedy is at hand where the problem is read. An item
+    # the ungoverned pass built from an observation has no declaration behind
+    # it, and carries neither.
+    intent: str | None = None
+    kill_criteria: str | None = None
 
 
 @dataclass(slots=True)
@@ -52,7 +58,7 @@ _SECTIONS = [
 
 # Bump when the JSON pane's shape changes, so a consumer can pin (mirrors the
 # snapshot's schema_version).
-DRIFT_SCHEMA_VERSION = 2
+DRIFT_SCHEMA_VERSION = 3
 
 
 def _render_items(items: list[DriftItem]) -> str:
@@ -61,11 +67,23 @@ def _render_items(items: list[DriftItem]) -> str:
     lines = []
     for it in sorted(items, key=lambda i: i.entry_id):
         lines.append(f"- `{it.entry_id}` ({it.lifecycle}): {it.message}")
+        # Indented under the item, so the list still scans as one line each and
+        # the reason is there for whoever stops on a line.
+        if it.intent:
+            lines.append(f"  - why: {it.intent}")
+        if it.kill_criteria:
+            lines.append(f"  - retire when: {it.kill_criteria}")
     return "\n".join(lines) + "\n"
 
 
-def _item_dict(it: DriftItem) -> dict[str, str]:
-    return {"entry_id": it.entry_id, "lifecycle": it.lifecycle, "message": it.message}
+def _item_dict(it: DriftItem) -> dict[str, str | None]:
+    return {
+        "entry_id": it.entry_id,
+        "lifecycle": it.lifecycle,
+        "message": it.message,
+        "intent": it.intent,
+        "kill_criteria": it.kill_criteria,
+    }
 
 
 def drift_report_dict(report: DriftReport) -> dict[str, Any]:
@@ -73,7 +91,7 @@ def drift_report_dict(report: DriftReport) -> dict[str, Any]:
     entry_id (same order the markdown uses) so the output is deterministic.
     `exit_code` mirrors the CLI: 2 when any alert exists, else 0, so a consumer
     reading the file gets the same verdict as the process exit."""
-    sections: dict[str, list[dict[str, str]]] = {}
+    sections: dict[str, list[dict[str, str | None]]] = {}
     for attr, _title, _blurb in _SECTIONS:
         items = sorted(getattr(report, attr), key=lambda it: it.entry_id)
         sections[attr] = [_item_dict(it) for it in items]

@@ -5,7 +5,7 @@ import pytest
 from planeops.core.contracts import Observed
 from planeops.core.drift import triage
 from planeops.core.observe import Exemption
-from planeops.core.report import drift_report_dict, render_drift_json
+from planeops.core.report import drift_report_dict, render_drift, render_drift_json
 from planeops.core.schema import entry_from_dict
 
 
@@ -199,8 +199,48 @@ def test_drift_report_dict_has_documented_shape():
     assert set(d["sections"]) == {
         "alerts", "report", "auto_folded", "uncovered", "ungoverned", "reauth",
     }  # fmt: skip
-    assert set(d["sections"]["alerts"][0]) == {"entry_id", "lifecycle", "message"}
+    assert set(d["sections"]["alerts"][0]) == {
+        "entry_id", "lifecycle", "message", "intent", "kill_criteria",
+    }  # fmt: skip
     assert d["sections"]["alerts"][0]["entry_id"] == "manual/x"
+
+
+# ---- the reason the entry was declared, carried to where it is read ----
+
+
+def test_an_item_carries_its_entrys_intent_and_kill_criteria():
+    # The registry requires a reason for every entry and nothing ever showed it,
+    # so an alert named a problem while its remedy sat two files away.
+    e = _entry(
+        intent="the gateway every agent talks to", kill_criteria="no agents left"
+    )
+    rep = triage([e], {}, IMPL)
+    assert rep.alerts[0].intent == "the gateway every agent talks to"
+    assert rep.alerts[0].kill_criteria == "no agents left"
+
+
+def test_an_entry_without_a_kill_criterion_carries_none():
+    rep = triage([_entry()], {}, IMPL)
+    assert rep.alerts[0].intent == "i" and rep.alerts[0].kill_criteria is None
+
+
+def test_an_item_with_no_entry_behind_it_carries_no_reason():
+    # The ungoverned pass builds items from an observation, not a declaration,
+    # so there is no intent to show and none is invented.
+    rep = triage(
+        [], {"launchd/x": _obs("launchd/x", always_on=True)}, IMPL | {"launchd"}
+    )
+    assert rep.alerts[0].intent is None and rep.alerts[0].kill_criteria is None
+
+
+def test_the_markdown_pane_prints_the_reason_under_the_item():
+    e = _entry(intent="why this exists", kill_criteria="when it may go")
+    md = render_drift(triage([e], {}, IMPL))
+    assert "why this exists" in md and "when it may go" in md
+    # The item line still leads, so the alert list scans vertically.
+    lines = [line for line in md.splitlines() if line.strip()]
+    item = next(i for i, line in enumerate(lines) if line.startswith("- `manual/x`"))
+    assert lines[item + 1].startswith("  ")
 
 
 def test_drift_report_dict_exit_code_tracks_alerts():
@@ -410,7 +450,7 @@ def test_failed_adapter_scan_alerts_state_unknown_not_absent():
 def test_json_pane_includes_ungoverned_and_bumps_schema():
     rep = triage([], {"manual/x": _obs("manual/x")}, IMPL)
     d = drift_report_dict(rep)
-    assert d["schema_version"] == 2  # new section = new shape, consumers can pin
+    assert d["schema_version"] == 3  # new item fields = new shape, consumers can pin
     assert [i["entry_id"] for i in d["sections"]["ungoverned"]] == ["manual/x"]
     assert d["summary"]["ungoverned"] == 1
 

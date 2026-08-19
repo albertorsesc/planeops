@@ -6,6 +6,19 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Every drift item carries the `intent` its entry was declared with, and the
+  `kill_criteria` where one is set, rendered under the item in `DRIFT.md` and
+  as fields in `DRIFT.json`. The registry has always required a reason per
+  entry and no output had ever shown one, so a report could name a missing
+  secret while the sentence explaining what it is for, and that the remedy is
+  migrating it into the sops store, sat two files away. An item the ungoverned
+  pass built from an observation has no declaration behind it and carries
+  neither. `DRIFT.json` moves to schema 3 for the new fields; the terminal view
+  is unchanged, since packing same-message groups onto shared rows is what
+  keeps it scannable.
+
 ## [0.11.1] - 2026-08-19
 
 ### Added
