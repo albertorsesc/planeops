@@ -172,6 +172,10 @@ Result   = {ok: bool, detail: str}
   `--seed` observes and seeds the registry in the same run.
 - `plane observe [--attest]` writes `observed/<host>/snapshot.json`. Read-only.
   A crashed adapter is contained, recorded under `failed`, and warned about.
+- Every drift item carries its entry's `intent`, and `kill_criteria` where set,
+  so the reason a thing was declared is read where the problem is. An item the
+  ungoverned pass built from an observation has no declaration behind it and
+  carries neither.
 - `plane drift` renders `DRIFT.md` + `DRIFT.json`: **Alerts** (lifecycle
   violations, missing required secrets, failed adapter scans, ungoverned
   always-on services, broken `needs` dependencies), **Report**, **Auto-folded**

@@ -34,6 +34,10 @@ def _item(entry: Entry, message: str) -> DriftItem:
         entry_id=entry.id,
         lifecycle=entry.lifecycle.value,
         message=message,
+        # The registry requires a reason for every entry; this is where it is
+        # finally read, next to the problem it explains.
+        intent=entry.intent,
+        kill_criteria=entry.kill_criteria,
     )
 
 
