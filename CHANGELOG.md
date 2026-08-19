@@ -6,6 +6,30 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `unmanaged.yaml` takes a `publishers:` list beside `globs:`, so a vendor can
+  be exempted once instead of one agent at a time. A publisher matches an
+  identity the adapter attested rather than a name the subject chose: on macOS
+  the `launchd` adapter reports the Team ID its program is signed with, so a
+  single line covers everything that vendor ships, including agents that do not
+  exist yet. That is also why it is safe where a `com.vendor.*` pattern is not,
+  and why it may cover a service that runs at login.
+
+  An agent running `/bin/sh -c ...` cannot inherit one: the OS signs its own
+  binaries without a Team ID, so no interpreter carries a publisher and no
+  publisher rule can silence one. Exceptions need no syntax, since a declared
+  entry is never exempt: declare the one asset you do want governed.
+
+  A rule covers what can be attested, so an agent that declares no program has
+  nothing signed and still needs a glob: on one real machine two of a vendor's
+  four agents were covered by one publisher line, and the two on-demand helper
+  plists with no program were not.
+
+  Publishers are macOS-only for now. systemd units are not signed, and package
+  ownership does not carry the same guarantee, so the `systemd` adapter attests
+  nothing and a `publishers:` rule simply never matches there.
+
 ## [0.11.0] - 2026-08-19
 
 ### Security

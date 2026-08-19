@@ -49,13 +49,21 @@ def read_plist(path: Path) -> dict[str, Any]:
     except (OSError, plistlib.InvalidFileException, ValueError):
         return {
             "label": path.stem,
+            "program": None,
             "keepalive": False,
             "run_at_load": False,
             "scheduled": False,
             "logs": [],
         }
+    program = data.get("Program")
+    if not program:
+        args = data.get("ProgramArguments")
+        program = args[0] if isinstance(args, list) and args else None
     return {
         "label": data.get("Label", path.stem),
+        # What the agent actually runs, so its signature can be read. The first
+        # argument, not the whole line: the rest are the program's arguments.
+        "program": program if isinstance(program, str) else None,
         "keepalive": bool(data.get("KeepAlive")),
         "run_at_load": bool(data.get("RunAtLoad")),
         # A plist with an interval/calendar trigger must be loaded to ever fire.
@@ -72,6 +80,23 @@ def read_plist(path: Path) -> dict[str, Any]:
     }
 
 
+def parse_team_identifier(text: str) -> str | None:
+    """The signing Team ID from `codesign -dv` output, or None.
+
+    A Team ID is issued by Apple to a developer account, so unlike a bundle id
+    or a label it is not something the signed program chooses for itself. The
+    OS signs its own binaries without one and says `not set`, which is what
+    keeps an agent running `/bin/sh -c ...` from inheriting a publisher: every
+    interpreter on the machine is Apple-signed, so a publisher exemption that
+    covered them would silence anything at all."""
+    for line in text.splitlines():
+        name, _, value = line.partition("=")
+        if name.strip() == "TeamIdentifier":
+            team = value.strip()
+            return team if team and team != "not set" else None
+    return None
+
+
 class LaunchdAdapter:
     name = "launchd"
     domains: tuple[str, ...] = ("service",)
@@ -83,12 +108,27 @@ class LaunchdAdapter:
 
     def __init__(self, run: Runner | None = None, agents_dir: Path | None = None):
         self._run = run or default_run
+        self._publishers: dict[str, str | None] = {}
         self._agents_dir_override = agents_dir
 
     def _agents_dir(self, ctx: Ctx) -> Path:
         if self._agents_dir_override is not None:
             return self._agents_dir_override
         return ctx.platform.home() / "Library" / "LaunchAgents"
+
+    def _publisher(self, program: str | None) -> str | None:
+        """The Team ID the agent's program is signed with, or None. Cached per
+        program because several agents commonly share one binary. `codesign`
+        writes its report to stderr, and a non-zero exit means unsigned, which
+        is simply nobody vouching for it."""
+        if not program:
+            return None
+        if program not in self._publishers:
+            res = self._run(["codesign", "-dv", "--verbose=4", program])
+            self._publishers[program] = (
+                parse_team_identifier(res.err) if res.code == 0 else None
+            )
+        return self._publishers[program]
 
     def observe(self, ctx: Ctx) -> list[Observed]:
         loaded = parse_launchctl_list(self._run(["launchctl", "list"]).out)
@@ -108,6 +148,7 @@ class LaunchdAdapter:
             # fine unloaded. Triage routes `drifted` by the entry's tolerance, so a
             # reconcile schedule marks it `alert` while a plain service reports it.
             wants_loaded = meta["run_at_load"] or meta["keepalive"] or meta["scheduled"]
+            publisher = self._publisher(meta["program"])
             out.append(
                 Observed.of(
                     self.name,
@@ -128,6 +169,10 @@ class LaunchdAdapter:
                         "keepalive": meta["keepalive"],
                         "run_at_load": meta["run_at_load"],
                         "plist_path": str(plist_path),
+                        # An `unmanaged` publisher rule reads this: who signed
+                        # what the agent runs. Absent when nothing vouches for
+                        # it, which is the safe direction.
+                        **({"publisher": publisher} if publisher else {}),
                         **({"logs": meta["logs"]} if meta["logs"] else {}),
                     },
                 )

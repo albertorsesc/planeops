@@ -13,3 +13,13 @@ globs:
     reason: "ephemeral agent session stores"
   - glob: "*/*.testbed"
     reason: "generated stress-test workspaces"
+
+# A publisher matches the identity an adapter attested rather than a name the
+# subject picked, so one line covers everything that publisher ships, including
+# what it ships next. On macOS the `launchd` adapter reports the Team ID its
+# program is signed with, which is why a vendor's updaters can be exempted at
+# once while an agent running `/bin/sh -c ...` cannot: the OS signs its own
+# binaries without a Team ID, so no interpreter ever carries one.
+# publishers:
+#   - publisher: "ABCDE12345"
+#     reason: "the vendor's own updaters; they install and remove these"

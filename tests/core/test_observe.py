@@ -128,7 +128,7 @@ def test_one_failing_adapter_degrades_not_crashes(tmp_path, fake_platform):
     keys = {o["adapter"] + "/" + o["native_id"] for o in snap["observed"]}
     assert keys == {"manual/inv", "manual/key"}
     assert snap["failed"] == [{"adapter": "boom", "error": "kaboom"}]
-    assert snap["schema_version"] == 2
+    assert snap["schema_version"] == 3
 
 
 def test_observe_survives_a_torn_prior_snapshot(tmp_path, fake_platform):
@@ -205,6 +205,32 @@ def test_an_unmanaged_item_stays_in_the_snapshot(tmp_path, fake_platform):
     assert snap["unmanaged"] == [
         {"key": "fake/vendor.updater", "glob": "fake/vendor.*"}
     ]
+
+
+def test_a_publisher_rule_exempts_by_attested_identity(tmp_path, fake_platform):
+    # The vendor exemption: one rule covers everything that vendor signs, today
+    # and later, without naming a single label. The record says which publisher
+    # answered for it.
+    reg = tmp_path / "registry"
+    reg.mkdir()
+    (reg / "unmanaged.yaml").write_text(
+        "publishers:\n  - {publisher: ABCDE12345, reason: vendor updaters}\n"
+    )
+    adapters = {
+        "fake": _Fixed(
+            Observed.of("fake", "theirs", detail={"publisher": "ABCDE12345"}),
+            Observed.of("fake", "mine"),
+        )
+    }
+
+    snap = run_observe(
+        tmp_path,
+        now=datetime(2026, 8, 19, 9, 0, 0),
+        platform=fake_platform(tmp_path),
+        adapters=adapters,
+    )
+
+    assert snap["unmanaged"] == [{"key": "fake/theirs", "publisher": "ABCDE12345"}]
 
 
 def test_a_declared_entry_is_never_exempted_by_a_glob(tmp_path, fake_platform):

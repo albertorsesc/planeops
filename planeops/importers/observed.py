@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from planeops.core.discovery import discover_adapters
-from planeops.core.observe import exemption_holds, unmanaged_globs
+from planeops.core.observe import exemption_holds, unmanaged_exemptions
 from planeops.core.registry import load_registry
 
 
@@ -54,7 +54,7 @@ def propose_from_snapshot(text: str, repo_root: Path | None) -> list[dict[str, A
         # re-proposed, and the saved registry would then fail load on a duplicate id.
         declared = {e.id for e in load_registry(repo_root / "registry").entries}
 
-    unmanaged = unmanaged_globs(snap)
+    unmanaged = unmanaged_exemptions(snap)
     domains = _domain_by_adapter()
     entries: list[dict[str, Any]] = []
     seen: set[str] = set()
