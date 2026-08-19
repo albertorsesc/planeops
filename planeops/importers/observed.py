@@ -2,12 +2,16 @@
 
 `plane observe` already inventories the machine into observed/<host>/snapshot.json;
 this scaffolds candidate entries from it, so onboarding is prune-a-list rather than
-hand-author-from-blank. Proposes one entry per observed item NOT already declared
-(the snapshot is already post-`unmanaged`, so excluded things never appear), each as
-active/verify for the human to curate: keep what matters (e.g. brew leaves), drop the
-rest (transitive deps, bundled packages). Nothing is written; the CLI prints the
-proposal for review. The domain comes from the observing adapter, since the observed
-snapshot records the adapter but not the (registry-only) domain.
+hand-author-from-blank. Proposes one entry per observed item that is neither
+already declared nor exempted by an `unmanaged` glob, each as active/verify for
+the human to curate: keep what matters (e.g. brew leaves), drop the rest
+(transitive deps, bundled packages). Nothing is written; the CLI prints the
+proposal for review. The domain comes from the observing adapter, since the
+observed snapshot records the adapter but not the (registry-only) domain.
+
+An exempted item that runs code at login is proposed anyway: drift alerts on it and
+names declaring it as the remedy, so the tool that writes declarations has to offer
+the one the report asks for.
 """
 
 from __future__ import annotations
@@ -17,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from planeops.core.discovery import discover_adapters
+from planeops.core.observe import exemption_holds, unmanaged_globs
 from planeops.core.registry import load_registry
 
 
@@ -49,6 +54,7 @@ def propose_from_snapshot(text: str, repo_root: Path | None) -> list[dict[str, A
         # re-proposed, and the saved registry would then fail load on a duplicate id.
         declared = {e.id for e in load_registry(repo_root / "registry").entries}
 
+    unmanaged = unmanaged_globs(snap)
     domains = _domain_by_adapter()
     entries: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -64,6 +70,9 @@ def propose_from_snapshot(text: str, repo_root: Path | None) -> list[dict[str, A
             continue
         seen.add(entry_id)
         facts = obs.get("facts")
+        always_on = bool(isinstance(facts, dict) and facts.get("always_on"))
+        if exemption_holds(unmanaged.get(entry_id), always_on=always_on):
+            continue
         governed_by = facts.get("governed_by") if isinstance(facts, dict) else None
         if isinstance(governed_by, str) and governed_by in declared:
             # Attributed to a decision already on record. This check spans

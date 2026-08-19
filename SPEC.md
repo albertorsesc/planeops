@@ -48,9 +48,20 @@ One entry = one managed asset. Registry files contain `entries: [...]`.
 | `desired` | map | no | `{}` | Adapter-specific shape |
 | `data` | map | `class: data` only | | `{location: <path>, sync: git \| none \| <backend>}` |
 
-`registry/unmanaged.yaml`: `globs: [{glob: <pattern>, reason: <str>}]`. Observed
-items matching a glob are skipped before diffing (section 2's lifecycle model
-plus these globs define what "governed" means).
+`registry/unmanaged.yaml`: `globs: [{glob: <pattern>, reason: <str>}]`. A glob
+withholds the report's question, never the observation: matching items are
+recorded in the snapshot (`unmanaged`, section 4) and skipped when diffing, so
+the triage still sees them and a later pass can still report on the exemption
+itself. Three bounds follow from that. A glob never exempts a **declared**
+entry, because the declaration is the more specific statement and dropping its
+evidence would report an installed asset as missing. A glob carrying a
+metacharacter (`*?[`) claims a name space rather than a thing, and a name space
+is one anything can enter by choosing its own name, so a pattern never silences
+an **always-on** observation (section 5); a glob that names one asset exactly
+does, because that is a decision about something the operator has looked at.
+And `plane import observed` proposes an exempted item exactly when the report
+still asks about it. Section 2's lifecycle model plus these globs define what
+"governed" means.
 
 ## 3. Repo layout
 
@@ -99,8 +110,10 @@ Change   = {entry_id: str, kind: "install" | "configure" | "remove" | "patch",
             action: dict}         # adapter-opaque execute payload
 Result   = {ok: bool, detail: str}
 # snapshot.json = {host, ts, schema_version, engine_version,
-#                  observed: [Observed], uncovered: [adapter names declared
-#                  in registry but not implemented], failed: [{adapter, error}]}
+#                  observed: [Observed], unmanaged: [{key, glob}] (which
+#                  observations a glob exempts, and by which glob),
+#                  uncovered: [adapter names declared in registry but not
+#                  implemented], failed: [{adapter, error}]}
 ```
 
 - Engine, not adapters, owns confirmation: `plan()` proposes `Change`s;

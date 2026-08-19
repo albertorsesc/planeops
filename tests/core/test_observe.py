@@ -8,6 +8,7 @@ import json
 from datetime import datetime
 
 from planeops.adapters.manual import ADAPTER as MANUAL
+from planeops.core.contracts import Observed
 from planeops.core.drift import run_drift
 from planeops.core.observe import run_observe, snapshot_path
 
@@ -127,7 +128,7 @@ def test_one_failing_adapter_degrades_not_crashes(tmp_path, fake_platform):
     keys = {o["adapter"] + "/" + o["native_id"] for o in snap["observed"]}
     assert keys == {"manual/inv", "manual/key"}
     assert snap["failed"] == [{"adapter": "boom", "error": "kaboom"}]
-    assert snap["schema_version"] == 1
+    assert snap["schema_version"] == 2
 
 
 def test_observe_survives_a_torn_prior_snapshot(tmp_path, fake_platform):
@@ -160,3 +161,73 @@ def test_observe_writes_the_snapshot_atomically(tmp_path, fake_platform):
         adapters=ADAPTERS,
     )
     assert not (tmp_path / "observed" / "testhost" / "snapshot.json.tmp").exists()
+
+
+class _Fixed:
+    """An adapter that observes exactly what it was handed, so the exemption
+    path can be exercised without a real tool behind it."""
+
+    name = "fake"
+    domains = ("service",)
+
+    def __init__(self, *observed):
+        self._observed = observed
+
+    def observe(self, ctx):
+        return list(self._observed)
+
+
+def test_an_unmanaged_item_stays_in_the_snapshot(tmp_path, fake_platform):
+    # An exemption says "do not govern this", never "stop looking at it". The
+    # observation stays, carrying the glob that exempted it, which is what lets
+    # the triage hold the always-on line and a later pass report on the
+    # exemption itself.
+    reg = tmp_path / "registry"
+    reg.mkdir()
+    (reg / "unmanaged.yaml").write_text(
+        'globs:\n  - {glob: "fake/vendor.*", reason: the vendor updates it}\n'
+    )
+    adapters = {
+        "fake": _Fixed(
+            Observed.of("fake", "vendor.updater"), Observed.of("fake", "mine")
+        )
+    }
+
+    snap = run_observe(
+        tmp_path,
+        now=datetime(2026, 8, 19, 9, 0, 0),
+        platform=fake_platform(tmp_path),
+        adapters=adapters,
+    )
+
+    keys = {o["adapter"] + "/" + o["native_id"] for o in snap["observed"]}
+    assert keys == {"fake/vendor.updater", "fake/mine"}
+    assert snap["unmanaged"] == [
+        {"key": "fake/vendor.updater", "glob": "fake/vendor.*"}
+    ]
+
+
+def test_a_declared_entry_is_never_exempted_by_a_glob(tmp_path, fake_platform):
+    # Two registry files can contradict each other, and the declaration wins:
+    # exempting a declared entry strips the evidence for it, and drift then
+    # reports an installed asset as missing.
+    reg = tmp_path / "registry"
+    reg.mkdir()
+    (reg / "machine.yaml").write_text(
+        "entries:\n  - {id: fake/tool, adapter: fake, domain: service, "
+        "lifecycle: active, intent: i}\n"
+    )
+    (reg / "unmanaged.yaml").write_text(
+        'globs:\n  - {glob: "fake/*", reason: sweeping}\n'
+    )
+    adapters = {"fake": _Fixed(Observed.of("fake", "tool"))}
+    plat = fake_platform(tmp_path)
+    now = datetime(2026, 8, 19, 9, 0, 0)
+
+    snap = run_observe(tmp_path, now=now, platform=plat, adapters=adapters)
+
+    assert [o["native_id"] for o in snap["observed"]] == ["tool"]
+    assert snap["unmanaged"] == []
+
+    rep = run_drift(tmp_path, now=now, platform=plat, implemented={"fake"})
+    assert not rep.alerts

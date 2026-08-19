@@ -1,5 +1,12 @@
 # Observed items matching these globs are skipped before diffing, so machine-
-# generated workloads never appear as drift (SPEC.md section 2).
+# generated workloads never appear as drift (SPEC.md section 2). A glob says
+# "do not ask me about this", not "do not look": the item is still observed and
+# recorded, and a glob never covers something you have declared.
+#
+# A pattern claims a name space, and anything can enter a name space by naming
+# itself, so a pattern does not cover a service that runs code at login. Name
+# that one exactly (`launchd/com.vendor.updater`) and it stays quiet, because
+# then you have looked at the thing you are exempting.
 
 globs:
   - glob: "*/session-*"

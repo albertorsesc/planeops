@@ -12,7 +12,12 @@ from pathlib import Path
 
 from planeops.core.contracts import Observed, Platform
 from planeops.core.discovery import discover_adapters
-from planeops.core.observe import load_observed, load_snapshot
+from planeops.core.observe import (
+    exemption_holds,
+    load_observed,
+    load_snapshot,
+    unmanaged_globs,
+)
 from planeops.core.registry import load_registry
 from planeops.core.report import (
     DriftItem,
@@ -55,8 +60,10 @@ def triage(
     observed_by_key: dict[str, Observed],
     implemented: set[str],
     failed: dict[str, str] | None = None,
+    unmanaged: dict[str, str] | None = None,
 ) -> DriftReport:
     failed = failed or {}
+    unmanaged = unmanaged or {}
     report = DriftReport(host="", ts="")
     entries = list(entries)  # walked twice: per-entry triage, then dependency checks
     for entry in entries:
@@ -175,30 +182,36 @@ def triage(
                     )
                 )
 
-    # Ungoverned pass: observed on the machine, absent from the registry. The
-    # snapshot is already post-unmanaged, so everything here is neither declared
-    # nor deliberately excluded. An item whose own facts say it is always-on (an
-    # adapter-declared general fact: a login/keepalive/interval agent, an enabled
-    # unit) will run code without ever having been declared, the one thing a
-    # control plane must never stay silent about, so it alerts; anything else is
-    # surfaced for `plane import observed` to propose or an unmanaged glob to
-    # exclude.
+    # Ungoverned pass: observed on the machine, absent from the registry.
+    # Deliberately exempted items arrive here too, because an `unmanaged` glob
+    # withholds the question and not the observation. An item whose own facts
+    # say it is always-on (an adapter-declared general fact: a
+    # login/keepalive/interval agent, an enabled unit) will run code without
+    # ever having been declared, the one thing a control plane must never stay
+    # silent about, so it alerts; anything else is surfaced for
+    # `plane import observed` to propose or an unmanaged glob to exclude.
     declared_ids = {e.id for e in entries}
     for key in sorted(observed_by_key):
         if key in declared_ids:
             continue
         obs = observed_by_key[key]
-        if obs.facts.get("always_on"):
+        always_on = bool(obs.facts.get("always_on"))
+        exempt = exemption_holds(unmanaged.get(key), always_on=always_on)
+        if always_on and not exempt:
             # Checked before attribution on purpose: something that runs code
             # on its own must alert even when a name-matched entry claims it,
-            # because attribution is evidence of a decision, not a license.
+            # because attribution is evidence of a decision, not a license. A
+            # pattern exemption is no license either, for the same reason.
             report.alerts.append(
                 DriftItem(
                     key,
                     "unregistered",
-                    "ungoverned always-on service; declare it or add an unmanaged glob",
+                    "ungoverned always-on service; declare it or name it exactly "
+                    "in unmanaged",
                 )
             )
+        elif exempt:
+            pass
         elif (
             isinstance(governed_by := obs.facts.get("governed_by"), str)
             and governed_by in declared_ids
@@ -281,7 +294,13 @@ def run_drift(
         for f in snapshot.get("failed", [])
         if isinstance(f, dict) and isinstance(f.get("adapter"), str)
     }
-    result = triage(entries, observed_by_key, implemented, failed=failed)
+    result = triage(
+        entries,
+        observed_by_key,
+        implemented,
+        failed=failed,
+        unmanaged=unmanaged_globs(snapshot),
+    )
     result.host = host
     result.ts = now.isoformat()
 

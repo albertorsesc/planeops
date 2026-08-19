@@ -214,3 +214,42 @@ def test_observed_logs_land_in_the_proposal():
     entries = {e["id"]: e for e in propose_from_snapshot(snap, None)}
     assert entries["launchd/x.svc"]["logs"] == ["/tmp/x/out.log"]
     assert "logs" not in entries["launchd/y.svc"]
+
+
+def test_skips_an_unmanaged_observation():
+    # An exemption is a decision already on record, so seeding must not ask for
+    # it again. The observation is in the snapshot now; only the proposal is
+    # suppressed.
+    snap = json.dumps(
+        {
+            "observed": [
+                {"adapter": "pkg-brew", "native_id": "openssl@3", "facts": {}},
+                {"adapter": "pkg-brew", "native_id": "ripgrep", "facts": {}},
+            ],
+            "unmanaged": [{"key": "pkg-brew/openssl@3", "glob": "pkg-brew/openssl*"}],
+        }
+    )
+    assert [e["id"] for e in propose_from_snapshot(snap, None)] == ["pkg-brew/ripgrep"]
+
+
+def test_proposes_an_always_on_observation_a_pattern_only_claims():
+    # Drift alerts on an always-on service a pattern cannot silence, and names
+    # declaring it as the remedy, so the tool that writes declarations has to
+    # offer this one.
+    snap = json.dumps(
+        {
+            "observed": [
+                {
+                    "adapter": "launchd",
+                    "native_id": "com.vendor.helper",
+                    "facts": {"always_on": True},
+                }
+            ],
+            "unmanaged": [
+                {"key": "launchd/com.vendor.helper", "glob": "launchd/com.vendor.*"}
+            ],
+        }
+    )
+    assert [e["id"] for e in propose_from_snapshot(snap, None)] == [
+        "launchd/com.vendor.helper"
+    ]
