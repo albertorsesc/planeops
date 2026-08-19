@@ -37,7 +37,7 @@ $ plane drift
 alerts (5)
   launchd
   ✗ ai.gateway           expected present, not observed
-  ✗ com.example.updater  ungoverned always-on service; declare it or add an unmanaged glob
+  ✗ com.example.updater  ungoverned always-on service; declare it or name it exactly in unmanaged
   ollama
   ✗ qwen3:8b   expected present, not observed
   ✗ legacy-7b  listed retired but still observed present

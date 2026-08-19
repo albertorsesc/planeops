@@ -29,8 +29,9 @@ def observe_state(
     adapters: dict[str, Adapter] | None = None,
 ) -> dict[str, Any]:
     """Scan the machine (read-only) and return a compact inventory summary: how many
-    items each adapter observed, plus declared-but-uncovered adapters and any that
-    failed. The full snapshot is written to disk as usual."""
+    items each adapter observed, how many of those an `unmanaged` glob exempts from
+    the report, plus declared-but-uncovered adapters and any that failed. The full
+    snapshot is written to disk as usual."""
     snap = run_observe(repo_root, now=now, platform=platform, adapters=adapters)
     by_adapter: dict[str, int] = {}
     for obs in snap["observed"]:
@@ -39,6 +40,7 @@ def observe_state(
         "host": snap["host"],
         "ts": snap["ts"],
         "observed_count": len(snap["observed"]),
+        "unmanaged_count": len(snap["unmanaged"]),
         "by_adapter": dict(sorted(by_adapter.items())),
         "uncovered": snap["uncovered"],
         "failed": snap["failed"],

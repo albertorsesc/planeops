@@ -6,8 +6,40 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- **BREAKING:** An `unmanaged` glob could hide a service that runs code at
+  login. Matching items were dropped before the snapshot was written, so the
+  check that alerts on an ungoverned always-on service never saw them. The
+  identity a launchd glob matches is the `Label` inside the plist, which
+  whoever writes the file chooses, so a wildcard exemption such as
+  `launchd/com.vendor.*` was a name anything could adopt to run at login
+  unmentioned. A glob now withholds the report's question and not the
+  observation, which is what SPEC section 2 already described, and a pattern no
+  longer covers an always-on service at all. Naming one exactly still does, so
+  a vendor updater you have looked at stays quiet while the name space around
+  it does not. Migration: an always-on service a pattern used to cover now
+  alerts until it is named exactly in `unmanaged` or declared in the registry.
+  The snapshot moves to schema 2, which adds `unmanaged`; `plane observe`
+  rewrites it, so nothing carries over.
+
+### Changed
+
+- Exempted items now reach the snapshot, so `plane observe` and the MCP
+  inventory tool count them: their totals rise by however many an `unmanaged`
+  glob covers. The inventory gained `unmanaged_count` so the number explains
+  itself rather than looking like a jump in what the machine runs.
+
 ### Fixed
 
+- A glob that also matched a declared entry reported an installed asset as
+  missing. Exemption is skipped for anything declared, so the two registry
+  files can no longer contradict each other into a false alert.
+- `plane mcp` counted an exempted server as ungoverned, and
+  `plane import observed` proposed exempted items now that they reach the
+  snapshot. Both honour the exemption, except for an always-on item, which
+  `import observed` still proposes because declaring it is the remedy the
+  report names.
 - A backup file stopped being debris the moment it was dated. `footprint`
   skipped `.zshrc.bak` but asked about `.zshrc.bak-20260727`,
   `.zshrc.bak.pre-qwen8b`, and `.openclaw.archive-20260722`, because the

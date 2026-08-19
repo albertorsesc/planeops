@@ -20,7 +20,7 @@ from planeops.core.statefile import atomic_write, read_json_file
 from planeops.platform import current_platform
 from planeops.secrets.resolve import build_handle
 
-SNAPSHOT_SCHEMA_VERSION = 1  # bump when the snapshot / entry wire format changes
+SNAPSHOT_SCHEMA_VERSION = 2  # bump when the snapshot / entry wire format changes
 
 
 class SnapshotError(FileNotFoundError):
@@ -72,16 +72,71 @@ def _load_prior(path: Path) -> dict[str, Observed]:
     return load_observed(raw)
 
 
-def _drop_unmanaged(observed: list[Observed], registry: Registry) -> list[Observed]:
-    if not registry.unmanaged:
-        return observed
-    patterns = [g.glob for g in registry.unmanaged]
+def _unmanaged_matches(
+    observed: list[Observed], registry: Registry, declared_ids: set[str]
+) -> list[dict[str, str]]:
+    """Which observations an `unmanaged` glob exempts, and by which glob.
 
-    def managed(obs: Observed) -> bool:
-        candidates = [obs.key, obs.facts.get("path", "")]
-        return not any(fnmatch.fnmatch(c, p) for c in candidates if c for p in patterns)
+    An exemption withholds the report's question; it never withholds the
+    observation. The triage has to see an exempted item to hold the line on
+    something that runs code at login (SPEC.md section 5), and nothing can
+    report on an exemption whose matches were discarded.
 
-    return [o for o in observed if managed(o)]
+    A declared entry is never exempt. The two files can contradict each other,
+    and the declaration is the more specific statement: dropping its evidence
+    would leave drift reporting an installed asset as missing.
+
+    `fnmatchcase` rather than `fnmatch`: matching a name is a governance
+    decision, so it does not vary with the filesystem's case rules. Identical
+    behaviour on both supported platforms, stated rather than inherited.
+    """
+    matches: list[dict[str, str]] = []
+    for obs in observed:
+        if obs.key in declared_ids:
+            continue
+        candidates = [c for c in (obs.key, obs.facts.get("path", "")) if c]
+        glob = next(
+            (
+                g.glob
+                for g in registry.unmanaged
+                for c in candidates
+                if fnmatch.fnmatchcase(c, g.glob)
+            ),
+            None,
+        )
+        if glob is not None:
+            matches.append({"key": obs.key, "glob": glob})
+    return matches
+
+
+def unmanaged_globs(snapshot: dict[str, Any]) -> dict[str, str]:
+    """Observed key -> the `unmanaged` glob that exempted it, read back from a
+    snapshot. Rows that are not mappings of two strings (a hand-edit, an older
+    schema) are skipped, so junk silences nothing."""
+    return {
+        row["key"]: row["glob"]
+        for row in snapshot.get("unmanaged", []) or []
+        if isinstance(row, dict)
+        and isinstance(row.get("key"), str)
+        and isinstance(row.get("glob"), str)
+    }
+
+
+def exemption_holds(glob: str | None, *, always_on: bool) -> bool:
+    """Whether an `unmanaged` glob withholds the report's question about an
+    observation.
+
+    A glob that names one asset exactly is a decision about something the
+    operator has looked at, so it holds for anything, including a service that
+    starts itself. A glob carrying a metacharacter claims a name space instead,
+    and a name space is something anything can enter by choosing its own name.
+    So a pattern never covers a service that runs code at login: that is
+    precisely the observation nobody has seen yet, and going quiet about it is
+    the one failure this tool cannot afford.
+    """
+    if glob is None:
+        return False
+    return not always_on or not any(c in glob for c in "*?[")
 
 
 def run_observe(
@@ -134,7 +189,7 @@ def run_observe(
             observed.extend(produced)
         except Exception as exc:  # one bad adapter must not sink the whole scan
             failed.append({"adapter": name, "error": str(exc)})
-    observed = _drop_unmanaged(observed, registry)
+    unmanaged = _unmanaged_matches(observed, registry, {e.id for e in entries})
 
     uncovered = sorted(registry.declared_adapters() - set(adapters))
 
@@ -144,6 +199,7 @@ def run_observe(
         "schema_version": SNAPSHOT_SCHEMA_VERSION,
         "engine_version": __version__,
         "observed": [o.to_dict() for o in observed],
+        "unmanaged": unmanaged,
         "uncovered": uncovered,
         "failed": failed,
     }

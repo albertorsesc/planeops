@@ -133,3 +133,11 @@ def test_wrapper_only_names_do_not_falsely_merge_into_one_drift_group():
     # merges, covered above.)
     snap = _snapshot({"mcp": ["a"], "mcp-server": ["b"], "real-tool": ["c"]})
     assert build_mcp_view(snap, set())["name_drift"] == []
+
+
+def test_an_unmanaged_server_is_not_flagged_ungoverned():
+    # The exemption means the same thing in every pane: a server the operator
+    # decided not to govern is not an open question here either.
+    snap = _snapshot({"vendor-tool": ["a"], "mine": ["a"]})
+    snap["unmanaged"] = [{"key": "mcp/vendor-tool", "glob": "mcp/vendor-*"}]
+    assert build_mcp_view(snap, set())["ungoverned"] == ["mine"]

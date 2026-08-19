@@ -562,3 +562,49 @@ def test_parked_entry_ignores_the_drifted_fact():
     e = _entry(lifecycle="parked")
     rep = triage([e], {"manual/x": _obs("manual/x", drifted=True)}, IMPL)
     assert not rep.alerts and not rep.report and not rep.auto_folded
+
+
+def test_an_unmanaged_observation_is_not_a_question():
+    # What an exemption buys: the item is still observed, and the report does
+    # not ask about it.
+    rep = triage(
+        [], {"manual/x": _obs("manual/x")}, IMPL, unmanaged={"manual/x": "manual/*"}
+    )
+    assert not rep.ungoverned and not rep.alerts
+
+
+def test_a_pattern_exemption_cannot_silence_an_always_on_service():
+    # The one thing a pattern may not buy. A launchd glob matches the label
+    # inside the plist, which whoever writes the file chooses, so a wildcard
+    # exemption would otherwise be a name anything can adopt to run at login
+    # unmentioned.
+    rep = triage(
+        [],
+        {
+            "launchd/com.vendor.helper": _obs(
+                "launchd/com.vendor.helper", always_on=True
+            )
+        },
+        IMPL | {"launchd"},
+        unmanaged={"launchd/com.vendor.helper": "launchd/com.vendor.*"},
+    )
+    assert len(rep.alerts) == 1
+    assert "always-on" in rep.alerts[0].message
+    assert not rep.ungoverned  # escalated, not double-listed
+
+
+def test_an_exactly_named_always_on_service_is_exempt():
+    # The vendor updater you looked at once and decided about. Naming it
+    # exactly is a decision about a thing that exists, so it buys silence;
+    # nothing else can enter that name without colliding with it.
+    rep = triage(
+        [],
+        {
+            "launchd/com.vendor.helper": _obs(
+                "launchd/com.vendor.helper", always_on=True
+            )
+        },
+        IMPL | {"launchd"},
+        unmanaged={"launchd/com.vendor.helper": "launchd/com.vendor.helper"},
+    )
+    assert not rep.alerts and not rep.ungoverned

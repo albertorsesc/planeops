@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from planeops.core.contracts import Platform
+from planeops.core.observe import unmanaged_globs
 from planeops.core.statefile import read_host_json
 
 
@@ -44,7 +45,12 @@ def _normalize(name: str) -> str:
 def build_mcp_view(snapshot: dict[str, Any], declared_ids: set[str]) -> dict[str, Any]:
     """Turn a snapshot (plus the set of declared entry ids) into the MCP view. Pure:
     no IO, no machine access. Reads only `adapter == "mcp"` observations; other
-    adapters' facts are ignored."""
+    adapters' facts are ignored.
+
+    A server an `unmanaged` glob exempts is listed with the rest and left out of
+    `ungoverned`, so the exemption means the same thing here as it does in the
+    drift report."""
+    unmanaged = unmanaged_globs(snapshot)
     servers: list[dict[str, Any]] = []
     for obs in snapshot.get("observed", []):
         if not isinstance(obs, dict) or obs.get("adapter") != "mcp":
@@ -76,7 +82,9 @@ def build_mcp_view(snapshot: dict[str, Any], declared_ids: set[str]) -> dict[str
         "ts": snapshot.get("ts"),
         "servers": servers,
         "single_client": [s["name"] for s in servers if len(s["clients"]) == 1],
-        "ungoverned": [s["name"] for s in servers if not s["governed"]],
+        "ungoverned": [
+            s["name"] for s in servers if not s["governed"] and s["id"] not in unmanaged
+        ],
         "name_drift": [
             {"names": sorted(names)}
             for _, names in sorted(groups.items())

@@ -38,7 +38,8 @@ def test_observe_state_returns_only_aggregate_counts(tmp_path, fake_platform):
     # Exact shape: only aggregates cross the boundary, never raw observed facts. If a
     # regression leaks `facts`/`observed`, this fails (the one security invariant).
     assert set(out) == {
-        "host", "ts", "observed_count", "by_adapter", "uncovered", "failed",
+        "host", "ts", "observed_count", "unmanaged_count", "by_adapter",
+        "uncovered", "failed",
     }  # fmt: skip
     assert out["host"] == "testhost"
     assert out["ts"] == now.isoformat()
