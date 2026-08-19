@@ -16,9 +16,9 @@ from planeops.core.observe import (
     exemption_holds,
     load_observed,
     load_snapshot,
-    unmanaged_globs,
+    unmanaged_exemptions,
 )
-from planeops.core.registry import load_registry
+from planeops.core.registry import Exemption, load_registry
 from planeops.core.report import (
     DriftItem,
     DriftReport,
@@ -60,7 +60,7 @@ def triage(
     observed_by_key: dict[str, Observed],
     implemented: set[str],
     failed: dict[str, str] | None = None,
-    unmanaged: dict[str, str] | None = None,
+    unmanaged: dict[str, Exemption] | None = None,
 ) -> DriftReport:
     failed = failed or {}
     unmanaged = unmanaged or {}
@@ -299,7 +299,7 @@ def run_drift(
         observed_by_key,
         implemented,
         failed=failed,
-        unmanaged=unmanaged_globs(snapshot),
+        unmanaged=unmanaged_exemptions(snapshot),
     )
     result.host = host
     result.ts = now.isoformat()

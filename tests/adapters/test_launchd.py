@@ -351,3 +351,82 @@ def test_observe_omits_logs_when_the_plist_declares_none(tmp_path, fake_platform
     _write_plist(tmp_path, "com.x.quiet")
     facts = _observe_facts(tmp_path, fake_platform)
     assert "logs" not in facts["com.x.quiet"]
+
+
+# ---- the publisher an agent's program is signed by ----
+
+# `codesign -dv` writes to stderr, and reports `TeamIdentifier=not set` for a
+# binary the OS ships. Shape recorded from a real run; the vendor is invented.
+VENDOR_SIGNATURE = (
+    "Executable=/Applications/Example.app/Contents/MacOS/ExampleUpdater\n"
+    "Identifier=com.example.updater\n"
+    "Authority=Developer ID Application: Example Corp (ABCDE12345)\n"
+    "TeamIdentifier=ABCDE12345\n"
+)
+OS_SIGNATURE = (
+    "Executable=/bin/sh\nAuthority=macOS Software Signing\nTeamIdentifier=not set\n"
+)
+
+
+def _run_with_signature(signature):
+    def run(cmd, **kw):
+        if cmd[0] == "codesign":
+            return RunResult(0, "", signature)
+        return RunResult(0, LAUNCHCTL, "")
+
+    return run
+
+
+def _facts_with_signature(root, fake_platform, signature):
+    adapter = LaunchdAdapter(run=_run_with_signature(signature))
+    return {o.native_id: o.facts for o in adapter.observe(_ctx(fake_platform(root)))}
+
+
+def test_observe_reports_the_team_its_program_is_signed_by(tmp_path, fake_platform):
+    # The publisher is what makes a vendor exemption safe: a Team ID is issued by
+    # Apple, so unlike a label it is not something the plist's author picks.
+    _write_plist(tmp_path, "com.vendor.updater")
+    facts = _facts_with_signature(tmp_path, fake_platform, VENDOR_SIGNATURE)
+    assert facts["com.vendor.updater"]["publisher"] == "ABCDE12345"
+
+
+def test_a_program_the_os_ships_has_no_publisher(tmp_path, fake_platform):
+    # The OS signs every interpreter, so an agent running `/bin/sh -c payload`
+    # must not inherit a publisher: that is the bypass this exists to refuse.
+    _write_plist(tmp_path, "com.x.shell")
+    facts = _facts_with_signature(tmp_path, fake_platform, OS_SIGNATURE)
+    assert "publisher" not in facts["com.x.shell"]
+
+
+def test_an_unsigned_program_has_no_publisher(tmp_path, fake_platform):
+    def run(cmd, **kw):
+        if cmd[0] == "codesign":
+            return RunResult(1, "", "/x: code object is not signed at all\n")
+        return RunResult(0, LAUNCHCTL, "")
+
+    _write_plist(tmp_path, "com.x.unsigned")
+    adapter = LaunchdAdapter(run=run)
+    facts = {
+        o.native_id: o.facts for o in adapter.observe(_ctx(fake_platform(tmp_path)))
+    }
+    assert "publisher" not in facts["com.x.unsigned"]
+
+
+def test_a_plist_with_no_program_is_not_signature_checked(tmp_path, fake_platform):
+    d = tmp_path / "Library" / "LaunchAgents"
+    d.mkdir(parents=True, exist_ok=True)
+    with (d / "com.x.bare.plist").open("wb") as fh:
+        plistlib.dump({"Label": "com.x.bare", "KeepAlive": True}, fh)
+
+    calls = []
+
+    def run(cmd, **kw):
+        calls.append(cmd[0])
+        return RunResult(0, LAUNCHCTL, "")
+
+    facts = {
+        o.native_id: o.facts
+        for o in LaunchdAdapter(run=run).observe(_ctx(fake_platform(tmp_path)))
+    }
+    assert "publisher" not in facts["com.x.bare"]
+    assert "codesign" not in calls

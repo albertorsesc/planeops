@@ -4,6 +4,7 @@ import pytest
 
 from planeops.core.contracts import Observed
 from planeops.core.drift import triage
+from planeops.core.observe import Exemption
 from planeops.core.report import drift_report_dict, render_drift_json
 from planeops.core.schema import entry_from_dict
 
@@ -568,7 +569,10 @@ def test_an_unmanaged_observation_is_not_a_question():
     # What an exemption buys: the item is still observed, and the report does
     # not ask about it.
     rep = triage(
-        [], {"manual/x": _obs("manual/x")}, IMPL, unmanaged={"manual/x": "manual/*"}
+        [],
+        {"manual/x": _obs("manual/x")},
+        IMPL,
+        unmanaged={"manual/x": Exemption("manual/*", attested=False)},
     )
     assert not rep.ungoverned and not rep.alerts
 
@@ -586,11 +590,32 @@ def test_a_pattern_exemption_cannot_silence_an_always_on_service():
             )
         },
         IMPL | {"launchd"},
-        unmanaged={"launchd/com.vendor.helper": "launchd/com.vendor.*"},
+        unmanaged={
+            "launchd/com.vendor.helper": Exemption(
+                "launchd/com.vendor.*", attested=False
+            )
+        },
     )
     assert len(rep.alerts) == 1
     assert "always-on" in rep.alerts[0].message
     assert not rep.ungoverned  # escalated, not double-listed
+
+
+def test_a_publisher_exemption_covers_an_always_on_service():
+    # A publisher is attested by the OS rather than chosen by the file, so it is
+    # a name space nothing can enter by naming itself, and it may cover a whole
+    # vendor's agents including ones that do not exist yet.
+    rep = triage(
+        [],
+        {
+            "launchd/com.vendor.helper": _obs(
+                "launchd/com.vendor.helper", always_on=True
+            )
+        },
+        IMPL | {"launchd"},
+        unmanaged={"launchd/com.vendor.helper": Exemption("ABCDE12345", attested=True)},
+    )
+    assert not rep.alerts and not rep.ungoverned
 
 
 def test_an_exactly_named_always_on_service_is_exempt():
@@ -605,6 +630,10 @@ def test_an_exactly_named_always_on_service_is_exempt():
             )
         },
         IMPL | {"launchd"},
-        unmanaged={"launchd/com.vendor.helper": "launchd/com.vendor.helper"},
+        unmanaged={
+            "launchd/com.vendor.helper": Exemption(
+                "launchd/com.vendor.helper", attested=False
+            )
+        },
     )
     assert not rep.alerts and not rep.ungoverned

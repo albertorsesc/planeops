@@ -48,20 +48,27 @@ One entry = one managed asset. Registry files contain `entries: [...]`.
 | `desired` | map | no | `{}` | Adapter-specific shape |
 | `data` | map | `class: data` only | | `{location: <path>, sync: git \| none \| <backend>}` |
 
-`registry/unmanaged.yaml`: `globs: [{glob: <pattern>, reason: <str>}]`. A glob
-withholds the report's question, never the observation: matching items are
-recorded in the snapshot (`unmanaged`, section 4) and skipped when diffing, so
-the triage still sees them and a later pass can still report on the exemption
-itself. Three bounds follow from that. A glob never exempts a **declared**
-entry, because the declaration is the more specific statement and dropping its
-evidence would report an installed asset as missing. A glob carrying a
-metacharacter (`*?[`) claims a name space rather than a thing, and a name space
-is one anything can enter by choosing its own name, so a pattern never silences
-an **always-on** observation (section 5); a glob that names one asset exactly
-does, because that is a decision about something the operator has looked at.
-And `plane import observed` proposes an exempted item exactly when the report
-still asks about it. Section 2's lifecycle model plus these globs define what
-"governed" means.
+`registry/unmanaged.yaml` holds the two ways to say "not mine to govern":
+`globs: [{glob: <pattern>, reason: <str>}]` matches an observation's name, and
+`publishers: [{publisher: <identity>, reason: <str>}]` matches the identity its
+adapter attested (`facts["publisher"]`; the `launchd` adapter reports the Team
+ID its program is signed with). Attestation is per observation, not per adapter:
+an agent that declares no program has nothing to sign, so it matches no
+publisher rule and still needs a glob or a declaration. Either withholds the report's question, never the observation: matching
+items are recorded in the snapshot (`unmanaged`, section 4) and skipped when
+diffing, so the triage still sees them and a later pass can still report on the
+exemption itself.
+
+Three bounds follow. A rule never exempts a **declared** entry, because the
+declaration is the more specific statement and dropping its evidence would
+report an installed asset as missing. A rule covers an **always-on**
+observation (section 5) only when its authority is something the subject cannot
+choose for itself: an attested publisher, or a glob naming one asset exactly. A
+glob carrying a metacharacter (`*?[`) claims a name space instead, and a name
+space is one anything can enter by naming itself, so it never covers a
+login-run service. And `plane import observed` proposes an exempted item
+exactly when the report still asks about it. Section 2's lifecycle model plus
+these rules define what "governed" means.
 
 ## 3. Repo layout
 
@@ -110,8 +117,9 @@ Change   = {entry_id: str, kind: "install" | "configure" | "remove" | "patch",
             action: dict}         # adapter-opaque execute payload
 Result   = {ok: bool, detail: str}
 # snapshot.json = {host, ts, schema_version, engine_version,
-#                  observed: [Observed], unmanaged: [{key, glob}] (which
-#                  observations a glob exempts, and by which glob),
+#                  observed: [Observed], unmanaged: [{key, glob} | {key,
+#                  publisher}] (which observations a rule exempts, and which
+#                  rule answered for each),
 #                  uncovered: [adapter names declared in registry but not
 #                  implemented], failed: [{adapter, error}]}
 ```

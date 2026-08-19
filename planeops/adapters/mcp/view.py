@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from planeops.core.contracts import Platform
-from planeops.core.observe import unmanaged_globs
+from planeops.core.observe import unmanaged_exemptions
 from planeops.core.statefile import read_host_json
 
 
@@ -50,7 +50,7 @@ def build_mcp_view(snapshot: dict[str, Any], declared_ids: set[str]) -> dict[str
     A server an `unmanaged` glob exempts is listed with the rest and left out of
     `ungoverned`, so the exemption means the same thing here as it does in the
     drift report."""
-    unmanaged = unmanaged_globs(snapshot)
+    unmanaged = unmanaged_exemptions(snapshot)
     servers: list[dict[str, Any]] = []
     for obs in snapshot.get("observed", []):
         if not isinstance(obs, dict) or obs.get("adapter") != "mcp":

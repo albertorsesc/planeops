@@ -22,7 +22,8 @@ def test_loads_entries_and_globs_across_files(tmp_path):
     )
     reg = load_registry(tmp_path)
     assert [e.id for e in reg.entries] == ["manual/a"]
-    assert reg.unmanaged[0].glob == "*/session-*"
+    assert reg.unmanaged[0].value == "*/session-*"
+    assert reg.unmanaged[0].attested is False
 
 
 def test_declared_adapters_and_host_filter(tmp_path):
@@ -53,6 +54,36 @@ def test_duplicate_id_rejected(tmp_path):
 def test_missing_dir_is_empty_registry(tmp_path):
     reg = load_registry(tmp_path / "nope")
     assert reg.entries == () and reg.unmanaged == ()
+
+
+def test_publishers_load_as_attested_rules(tmp_path):
+    _write(
+        tmp_path,
+        "unmanaged.yaml",
+        "publishers:\n  - {publisher: ABCDE12345, reason: vendor updaters}\n",
+    )
+    reg = load_registry(tmp_path)
+    assert [(r.value, r.attested) for r in reg.unmanaged] == [("ABCDE12345", True)]
+
+
+def test_a_glob_and_a_publisher_can_share_one_file(tmp_path):
+    _write(
+        tmp_path,
+        "unmanaged.yaml",
+        "globs:\n  - {glob: '*/session-*', reason: ephemeral}\n"
+        "publishers:\n  - {publisher: ABCDE12345, reason: vendor}\n",
+    )
+    reg = load_registry(tmp_path)
+    assert sorted((r.value, r.attested) for r in reg.unmanaged) == [
+        ("*/session-*", False),
+        ("ABCDE12345", True),
+    ]
+
+
+def test_malformed_publisher_is_a_clean_schema_error(tmp_path):
+    _write(tmp_path, "unmanaged.yaml", "publishers:\n  - just-a-string\n")
+    with pytest.raises(SchemaError):
+        load_registry(tmp_path)
 
 
 def test_malformed_glob_is_a_clean_schema_error(tmp_path):

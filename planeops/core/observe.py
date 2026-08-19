@@ -15,12 +15,12 @@ from planeops import __version__
 from planeops.core.contracts import Adapter, Ctx, Observed, Platform
 from planeops.core.discovery import discover_adapters
 from planeops.core.facts import check_facts
-from planeops.core.registry import Registry, load_registry
+from planeops.core.registry import Exemption, Registry, load_registry
 from planeops.core.statefile import atomic_write, read_json_file
 from planeops.platform import current_platform
 from planeops.secrets.resolve import build_handle
 
-SNAPSHOT_SCHEMA_VERSION = 2  # bump when the snapshot / entry wire format changes
+SNAPSHOT_SCHEMA_VERSION = 3  # bump when the snapshot / entry wire format changes
 
 
 class SnapshotError(FileNotFoundError):
@@ -94,49 +94,65 @@ def _unmanaged_matches(
     for obs in observed:
         if obs.key in declared_ids:
             continue
-        candidates = [c for c in (obs.key, obs.facts.get("path", "")) if c]
-        glob = next(
-            (
-                g.glob
-                for g in registry.unmanaged
-                for c in candidates
-                if fnmatch.fnmatchcase(c, g.glob)
-            ),
-            None,
-        )
-        if glob is not None:
-            matches.append({"key": obs.key, "glob": glob})
+        rule = _matching_rule(obs, registry)
+        if rule is not None:
+            selector = "publisher" if rule.attested else "glob"
+            matches.append({"key": obs.key, selector: rule.value})
     return matches
 
 
-def unmanaged_globs(snapshot: dict[str, Any]) -> dict[str, str]:
-    """Observed key -> the `unmanaged` glob that exempted it, read back from a
-    snapshot. Rows that are not mappings of two strings (a hand-edit, an older
+def _matching_rule(obs: Observed, registry: Registry) -> Exemption | None:
+    """The first `unmanaged` rule that answers for this observation.
+
+    A glob is matched against the observation's own name; a publisher against
+    the identity its adapter attested (`facts["publisher"]`, e.g. the Team ID a
+    macOS program is signed with). An adapter that attests nothing simply never
+    matches a publisher rule, which is how a platform without the notion opts
+    out by doing nothing."""
+    publisher = obs.facts.get("publisher")
+    names = [c for c in (obs.key, obs.facts.get("path", "")) if c]
+    for rule in registry.unmanaged:
+        if rule.attested:
+            if isinstance(publisher, str) and publisher == rule.value:
+                return rule
+        elif any(fnmatch.fnmatchcase(name, rule.value) for name in names):
+            return rule
+    return None
+
+
+def unmanaged_exemptions(snapshot: dict[str, Any]) -> dict[str, Exemption]:
+    """Observed key -> the rule that exempted it, read back from a snapshot. A
+    row carrying `publisher` was answered for by an attested identity, one
+    carrying `glob` by a name. Rows that are neither (a hand-edit, an older
     schema) are skipped, so junk silences nothing."""
-    return {
-        row["key"]: row["glob"]
-        for row in snapshot.get("unmanaged", []) or []
-        if isinstance(row, dict)
-        and isinstance(row.get("key"), str)
-        and isinstance(row.get("glob"), str)
-    }
+    out: dict[str, Exemption] = {}
+    for row in snapshot.get("unmanaged", []) or []:
+        if not isinstance(row, dict) or not isinstance(row.get("key"), str):
+            continue
+        for selector, attested in (("publisher", True), ("glob", False)):
+            if isinstance(row.get(selector), str):
+                out[row["key"]] = Exemption(row[selector], attested=attested)
+                break
+    return out
 
 
-def exemption_holds(glob: str | None, *, always_on: bool) -> bool:
-    """Whether an `unmanaged` glob withholds the report's question about an
+def exemption_holds(rule: Exemption | None, *, always_on: bool) -> bool:
+    """Whether an `unmanaged` rule withholds the report's question about an
     observation.
 
-    A glob that names one asset exactly is a decision about something the
-    operator has looked at, so it holds for anything, including a service that
-    starts itself. A glob carrying a metacharacter claims a name space instead,
-    and a name space is something anything can enter by choosing its own name.
-    So a pattern never covers a service that runs code at login: that is
-    precisely the observation nobody has seen yet, and going quiet about it is
-    the one failure this tool cannot afford.
-    """
-    if glob is None:
+    Anything not running on its own is covered by any rule. A service that runs
+    code at login is covered only when the rule's authority is something its
+    subject cannot choose for itself: an attested publisher, or a glob naming
+    one asset exactly, which is a decision about a thing the operator has looked
+    at. A pattern claims a name space instead, and a name space is one anything
+    can enter by naming itself, so it never covers a login-run service: that is
+    precisely the case nobody has seen yet, and going quiet about it is the one
+    failure this tool cannot afford."""
+    if rule is None:
         return False
-    return not always_on or not any(c in glob for c in "*?[")
+    if not always_on:
+        return True
+    return rule.attested or not any(c in rule.value for c in "*?[")
 
 
 def run_observe(
