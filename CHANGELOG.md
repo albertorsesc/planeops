@@ -6,6 +6,8 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-08-19
+
 ### Added
 
 - Every drift item carries the `intent` its entry was declared with, and the
@@ -786,7 +788,8 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   shell prompt kept showing stale state, the exact failure the ambient loop exists to
   prevent; `plane apply` already treated it as a change, so drift and apply now agree.
 
-[Unreleased]: https://github.com/albertorsesc/planeops/compare/v0.11.1...HEAD
+[Unreleased]: https://github.com/albertorsesc/planeops/compare/v0.11.2...HEAD
+[0.11.2]: https://github.com/albertorsesc/planeops/compare/v0.11.1...v0.11.2
 [0.11.1]: https://github.com/albertorsesc/planeops/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/albertorsesc/planeops/compare/v0.10.4...v0.11.0
 [0.10.4]: https://github.com/albertorsesc/planeops/compare/v0.10.3...v0.10.4
