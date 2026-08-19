@@ -6,6 +6,8 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-08-19
+
 ### Added
 
 - `unmanaged.yaml` takes a `publishers:` list beside `globs:`, so a vendor can
@@ -771,7 +773,8 @@ to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   shell prompt kept showing stale state, the exact failure the ambient loop exists to
   prevent; `plane apply` already treated it as a change, so drift and apply now agree.
 
-[Unreleased]: https://github.com/albertorsesc/planeops/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/albertorsesc/planeops/compare/v0.11.1...HEAD
+[0.11.1]: https://github.com/albertorsesc/planeops/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/albertorsesc/planeops/compare/v0.10.4...v0.11.0
 [0.10.4]: https://github.com/albertorsesc/planeops/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/albertorsesc/planeops/compare/v0.10.2...v0.10.3
